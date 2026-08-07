@@ -61,3 +61,35 @@
 **Future impact:** If per-application document requirements become necessary, `Application.submit()` would need to accept explicit document IDs instead of inferring from type, and the frontend would need to prompt for that during the apply flow.
 
 **Reference:** [database.md § documents](./database.md#documents), `backend/src/modules/applications/applications.service.ts`.
+
+---
+
+## 2026-08-07 — Evaluation implemented as a single score+decision on `Application`, not a full board evaluation-forms system
+
+**Context:** The domain spec's Evaluation phase involves 13 board members each filling per-battery-test forms, feeding a Comparative Assessment (CompAss) ranking. The immediate ask was "admin can post jobs and evaluate applicants" — a much smaller scope.
+
+**Decision:** Added four fields directly to `Application` (`evaluationScore`, `evaluationRemarks`, `evaluatedAt`, `evaluatedByUserId`) rather than a separate `Evaluation`/`EvaluationForm` model. Any one `ADMIN` user can record one score (0-100) + decision (`QUALIFIED`/`NOT_QUALIFIED`) + remarks per application via `PATCH /api/applications/:id/evaluate`, which overwrites the previous evaluation if run again.
+
+**Pros:** Matches the requested scope exactly with minimal schema/API surface; the mandatory-field and score-threshold validation the spec calls out for "Eval Forms" is satisfied by the DTO (`score` and `decision` required, `score` bounded 0-100).
+
+**Cons:** Doesn't model multiple evaluators, per-battery-test scores, or CompAss ranking at all — "evaluate" here means one person's overall score, and a second admin evaluating the same application silently overwrites the first. Not acceptable once the real multi-board-member Evaluation phase is built.
+
+**Future impact:** When the full Evaluation phase from the RSP spec is implemented, this will need to become a proper `Evaluation` model (one row per evaluator per battery test, `Application` 1:N `Evaluation`), with the current `evaluationScore`/`evaluationRemarks`/`evaluatedAt`/`evaluatedByUserId` fields on `Application` likely repurposed as a computed/aggregate summary rather than raw input. Flagged in project-memory.md's technical debt.
+
+**Reference:** [database.md § applications](./database.md#applications), [api.md § Applications](./api.md#applications--apiapplications-all-require-auth), `backend/src/modules/applications/`.
+
+---
+
+## 2026-08-07 — Admin and applicant are separate route trees, not the same pages with conditional UI
+
+**Context:** Asked for the admin panel to be visibly different from the applicant experience, with admins restricted to posting jobs and evaluating applicants only.
+
+**Decision:** `frontend/src/features/admin/` is a distinct feature with its own pages (`CreateJobPostingPage`, `EvaluateApplicantsPage`) under `/admin/*` routes, guarded by `<ProtectedRoute role="ADMIN">`. Applicant routes (`/jobs`, `/registration`, `/applications`) are guarded by `<ProtectedRoute role="APPLICANT">` and redirect an admin back to `/admin/jobs` if they try to hit them directly (and vice versa). `Layout`'s nav shows an entirely different link set per role rather than the same links with some hidden.
+
+**Pros:** Clean separation matches "admin can only post jobs and evaluate applicants" literally — there's no code path where an admin session can reach the applicant registration wizard or an applicant session can reach evaluation screens.
+
+**Cons:** Some duplication of route-guard boilerplate between the two route groups in `App.tsx`; acceptable at this route count.
+
+**Future impact:** If a third role appears (e.g. a board member distinct from a full admin), `ProtectedRoute`'s `role` prop would need to accept an array, and `Layout`'s nav switch would need a third branch.
+
+**Reference:** [architecture.md § Role-based routing](./architecture.md#role-based-routing-frontend), `frontend/src/shared/components/ProtectedRoute.tsx`, `frontend/src/App.tsx`.

@@ -18,11 +18,21 @@ export function Layout({ children }: { children: ReactNode }) {
           DILGR8RSP
         </Link>
         <nav>
-          {isAuthenticated ? (
+          {isAuthenticated && user?.role === "ADMIN" && (
+            <>
+              <Link to="/admin/jobs">Post a Job</Link>
+              <Link to="/admin/evaluations">Evaluate Applicants</Link>
+            </>
+          )}
+          {isAuthenticated && user?.role === "APPLICANT" && (
             <>
               <Link to="/jobs">Job Postings</Link>
               <Link to="/registration">My Profile</Link>
               <Link to="/applications">My Applications</Link>
+            </>
+          )}
+          {isAuthenticated ? (
+            <>
               <span className="user-email">{user?.email}</span>
               <button type="button" onClick={handleLogout}>
                 Log out

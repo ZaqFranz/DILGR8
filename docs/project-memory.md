@@ -10,8 +10,9 @@ npm-workspaces monorepo. `backend/` = Express + TypeScript + Prisma/MySQL REST A
 
 - **Auth** (`backend/src/modules/auth`, `frontend/src/features/auth`): register/login, JWT issuance/verification.
 - **Applicants** (`backend/src/modules/applicants`, `frontend/src/features/applicant-registration`): demographic profile, work experience, L&D interventions, awards, document uploads.
-- **Job Postings** (`backend/src/modules/job-postings`, `frontend/src/features/job-postings`): browse open postings, admin creation with computed 10-day closing date.
-- **Applications** (`backend/src/modules/applications`, folded into the `applicant-registration` frontend feature): submit an application to a posting, enforcing eligibility/promotional document requirements.
+- **Job Postings** (`backend/src/modules/job-postings`, `frontend/src/features/job-postings`, `frontend/src/features/admin`): browse open postings (applicant), admin creation with computed 10-day closing date.
+- **Applications** (`backend/src/modules/applications`, folded into the `applicant-registration` frontend feature for applicants): submit an application to a posting, enforcing eligibility/promotional document requirements.
+- **Admin / Evaluation** (`backend/src/modules/applications` evaluate endpoints, `frontend/src/features/admin`): separate role-gated section (`/admin/*`) where an `ADMIN` posts jobs (`CreateJobPostingPage`) and scores/decides on applications per posting (`EvaluateApplicantsPage`). See [decisions.md](./decisions.md) for why this is a single score+decision rather than the spec's full multi-board-member evaluation-forms system.
 
 ## Folder Structure
 
@@ -41,7 +42,7 @@ MySQL, Prisma migrations (`prisma migrate dev`), UUID primary keys, cascade dele
 
 ## Known Limitations
 
-- **No admin UI.** Job posting creation is API-only (curl/Postman) or via `prisma/seed.ts`; there's no screen for admins to validate Eligibility=N applicants, review sifting results, or manage evaluation forms.
+- **Admin UI is minimal.** Covers only job posting creation and single-score application evaluation. There's still no screen for admins to validate Eligibility=N applicants, review sifting results, or manage multi-board evaluation forms.
 - **No automatic job-posting close job.** `JobPosting.status` doesn't flip to `CLOSED` on a timer; `JobPostingsService.isAcceptingApplications()` checks `closingAt` at submission time as a safeguard, but a stale `OPEN` posting past its window will still *list* as open in the UI (just can't be applied to).
 - **Local disk file storage** — not durable across redeploys, not production-ready (see [decisions.md](./decisions.md)).
 - **No automated tests yet** — `vitest` is wired into both `package.json`s but no test files exist.
@@ -51,15 +52,16 @@ MySQL, Prisma migrations (`prisma migrate dev`), UUID primary keys, cascade dele
 
 - Frontend `types.ts` files duplicate backend DTO shapes by hand; no generated client (e.g. OpenAPI/tRPC) keeping them in sync.
 - `ApplicantsRepository`/`ApplicationsRepository` etc. return Prisma's generated types directly rather than mapped domain models — acceptable at this scale, but if domain logic grows more complex than "check field, throw AppError," consider introducing real domain model classes distinct from Prisma's row types.
+- `PATCH /api/applications/:id/evaluate` lets any admin silently overwrite a previous evaluation (no evaluator identity check, no history). Fine for a single-evaluator MVP; not fine once the spec's 13-member board is modeled (see [decisions.md](./decisions.md)).
 
 ## Future Work
 
 In priority order, following the RSP pipeline in [rsp-domain-spec.md](./rsp-domain-spec.md):
 
-1. **Admin console**: job posting CRUD UI, manual eligibility validation queue (surfacing the `eligibilityValidated`/Eligibility=N red-flag from the spec).
+1. **Admin console**: job posting *editing* (currently create-only), manual eligibility validation queue (surfacing the `eligibilityValidated`/Eligibility=N red-flag from the spec).
 2. **Sifting**: automatic qualification check against a posting's QS fields, qualified/non-qualified table, bulk letter-sending.
 3. **PQE**: batch scheduling (AM/PM/max 60 applicants), pass/fail recording, notification letters.
-4. **Evaluation**: board-facing evaluation forms with mandatory-field + score-threshold validation, linked to CompAss.
+4. **Evaluation (full)**: replace the current single-score `Application.evaluationScore` with a proper multi-evaluator `Evaluation` model (13-board-member access, per-battery-test forms), feeding CompAss.
 5. **Tabulation / CompAss**: ranked matrix generation, shortlisting at the 1:5 ratio, regret/shortlist letters.
 6. **Deliberation, Compliance to Requirements, Onboarding**: per the spec's step-by-step process.
 7. **Learning & Development / PDC modules**: POMS ranking, L&D plans, permit-to-study workflow.

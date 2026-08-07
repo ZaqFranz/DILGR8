@@ -3,7 +3,8 @@ import type { ApplicantsRepository } from "@/modules/applicants/applicants.repos
 import type { DocumentsRepository } from "@/modules/applicants/documents/documents.repository";
 import type { JobPostingsRepository } from "@/modules/job-postings/job-postings.repository";
 import { JobPostingsService } from "@/modules/job-postings/job-postings.service";
-import type { ApplicationsRepository, ApplicationWithPosting } from "./applications.repository";
+import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
+import type { EvaluateApplicationDto } from "./applications.dto";
 
 export class ApplicationsService {
   constructor(
@@ -61,5 +62,27 @@ export class ApplicationsService {
       throw new NotFoundError("Applicant profile");
     }
     return this.applicationsRepository.findByApplicant(applicant.id);
+  }
+
+  listForAdmin(jobPostingId?: string): Promise<ApplicationWithApplicant[]> {
+    return this.applicationsRepository.findMany(jobPostingId);
+  }
+
+  async evaluate(
+    applicationId: string,
+    evaluatorUserId: string,
+    dto: EvaluateApplicationDto,
+  ): Promise<ApplicationWithApplicant> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+
+    return this.applicationsRepository.evaluate(applicationId, {
+      score: dto.score,
+      status: dto.decision,
+      evaluatedByUserId: evaluatorUserId,
+      ...(dto.remarks ? { remarks: dto.remarks } : {}),
+    });
   }
 }

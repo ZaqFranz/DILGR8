@@ -13,3 +13,12 @@ export interface JobPosting {
   closingAt: string;
   status: JobPostingStatus;
 }
+
+export interface CreateJobPostingInput {
+  title: string;
+  positionLevel: PositionLevel;
+  qualificationEducation: string;
+  qualificationTraining: string;
+  qualificationExperience: string;
+  qualificationEligibility: string;
+}

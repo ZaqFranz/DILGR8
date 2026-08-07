@@ -10,6 +10,8 @@ All error responses share this shape:
 
 Authenticated routes require `Authorization: Bearer <accessToken>`.
 
+Two roles exist: `APPLICANT` (self-registers via `/auth/register`) and `ADMIN` (provisioned out-of-band, e.g. `prisma/seed.ts` — there is no self-serve way to become an admin). Admin-only routes are marked **ADMIN** below; everything else marked "applicant" is open to any authenticated user in practice but is only meaningful for applicants (the frontend also route-guards by role — see [architecture.md § Role-based routing](./architecture.md#role-based-routing-frontend)).
+
 ## Auth — `/api/auth`
 
 | Method | Path | Auth | Body | Notes |
@@ -59,10 +61,22 @@ Authenticated routes require `Authorization: Bearer <accessToken>`.
 
 ## Applications — `/api/applications` (all require auth)
 
-| Method | Path | Body | Notes |
-|---|---|---|---|
-| POST | `/` | `{ jobPostingId }` | Submits an application. Validates: profile exists, posting is open and within its 10-day window, not already applied, and — if `positionLevel === PROMOTIONAL` — an `IPCR` and `DESIGNATION_ORDER` document have been uploaded; if `hasEligibility` is true, an `ELIGIBILITY_PROOF` document has been uploaded. |
-| GET | `/me` | — | Lists the caller's applications with their job posting. |
+| Method | Path | Auth | Body | Notes |
+|---|---|---|---|---|
+| POST | `/` | applicant | `{ jobPostingId }` | Submits an application. Validates: profile exists, posting is open and within its 10-day window, not already applied, and — if `positionLevel === PROMOTIONAL` — an `IPCR` and `DESIGNATION_ORDER` document have been uploaded; if `hasEligibility` is true, an `ELIGIBILITY_PROOF` document has been uploaded. |
+| GET | `/me` | applicant | — | Lists the caller's applications with their job posting. |
+| GET | `/` | ADMIN | — | Lists applications for evaluation. Query `?jobPostingId=<uuid>` optional (unfiltered otherwise). Each entry includes the applicant's name/email and the job posting. |
+| PATCH | `/:id/evaluate` | ADMIN | `EvaluateApplicationDto` | Records a score, decision, and optional remarks; sets `status` to the decision and stamps `evaluatedAt`/`evaluatedByUserId`. |
+
+### `EvaluateApplicationDto`
+
+```ts
+{
+  score: number;      // integer 0-100 (mandatory field + threshold checks per the domain spec's Eval Forms requirement)
+  decision: "QUALIFIED" | "NOT_QUALIFIED";
+  remarks?: string;
+}
+```
 
 ## Health
 

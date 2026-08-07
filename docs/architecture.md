@@ -7,7 +7,7 @@ DILGR8RSP is an npm-workspaces monorepo with two deployables:
 - **`backend/`** — Express + TypeScript REST API, MySQL via Prisma, JWT auth.
 - **`frontend/`** — React + TypeScript SPA (Vite), talks to the API over `fetch`.
 
-Both follow **feature-first** organization: code is grouped by business capability (`auth`, `applicants`, `job-postings`, `applications`) rather than by technical layer at the top level. Within each backend feature, Clean Architecture layering is still enforced (see below).
+Both follow **feature-first** organization: code is grouped by business capability (`auth`, `applicants`, `job-postings`, `applications`, and on the frontend `admin`) rather than by technical layer at the top level. Within each backend feature, Clean Architecture layering is still enforced (see below).
 
 ## Backend layering
 
@@ -59,7 +59,11 @@ HTTP request
 
 `frontend/src/shared/` holds cross-feature concerns: `api/apiClient.ts` (fetch wrapper + JWT header + `ApiError`), `auth/AuthContext.tsx` (session state), `components/` (`Layout`, `ProtectedRoute`, `ErrorBanner`).
 
-Routing (`App.tsx`) uses `react-router-dom`; `ProtectedRoute` redirects unauthenticated users to `/login`.
+### Role-based routing (frontend)
+
+The `admin` feature (`frontend/src/features/admin/`) is a separate section of the app from the applicant-facing features, not just a different set of links on the same pages. `ProtectedRoute` (`shared/components/ProtectedRoute.tsx`) takes an optional `role` prop — `<ProtectedRoute role="ADMIN">` vs `<ProtectedRoute role="APPLICANT">` — and bounces a logged-in user of the wrong role to their own home (`/admin/jobs` or `/jobs`) rather than showing them the other side's pages. `Layout`'s nav renders a completely different link set depending on `user.role`: admins see only "Post a Job" and "Evaluate Applicants"; applicants see "Job Postings", "My Profile", "My Applications". There is no self-serve way to become an `ADMIN` — `/auth/register` always creates `APPLICANT` accounts (see [api.md](./api.md)) — so this split assumes admins are provisioned out-of-band (e.g. `prisma/seed.ts`).
+
+Routing (`App.tsx`) uses `react-router-dom`; `ProtectedRoute` redirects unauthenticated users to `/login`, and `HomeRedirect` sends `/` to the right role-specific landing page.
 
 ## Database
 
@@ -67,4 +71,4 @@ See [database.md](./database.md) for the full schema. Summary: `User` (auth) 1:1
 
 ## What's implemented vs. planned
 
-Only the **Application phase** (Applicant Registration + job posting browsing + application submission) is implemented. See [project-memory.md](./project-memory.md) for the full status against the [RSP domain spec](./rsp-domain-spec.md).
+The **Application phase** (Applicant Registration + job posting browsing + application submission) and a first-cut **Evaluation** capability (admin scores an application 0-100, records a qualified/not-qualified decision and remarks) are implemented. See [project-memory.md](./project-memory.md) for the full status against the [RSP domain spec](./rsp-domain-spec.md).

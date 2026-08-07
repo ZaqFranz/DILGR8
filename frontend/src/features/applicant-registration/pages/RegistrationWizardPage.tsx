@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { getMyProfile } from "../api/applicantsApi";
@@ -21,6 +22,7 @@ const STEPS: { id: Step; label: string }[] = [
 ];
 
 export function RegistrationWizardPage() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<ApplicantProfile | null>(null);
   const [documents, setDocuments] = useState<ApplicantDocument[]>([]);
   const [step, setStep] = useState<Step>("profile");
@@ -36,6 +38,32 @@ export function RegistrationWizardPage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load your profile"))
       .finally(() => setLoading(false));
   }, []);
+
+  const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const isFirstStep = stepIndex === 0;
+  const isLastStep = stepIndex === STEPS.length - 1;
+
+  function goToNextStep() {
+    if (!isLastStep) {
+      setStep(STEPS[stepIndex + 1]!.id);
+    }
+  }
+
+  function goToPreviousStep() {
+    if (!isFirstStep) {
+      setStep(STEPS[stepIndex - 1]!.id);
+    }
+  }
+
+  function handleProfileSaved(saved: ApplicantProfile) {
+    const isFirstSave = !profile;
+    setProfile(saved);
+    // Creating the profile completes step 1 - advance automatically.
+    // Later edits (profile already existed) just save in place.
+    if (isFirstSave) {
+      goToNextStep();
+    }
+  }
 
   if (loading) return <p>Loading your profile...</p>;
 
@@ -66,7 +94,7 @@ export function RegistrationWizardPage() {
         </div>
       )}
 
-      {(!profile || step === "profile") && <DemographicProfileForm profile={profile} onSaved={setProfile} />}
+      {(!profile || step === "profile") && <DemographicProfileForm profile={profile} onSaved={handleProfileSaved} />}
 
       {profile && step === "experience" && (
         <WorkExperienceSection
@@ -87,6 +115,23 @@ export function RegistrationWizardPage() {
       )}
 
       {profile && step === "documents" && <DocumentsSection items={documents} onChange={setDocuments} />}
+
+      {profile && (
+        <div className="actions-row">
+          <button type="button" className="secondary" onClick={goToPreviousStep} disabled={isFirstStep}>
+            Back
+          </button>
+          {isLastStep ? (
+            <button type="button" onClick={() => navigate("/jobs")}>
+              Finish &amp; browse job postings
+            </button>
+          ) : (
+            <button type="button" onClick={goToNextStep}>
+              Next: {STEPS[stepIndex + 1]!.label}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

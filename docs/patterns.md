@@ -119,3 +119,23 @@ Patterns actually in use in this codebase, documented as they're introduced (per
 **Related files:** `shared/validation/validate.ts`, every `*.routes.ts`.
 
 **Possible alternatives:** Validating inside each controller (rejected — the exact duplication this pattern removes).
+
+---
+
+## Role-Based Access Control (route guard)
+
+**Purpose:** Restrict entire routes/pages to a specific role (`ADMIN` vs `APPLICANT`), enforced symmetrically on both backend and frontend.
+
+**Problem solved:** "Admin can only post jobs and evaluate applicants" needs to hold even if someone hits an applicant URL directly (or vice versa) — not just hide a nav link.
+
+**Implementation:** Backend: `shared/middleware/authenticate.ts` exports `requireRole(...roles)`, an Express middleware placed after `authenticate` on admin-only routes (e.g. `POST /api/job-postings`, `GET /api/applications`, `PATCH /api/applications/:id/evaluate`) — throws `ForbiddenError` (403) if `req.user.role` isn't in the allowed list. Frontend: `shared/components/ProtectedRoute.tsx` takes an optional `role` prop; a logged-in user of the wrong role is redirected to their own role's home (`/admin/jobs` or `/jobs`) instead of the requested page. `Layout`'s nav also renders a different link set per role, so the mismatch is rarely user-visible in practice — the guard is the enforcement, the nav is just not offering the other role's links.
+
+**Advantages:** Same authorization decision (which role can do what) isn't duplicated in ad-hoc if-checks scattered through handlers/components; backend guard is the actual security boundary, frontend guard is UX (prevents a confusing 403 after a full page navigation).
+
+**Disadvantages:** Two places to keep in sync (backend route + frontend route) when a new admin-only capability is added; only two roles exist today, so `ProtectedRoute`'s `role` prop is a single value, not an array — will need to change if a third role appears.
+
+**Example usage:** `backend/src/modules/applications/applications.routes.ts` (`requireRole("ADMIN")` on the admin endpoints), `frontend/src/App.tsx` (`<ProtectedRoute role="ADMIN">` / `role="APPLICANT"` per route group).
+
+**Related files:** `shared/middleware/authenticate.ts`, `frontend/src/shared/components/ProtectedRoute.tsx`, `frontend/src/shared/components/Layout.tsx`.
+
+**Possible alternatives:** A dedicated permissions/claims system (rejected as over-engineered for two roles); hiding pages via CSS/conditional render without a real redirect guard (rejected — doesn't actually block direct navigation).

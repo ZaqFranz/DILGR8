@@ -33,7 +33,9 @@ Uploaded files. `applicantId` is always set; `applicationId` is set only for doc
 A vacancy. `positionLevel` is `ENTRY` or `PROMOTIONAL`. `closingAt` is computed at creation time in `JobPostingsService.computeClosingAt()` as `postedAt + 10 days, 23:59:59` per the domain spec's 10-day application window. `status` is `OPEN`/`CLOSED`; there is no scheduled job yet to flip it automatically when `closingAt` passes (`JobPostingsService.isAcceptingApplications()` checks both `status` and `closingAt` at submission time as a safeguard).
 
 ### `applications`
-Join between `applicants` and `job_postings`, unique on `(applicantId, jobPostingId)` — an applicant may apply to several postings but only once each. `status` defaults to `SUBMITTED`; the later RSP stages (`UNDER_SIFTING`, `QUALIFIED`, `NOT_QUALIFIED`, `WITHDRAWN`) exist in the enum but nothing currently transitions an application into them (sifting isn't implemented yet).
+Join between `applicants` and `job_postings`, unique on `(applicantId, jobPostingId)` — an applicant may apply to several postings but only once each. `status` defaults to `SUBMITTED`. `UNDER_SIFTING` is unused (sifting isn't implemented yet); `QUALIFIED`/`NOT_QUALIFIED` are set by the admin evaluation flow (`PATCH /api/applications/:id/evaluate`), which also stamps `evaluationScore` (0-100), `evaluationRemarks`, `evaluatedAt`, and `evaluatedByUserId` (→ `users.id`). `WITHDRAWN` exists in the enum but nothing sets it yet — there's no applicant-facing withdraw action.
+
+This is a deliberately simplified stand-in for the domain spec's full Evaluation phase (13-member board, per-battery-test forms, mandatory-field + score-threshold validation feeding into CompAss). What's implemented covers only the last part — a single score/decision/remarks recorded by whichever admin evaluates the application — as a first cut; see [decisions.md](./decisions.md) for the scope call and [project-memory.md](./project-memory.md) for what's still future work.
 
 ## Conventions
 
