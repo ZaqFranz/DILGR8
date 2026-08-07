@@ -18,7 +18,9 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      navigate("/jobs");
+      // "/" defers to HomeRedirect, which sends admins to /admin/jobs and
+      // applicants to /jobs - login itself doesn't know the role yet here.
+      navigate("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Login failed");
     } finally {

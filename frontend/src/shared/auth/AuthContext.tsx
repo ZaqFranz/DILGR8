@@ -13,6 +13,8 @@ interface StoredAuth {
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  /** True until the stored session (if any) has been read from localStorage. */
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -32,6 +34,7 @@ function readStoredAuth(): StoredAuth | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const stored = readStoredAuth();
@@ -39,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(stored.accessToken);
       setUser(stored.user);
     }
+    setIsLoading(false);
   }, []);
 
   function persist(auth: StoredAuth) {
@@ -64,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: user !== null, login, register, logout }),
-    [user],
+    () => ({ user, isAuthenticated: user !== null, isLoading, login, register, logout }),
+    [user, isLoading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

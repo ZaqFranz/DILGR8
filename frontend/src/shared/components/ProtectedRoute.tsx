@@ -14,7 +14,13 @@ const HOME_BY_ROLE: Record<"ADMIN" | "APPLICANT", string> = {
 };
 
 export function ProtectedRoute({ children, role }: Props) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  // Wait for the stored session to load before deciding to redirect -
+  // otherwise an already-logged-in user landing here gets bounced to
+  // /login during the one render before localStorage has been read.
+  if (isLoading) {
+    return null;
+  }
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }

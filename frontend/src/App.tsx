@@ -11,7 +11,8 @@ import { CreateJobPostingPage } from "@/features/admin/pages/CreateJobPostingPag
 import { EvaluateApplicantsPage } from "@/features/admin/pages/EvaluateApplicantsPage";
 
 function HomeRedirect() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  if (isLoading) return null;
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
   return <Navigate to={user.role === "ADMIN" ? "/admin/jobs" : "/jobs"} replace />;
 }
