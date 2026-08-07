@@ -1,5 +1,21 @@
 # Troubleshooting
 
+## No MySQL server available locally (Windows)
+
+If XAMPP is already installed, its bundled MariaDB works fine as a local MySQL-compatible server — no separate MySQL install needed:
+
+```powershell
+# Start it (or use the XAMPP Control Panel GUI)
+Start-Process -FilePath "C:\xampp\mysql_start.bat" -WindowStyle Hidden
+
+# Default root user has no password locally
+C:\xampp\mysql\bin\mysql.exe -u root -e "CREATE DATABASE IF NOT EXISTS dilgr8rsp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+```
+
+Then set `backend/.env`'s `DATABASE_URL` to `mysql://root:@localhost:3306/dilgr8rsp` (empty password) and run `npx prisma migrate dev` from `backend/`. To stop it later: `C:\xampp\mysql_stop.bat`, or `Stop-Process -Id <pid>` where `<pid>` is `mysqld.exe`'s process ID (`Get-Process mysqld`).
+
+If XAMPP isn't installed, install MySQL Community Server or Docker Desktop (`docker run -e MYSQL_ROOT_PASSWORD=... -p 3306:3306 mysql:8`) instead.
+
 ## `npm install` warns about pending install scripts / `allow-scripts`
 
 This repo's npm install-scripts policy (`allowScripts` in the root `package.json`) blocks postinstall scripts by default (a supply-chain safety measure). `@prisma/client`, `@prisma/engines`, `prisma`, and `esbuild` need theirs to run (Prisma client generation, esbuild native binary). If you see:

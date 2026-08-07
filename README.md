@@ -39,7 +39,7 @@ DILG_hiring/
 
 ### Prerequisites
 - Node.js 20+
-- MySQL 8+
+- A running MySQL-compatible server (MySQL 8+ or MariaDB 10.4+). Any local install works, including XAMPP's bundled MariaDB (`C:\xampp\mysql_start.bat` to start it; default `root` user has no password).
 
 ### 1. Backend
 
@@ -48,6 +48,7 @@ cd backend
 cp .env.example .env   # fill in DATABASE_URL, JWT_SECRET
 npm install
 npx prisma migrate dev
+npx prisma db seed     # optional: creates an admin user + 2 sample job postings
 npm run dev
 ```
 
