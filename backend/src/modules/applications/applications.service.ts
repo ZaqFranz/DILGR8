@@ -1,0 +1,65 @@
+import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
+import type { ApplicantsRepository } from "@/modules/applicants/applicants.repository";
+import type { DocumentsRepository } from "@/modules/applicants/documents/documents.repository";
+import type { JobPostingsRepository } from "@/modules/job-postings/job-postings.repository";
+import { JobPostingsService } from "@/modules/job-postings/job-postings.service";
+import type { ApplicationsRepository, ApplicationWithPosting } from "./applications.repository";
+
+export class ApplicationsService {
+  constructor(
+    private readonly applicationsRepository: ApplicationsRepository,
+    private readonly applicantsRepository: ApplicantsRepository,
+    private readonly jobPostingsRepository: JobPostingsRepository,
+    private readonly documentsRepository: DocumentsRepository,
+  ) {}
+
+  async submit(userId: string, jobPostingId: string): Promise<ApplicationWithPosting> {
+    const applicant = await this.applicantsRepository.findByUserId(userId);
+    if (!applicant) {
+      throw new NotFoundError("Applicant profile");
+    }
+
+    const posting = await this.jobPostingsRepository.findById(jobPostingId);
+    if (!posting) {
+      throw new NotFoundError("Job posting");
+    }
+    if (!JobPostingsService.isAcceptingApplications(posting)) {
+      throw new ValidationError("This job posting is no longer accepting applications");
+    }
+
+    const existing = await this.applicationsRepository.findByApplicantAndPosting(applicant.id, jobPostingId);
+    if (existing) {
+      throw new ConflictError("You have already applied to this job posting");
+    }
+
+    if (posting.positionLevel === "PROMOTIONAL") {
+      const documents = await this.documentsRepository.findByApplicant(applicant.id);
+      const hasIpcr = documents.some((doc) => doc.type === "IPCR");
+      const hasDesignation = documents.some((doc) => doc.type === "DESIGNATION_ORDER");
+      if (!hasIpcr || !hasDesignation) {
+        throw new ValidationError(
+          "Promotional applications require an uploaded IPCR and Designation to a Higher Position document",
+        );
+      }
+    }
+
+    if (applicant.hasEligibility) {
+      const hasProof = (await this.documentsRepository.findByApplicant(applicant.id)).some(
+        (doc) => doc.type === "ELIGIBILITY_PROOF",
+      );
+      if (!hasProof) {
+        throw new ValidationError("Eligibility proof document is required before submitting an application");
+      }
+    }
+
+    return this.applicationsRepository.create(applicant.id, jobPostingId);
+  }
+
+  async listMine(userId: string): Promise<ApplicationWithPosting[]> {
+    const applicant = await this.applicantsRepository.findByUserId(userId);
+    if (!applicant) {
+      throw new NotFoundError("Applicant profile");
+    }
+    return this.applicationsRepository.findByApplicant(applicant.id);
+  }
+}

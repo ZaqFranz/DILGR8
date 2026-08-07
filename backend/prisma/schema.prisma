@@ -1,0 +1,213 @@
+// DILGR8RSP database schema
+// Covers the Application phase of the RSP pipeline (applicant registration,
+// job postings, applications). See docs/database.md for the rationale and
+// docs/rsp-domain-spec.md for the full target domain.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  APPLICANT
+  ADMIN
+}
+
+enum PositionLevel {
+  ENTRY
+  PROMOTIONAL
+}
+
+enum EligibilityType {
+  RA1080
+  CSC_PROFESSIONAL
+  CSC_SUBPROFESSIONAL
+  BARANGAY
+  NONE
+}
+
+enum DocumentType {
+  ELIGIBILITY_PROOF
+  IPCR
+  DESIGNATION_ORDER
+  OTHER
+}
+
+enum JobPostingStatus {
+  OPEN
+  CLOSED
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_SIFTING
+  QUALIFIED
+  NOT_QUALIFIED
+  WITHDRAWN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(APPLICANT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  applicant      Applicant?
+  jobPostingsMade JobPosting[]
+
+  @@map("users")
+}
+
+/// Demographic profile + reusable applicant record. Created once per user;
+/// referenced by every Application the user submits.
+model Applicant {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  firstName     String
+  middleName    String?
+  lastName      String
+  suffix        String?
+  dateOfBirth   DateTime
+  sex           String
+  civilStatus   String
+  address       String
+  contactNumber String
+
+  // Eligibility (Y/N). If Y, eligibilityType records the checklist item
+  // chosen (RA1080 / CSC Professional / CSC Sub-Professional / Barangay)
+  // and proof must be uploaded as a Document(type=ELIGIBILITY_PROOF).
+  // If N, eligibilityValidated stays false and the record is flagged for
+  // manual admin validation (surfaced in the UI in red).
+  hasEligibility       Boolean         @default(false)
+  eligibilityType      EligibilityType @default(NONE)
+  eligibilityValidated Boolean         @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workExperiences WorkExperience[]
+  ldInterventions LdIntervention[]
+  awards          Award[]
+  documents       Document[]
+  applications    Application[]
+
+  @@map("applicants")
+}
+
+model WorkExperience {
+  id                  String    @id @default(uuid())
+  applicantId         String
+  inclusiveFrom       DateTime
+  inclusiveTo         DateTime?
+  positionDesignation String
+  agency              String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  applicant Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@index([applicantId])
+  @@map("work_experiences")
+}
+
+model LdIntervention {
+  id               String   @id @default(uuid())
+  applicantId      String
+  title            String
+  dateAttended     DateTime
+  numberOfHours    Int
+  sponsoringAgency String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  applicant Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@index([applicantId])
+  @@map("ld_interventions")
+}
+
+model Award {
+  id          String   @id @default(uuid())
+  applicantId String
+  title       String
+  dateAwarded DateTime
+  issuingBody String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  applicant Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@index([applicantId])
+  @@map("awards")
+}
+
+/// Uploaded proof documents. Eligibility proof is applicant-level
+/// (applicationId null); IPCR / Designation-to-Higher-Position uploads are
+/// tied to the specific promotional Application they support.
+model Document {
+  id            String       @id @default(uuid())
+  applicantId   String
+  applicationId String?
+  type          DocumentType
+  fileName      String
+  filePath      String
+  mimeType      String
+  fileSizeBytes Int
+  uploadedAt    DateTime     @default(now())
+
+  applicant   Applicant    @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicantId])
+  @@index([applicationId])
+  @@map("documents")
+}
+
+/// A vacancy applicants can apply to. closingAt is computed server-side at
+/// creation time as postedAt + 10 days, 23:59:59 (see JobPostingsService).
+model JobPosting {
+  id            String            @id @default(uuid())
+  title         String
+  positionLevel PositionLevel
+  qualificationEducation   String @db.Text
+  qualificationTraining    String @db.Text
+  qualificationExperience  String @db.Text
+  qualificationEligibility String @db.Text
+  postedAt      DateTime          @default(now())
+  closingAt     DateTime
+  status        JobPostingStatus  @default(OPEN)
+  createdByUserId String
+
+  createdBy    User          @relation(fields: [createdByUserId], references: [id])
+  applications Application[]
+
+  @@index([status])
+  @@map("job_postings")
+}
+
+/// One applicant's application to one job posting. Unique per
+/// (applicantId, jobPostingId) - an applicant may apply to several
+/// postings but only once each.
+model Application {
+  id           String            @id @default(uuid())
+  applicantId  String
+  jobPostingId String
+  status       ApplicationStatus @default(SUBMITTED)
+  submittedAt  DateTime          @default(now())
+
+  applicant  Applicant  @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  documents  Document[]
+
+  @@unique([applicantId, jobPostingId])
+  @@index([jobPostingId])
+  @@map("applications")
+}

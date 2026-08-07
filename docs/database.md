@@ -1,0 +1,47 @@
+# Database
+
+MySQL via Prisma. Schema source of truth: `backend/prisma/schema.prisma`.
+
+## Entity overview
+
+```
+User (1) ── (1) Applicant (1) ── (N) WorkExperience
+                          │  ── (N) LdIntervention
+                          │  ── (N) Award
+                          │  ── (N) Document
+                          │  ── (N) Application ── (1) JobPosting
+                          │                     └── (N) Document (IPCR/DesignationOrder, applicationId set)
+```
+
+## Tables
+
+### `users`
+Auth identity. `role` is `APPLICANT` (default) or `ADMIN`. Password stored as a bcrypt hash, never plaintext.
+
+### `applicants`
+One row per registered applicant, created once via `POST /api/applicants/me`. Holds the demographic profile plus the eligibility flag (`hasEligibility`, `eligibilityType`, `eligibilityValidated`).
+
+- `eligibilityValidated` always starts `false`. It exists for the admin-side manual validation workflow described in the domain spec (Eligibility=N is "subject to manual validation"; Eligibility=Y still needs an admin to confirm the uploaded proof) — **the admin validation UI itself is not built yet** (tracked in project-memory.md).
+
+### `work_experiences`, `ld_interventions`, `awards`
+Simple child tables of `applicants`, one row per entry the applicant adds. Cascade-deleted with the applicant.
+
+### `documents`
+Uploaded files. `applicantId` is always set; `applicationId` is set only for documents tied to a specific application (currently unused by the frontend — IPCR/Designation/Eligibility proof are uploaded at the applicant level and checked by type, not by application, to avoid a chicken-and-egg problem at submission time). Files are stored on local disk under `backend/uploads/` (path in `filePath`); only metadata lives in the DB.
+
+### `job_postings`
+A vacancy. `positionLevel` is `ENTRY` or `PROMOTIONAL`. `closingAt` is computed at creation time in `JobPostingsService.computeClosingAt()` as `postedAt + 10 days, 23:59:59` per the domain spec's 10-day application window. `status` is `OPEN`/`CLOSED`; there is no scheduled job yet to flip it automatically when `closingAt` passes (`JobPostingsService.isAcceptingApplications()` checks both `status` and `closingAt` at submission time as a safeguard).
+
+### `applications`
+Join between `applicants` and `job_postings`, unique on `(applicantId, jobPostingId)` — an applicant may apply to several postings but only once each. `status` defaults to `SUBMITTED`; the later RSP stages (`UNDER_SIFTING`, `QUALIFIED`, `NOT_QUALIFIED`, `WITHDRAWN`) exist in the enum but nothing currently transitions an application into them (sifting isn't implemented yet).
+
+## Conventions
+
+- All primary keys are `String @id @default(uuid())`.
+- All child tables cascade-delete (`onDelete: Cascade`) when their parent (`Applicant`/`Application`) is deleted.
+- Timestamps: `createdAt`/`updatedAt` on every table except `documents` and `applications`, which only need `uploadedAt`/`submittedAt` (immutable records — see [decisions.md](./decisions.md)).
+- Table names are snake_case (`@@map`); TypeScript-facing model names are PascalCase (Prisma default).
+
+## Migrations
+
+Run `npm run prisma:migrate --workspace backend` (wraps `prisma migrate dev`) after changing `schema.prisma`. Seed data (`prisma/seed.ts`) creates one admin user (`admin@dilg.gov.ph` / `ChangeMe123!` — change immediately in any non-local environment) and two sample job postings (one `ENTRY`, one `PROMOTIONAL`).
