@@ -1,17 +1,32 @@
 import type { JobPosting, JobPostingStatus } from "@prisma/client";
-import { NotFoundError } from "@/shared/errors/AppError";
+import { ConflictError, NotFoundError } from "@/shared/errors/AppError";
+import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
+import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
 import type { JobPostingsRepository } from "./job-postings.repository";
-import type { CreateJobPostingDto } from "./job-postings.dto";
+import type { CreateJobPostingDto, UpdateJobPostingDto } from "./job-postings.dto";
 
 const APPLICATION_WINDOW_DAYS = 10;
 
 export class JobPostingsService {
-  constructor(private readonly jobPostingsRepository: JobPostingsRepository) {}
+  constructor(
+    private readonly jobPostingsRepository: JobPostingsRepository,
+    private readonly auditLogsRepository: AuditLogsRepository,
+  ) {}
 
   async create(createdByUserId: string, dto: CreateJobPostingDto): Promise<JobPosting> {
     const postedAt = new Date();
     const closingAt = JobPostingsService.computeClosingAt(postedAt);
-    return this.jobPostingsRepository.create({ ...dto, postedAt, closingAt, createdByUserId });
+    const posting = await this.jobPostingsRepository.create({ ...dto, postedAt, closingAt, createdByUserId });
+
+    await this.auditLogsRepository.record({
+      actorUserId: createdByUserId,
+      action: AuditAction.JOB_POSTING_CREATED,
+      entityType: AuditEntityType.JOB_POSTING,
+      entityId: posting.id,
+      details: `Posted "${posting.title}" (${posting.positionLevel})`,
+    });
+
+    return posting;
   }
 
   async findById(id: string): Promise<JobPosting> {
@@ -24,6 +39,42 @@ export class JobPostingsService {
 
   list(status?: JobPostingStatus): Promise<JobPosting[]> {
     return this.jobPostingsRepository.findMany(status);
+  }
+
+  async update(actorUserId: string, id: string, dto: UpdateJobPostingDto): Promise<JobPosting> {
+    const existing = await this.findById(id);
+    const updated = await this.jobPostingsRepository.update(id, dto);
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.JOB_POSTING_UPDATED,
+      entityType: AuditEntityType.JOB_POSTING,
+      entityId: id,
+      details: `Updated "${existing.title}": ${JSON.stringify(dto)}`,
+    });
+
+    return updated;
+  }
+
+  async remove(actorUserId: string, id: string): Promise<void> {
+    const existing = await this.findById(id);
+
+    const applicationCount = await this.jobPostingsRepository.countApplications(id);
+    if (applicationCount > 0) {
+      throw new ConflictError(
+        `Cannot delete a job posting with ${applicationCount} submitted application(s). Close it instead.`,
+      );
+    }
+
+    await this.jobPostingsRepository.delete(id);
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.JOB_POSTING_DELETED,
+      entityType: AuditEntityType.JOB_POSTING,
+      entityId: id,
+      details: `Deleted "${existing.title}" (${existing.positionLevel})`,
+    });
   }
 
   /**

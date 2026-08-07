@@ -7,8 +7,10 @@ import { RegisterPage } from "@/features/auth/pages/RegisterPage";
 import { JobPostingsListPage } from "@/features/job-postings/pages/JobPostingsListPage";
 import { RegistrationWizardPage } from "@/features/applicant-registration/pages/RegistrationWizardPage";
 import { MyApplicationsPage } from "@/features/applicant-registration/pages/MyApplicationsPage";
-import { CreateJobPostingPage } from "@/features/admin/pages/CreateJobPostingPage";
+import { JobManagementPage } from "@/features/admin/pages/JobManagementPage";
+import { UsersManagementPage } from "@/features/admin/pages/UsersManagementPage";
 import { EvaluateApplicantsPage } from "@/features/admin/pages/EvaluateApplicantsPage";
+import { AuditLogsPage } from "@/features/admin/pages/AuditLogsPage";
 
 function HomeRedirect() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -56,7 +58,15 @@ export default function App() {
           path="/admin/jobs"
           element={
             <ProtectedRoute role="ADMIN">
-              <CreateJobPostingPage />
+              <JobManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <UsersManagementPage />
             </ProtectedRoute>
           }
         />
@@ -65,6 +75,14 @@ export default function App() {
           element={
             <ProtectedRoute role="ADMIN">
               <EvaluateApplicantsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/logs"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <AuditLogsPage />
             </ProtectedRoute>
           }
         />

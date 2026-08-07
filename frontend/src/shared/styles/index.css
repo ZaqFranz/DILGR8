@@ -72,6 +72,12 @@ body {
   padding: 1.5rem;
 }
 
+.app-main--full {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -226,4 +232,71 @@ td {
 .auth-form {
   max-width: 380px;
   margin: 3rem auto;
+}
+
+.admin-shell {
+  display: flex;
+  min-height: calc(100vh - 57px);
+  align-items: stretch;
+}
+
+.admin-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  padding: 1.5rem 0;
+}
+
+.admin-sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-sidebar nav a {
+  padding: 0.65rem 1.5rem;
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-left: 3px solid transparent;
+}
+
+.admin-sidebar nav a:hover {
+  background: var(--color-bg);
+}
+
+.admin-sidebar nav a.active {
+  color: var(--color-primary);
+  border-left-color: var(--color-primary);
+  background: var(--color-bg);
+}
+
+.admin-content {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem 2rem;
+}
+
+.data-table-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.data-table-actions button {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.inline-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.inline-confirm span {
+  color: var(--color-danger);
+  font-weight: 600;
 }

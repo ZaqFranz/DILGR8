@@ -10,6 +10,8 @@ import { createAuthRouter } from "@/modules/auth/auth.routes";
 import { createApplicantsRouter } from "@/modules/applicants/applicants.routes";
 import { createJobPostingsRouter } from "@/modules/job-postings/job-postings.routes";
 import { createApplicationsRouter } from "@/modules/applications/applications.routes";
+import { createUsersRouter } from "@/modules/users/users.routes";
+import { createAuditLogsRouter } from "@/modules/audit-logs/audit-logs.routes";
 
 export function createApp(): Express {
   const app = express();
@@ -27,6 +29,8 @@ export function createApp(): Express {
   app.use("/api/applicants", createApplicantsRouter(container.applicantsController, container.documentsController));
   app.use("/api/job-postings", createJobPostingsRouter(container.jobPostingsController));
   app.use("/api/applications", createApplicationsRouter(container.applicationsController));
+  app.use("/api/users", createUsersRouter(container.usersController));
+  app.use("/api/audit-logs", createAuditLogsRouter(container.auditLogsController));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

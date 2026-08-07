@@ -3,6 +3,8 @@ import type { ApplicantsRepository } from "@/modules/applicants/applicants.repos
 import type { DocumentsRepository } from "@/modules/applicants/documents/documents.repository";
 import type { JobPostingsRepository } from "@/modules/job-postings/job-postings.repository";
 import { JobPostingsService } from "@/modules/job-postings/job-postings.service";
+import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
+import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
 import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
 import type { EvaluateApplicationDto } from "./applications.dto";
 
@@ -12,6 +14,7 @@ export class ApplicationsService {
     private readonly applicantsRepository: ApplicantsRepository,
     private readonly jobPostingsRepository: JobPostingsRepository,
     private readonly documentsRepository: DocumentsRepository,
+    private readonly auditLogsRepository: AuditLogsRepository,
   ) {}
 
   async submit(userId: string, jobPostingId: string): Promise<ApplicationWithPosting> {
@@ -78,11 +81,21 @@ export class ApplicationsService {
       throw new NotFoundError("Application");
     }
 
-    return this.applicationsRepository.evaluate(applicationId, {
+    const updated = await this.applicationsRepository.evaluate(applicationId, {
       score: dto.score,
       status: dto.decision,
       evaluatedByUserId: evaluatorUserId,
       ...(dto.remarks ? { remarks: dto.remarks } : {}),
     });
+
+    await this.auditLogsRepository.record({
+      actorUserId: evaluatorUserId,
+      action: AuditAction.APPLICATION_EVALUATED,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Scored ${application.applicant.firstName} ${application.applicant.lastName} for "${application.jobPosting.title}": ${dto.score}/100, ${dto.decision}`,
+    });
+
+    return updated;
   }
 }

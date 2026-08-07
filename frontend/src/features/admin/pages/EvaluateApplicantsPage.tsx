@@ -5,6 +5,7 @@ import { listJobPostings } from "@/features/job-postings/api/jobPostingsApi";
 import type { JobPosting } from "@/features/job-postings/types";
 import { listApplicationsForAdmin } from "../api/adminApplicationsApi";
 import { EvaluationRow } from "../components/EvaluationRow";
+import { AdminShell } from "../components/AdminShell";
 import type { AdminApplication } from "../types";
 
 export function EvaluateApplicantsPage() {
@@ -43,10 +44,16 @@ export function EvaluateApplicantsPage() {
     setApplications((prev) => prev.map((app) => (app.id === updated.id ? updated : app)));
   }
 
-  if (loadingPostings) return <p>Loading job postings...</p>;
+  if (loadingPostings) {
+    return (
+      <AdminShell>
+        <p>Loading job postings...</p>
+      </AdminShell>
+    );
+  }
 
   return (
-    <div>
+    <AdminShell>
       <h1>Evaluate Applicants</h1>
       <ErrorBanner message={error} />
 
@@ -90,6 +97,6 @@ export function EvaluateApplicantsPage() {
           </tbody>
         </table>
       )}
-    </div>
+    </AdminShell>
   );
 }

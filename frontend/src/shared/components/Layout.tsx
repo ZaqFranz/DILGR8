@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/shared/auth/AuthContext";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminSection = location.pathname.startsWith("/admin");
 
   function handleLogout() {
     logout();
@@ -18,12 +20,8 @@ export function Layout({ children }: { children: ReactNode }) {
           DILGR8RSP
         </Link>
         <nav>
-          {isAuthenticated && user?.role === "ADMIN" && (
-            <>
-              <Link to="/admin/jobs">Post a Job</Link>
-              <Link to="/admin/evaluations">Evaluate Applicants</Link>
-            </>
-          )}
+          {/* Admin navigation lives in AdminShell's sidebar, not here - this
+              bar stays minimal (identity + logout) for the admin section. */}
           {isAuthenticated && user?.role === "APPLICANT" && (
             <>
               <Link to="/jobs">Job Postings</Link>
@@ -46,7 +44,7 @@ export function Layout({ children }: { children: ReactNode }) {
           )}
         </nav>
       </header>
-      <main className="app-main">{children}</main>
+      <main className={isAdminSection ? "app-main app-main--full" : "app-main"}>{children}</main>
     </div>
   );
 }

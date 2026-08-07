@@ -1,4 +1,4 @@
-import type { JobPosting, JobPostingStatus, PrismaClient } from "@prisma/client";
+import type { JobPosting, JobPostingStatus, PositionLevel, PrismaClient } from "@prisma/client";
 
 export interface CreateJobPostingInput {
   title: string;
@@ -10,6 +10,16 @@ export interface CreateJobPostingInput {
   postedAt: Date;
   closingAt: Date;
   createdByUserId: string;
+}
+
+export interface UpdateJobPostingInput {
+  title?: string;
+  positionLevel?: PositionLevel;
+  qualificationEducation?: string;
+  qualificationTraining?: string;
+  qualificationExperience?: string;
+  qualificationEligibility?: string;
+  status?: JobPostingStatus;
 }
 
 export class JobPostingsRepository {
@@ -32,5 +42,17 @@ export class JobPostingsRepository {
 
   close(id: string): Promise<JobPosting> {
     return this.db.jobPosting.update({ where: { id }, data: { status: "CLOSED" } });
+  }
+
+  update(id: string, data: UpdateJobPostingInput): Promise<JobPosting> {
+    return this.db.jobPosting.update({ where: { id }, data });
+  }
+
+  delete(id: string): Promise<JobPosting> {
+    return this.db.jobPosting.delete({ where: { id } });
+  }
+
+  countApplications(id: string): Promise<number> {
+    return this.db.application.count({ where: { jobPostingId: id } });
   }
 }

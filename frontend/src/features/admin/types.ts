@@ -24,3 +24,34 @@ export interface EvaluateApplicationInput {
   decision: EvaluationDecision;
   remarks?: string;
 }
+
+export type UserRole = "ADMIN" | "APPLICANT";
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  role: UserRole;
+}
+
+export interface UpdateUserInput {
+  email?: string;
+  role?: UserRole;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  details: string | null;
+  createdAt: string;
+  actor: { email: string } | null;
+}

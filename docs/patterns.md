@@ -139,3 +139,23 @@ Patterns actually in use in this codebase, documented as they're introduced (per
 **Related files:** `shared/middleware/authenticate.ts`, `frontend/src/shared/components/ProtectedRoute.tsx`, `frontend/src/shared/components/Layout.tsx`.
 
 **Possible alternatives:** A dedicated permissions/claims system (rejected as over-engineered for two roles); hiding pages via CSS/conditional render without a real redirect guard (rejected — doesn't actually block direct navigation).
+
+---
+
+## Audit Trail (append-only log via injected repository)
+
+**Purpose:** Give admins a "History of Logs" view of who changed what, without every module reimplementing its own logging.
+
+**Problem solved:** Without a shared mechanism, tracking "who created/edited/deleted this" would mean adding ad-hoc `createdBy`/`updatedBy` columns per table, or skipping it entirely and losing the audit trail the admin panel needs.
+
+**Implementation:** `AuditLogsRepository` (`modules/audit-logs/audit-logs.repository.ts`) exposes exactly one write method, `record()` (insert-only — there is no `update`/`delete` on it, mirroring the `AuditLog` model's `@@map("audit_logs")` table having no mutation endpoints at all). Any service that performs a write worth auditing takes `AuditLogsRepository` as a constructor dependency — the same cross-module-repository pattern `ApplicationsService` already used for `DocumentsRepository` — and calls `.record({ actorUserId, action, entityType, entityId, details })` right after the write succeeds. `action`/`entityType` are plain strings (constants in `audit-actions.ts`), not DB enums, so adding a new logged action later is a one-line addition, no migration. The read side (`GET /api/audit-logs`) goes through a normal thin `AuditLogsService` for filtering/shaping, kept separate from the write side.
+
+**Advantages:** New auditable actions are a two-line change (constant + `.record()` call) in the service that already performs the write, right next to the code it's describing; no risk of the log entry and the actual mutation getting out of sync since they happen in the same request.
+
+**Disadvantages:** Not transactional with the mutation it describes (a crash between the write and the `.record()` call loses that one log entry) — acceptable for an admin activity feed, not acceptable if this were ever repurposed as a compliance-grade audit log requiring atomicity.
+
+**Example usage:** `backend/src/modules/users/users.service.ts` (`USER_CREATED`/`USER_UPDATED`/`USER_DELETED`), `backend/src/modules/job-postings/job-postings.service.ts`, `backend/src/modules/applications/applications.service.ts` (`APPLICATION_EVALUATED`).
+
+**Related files:** `modules/audit-logs/audit-logs.repository.ts`, `modules/audit-logs/audit-actions.ts`, `frontend/src/features/admin/pages/AuditLogsPage.tsx`.
+
+**Possible alternatives:** Prisma middleware/`$use()` hooks that auto-log every mutation (rejected — logs would fire for internal/system writes too, and lose the human-readable `details` string each service can construct from context it has but the ORM layer doesn't); a dedicated event bus (rejected as over-engineered for this module count, same reasoning as the DI decision in [decisions.md](./decisions.md)).

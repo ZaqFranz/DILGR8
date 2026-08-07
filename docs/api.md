@@ -53,11 +53,24 @@ Two roles exist: `APPLICANT` (self-registers via `/auth/register`) and `ADMIN` (
 
 ## Job Postings — `/api/job-postings`
 
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| GET | `/` | none | Query `?status=OPEN|CLOSED` optional. Public so applicants can browse before logging in. |
-| GET | `/:id` | none | |
-| POST | `/` | ADMIN | Creates a posting; `closingAt` is computed server-side as `postedAt + 10 days, 23:59:59`. |
+| Method | Path | Auth | Body | Notes |
+|---|---|---|---|---|
+| GET | `/` | none | — | Query `?status=OPEN|CLOSED` optional. Public so applicants can browse before logging in. |
+| GET | `/:id` | none | — | |
+| POST | `/` | ADMIN | `CreateJobPostingDto` | Creates a posting; `closingAt` is computed server-side as `postedAt + 10 days, 23:59:59`. |
+| PATCH | `/:id` | ADMIN | `UpdateJobPostingDto` | Partial update, including `status` (e.g. to close a posting manually). |
+| DELETE | `/:id` | ADMIN | — | 409 if the posting has any submitted applications — close it instead of deleting (see [decisions.md](./decisions.md)). |
+
+### `UpdateJobPostingDto`
+
+```ts
+{
+  title?: string; positionLevel?: "ENTRY" | "PROMOTIONAL";
+  qualificationEducation?: string; qualificationTraining?: string;
+  qualificationExperience?: string; qualificationEligibility?: string;
+  status?: "OPEN" | "CLOSED";
+}
+```
 
 ## Applications — `/api/applications` (all require auth)
 
@@ -77,6 +90,23 @@ Two roles exist: `APPLICANT` (self-registers via `/auth/register`) and `ADMIN` (
   remarks?: string;
 }
 ```
+
+## Users — `/api/users` (all ADMIN only)
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/` | — | Query `?role=ADMIN|APPLICANT&search=<email substring>` both optional. Never returns `passwordHash`. |
+| POST | `/` | `{ email, password, role }` | Admin-provisioned account creation — the only way to create an `ADMIN` user (aside from `prisma/seed.ts`). 409 on duplicate email. |
+| PATCH | `/:id` | `{ email?, role? }` | No password field — there's no admin-initiated password reset yet (see project-memory.md). |
+| DELETE | `/:id` | — | 400 if you try to delete your own account. Deleting a user cascades to their `Applicant` profile (if any) and everything under it; job postings they created or applications they evaluated are kept, with the FK set to null (see [decisions.md](./decisions.md)). |
+
+## Audit Logs — `/api/audit-logs` (ADMIN only, read-only)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/` | Query `?entityType=User|JobPosting|Application&limit=<1-500, default 200>`. Newest first. No POST/PATCH/DELETE exist for this resource — see [decisions.md](./decisions.md) for why an audit trail has no mutation path through the API at all. |
+
+Each entry: `{ id, action, entityType, entityId, details, createdAt, actor: { email } | null }`. `action` is a plain string (`USER_CREATED`, `USER_UPDATED`, `USER_DELETED`, `JOB_POSTING_CREATED`, `JOB_POSTING_UPDATED`, `JOB_POSTING_DELETED`, `APPLICATION_EVALUATED`), not a DB enum, so new action types don't need a migration.
 
 ## Health
 

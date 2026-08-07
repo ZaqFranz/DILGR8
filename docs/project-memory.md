@@ -1,6 +1,6 @@
 # Project Memory
 
-Last updated: 2026-08-07.
+Last updated: 2026-08-08.
 
 ## Current Architecture
 
@@ -10,9 +10,13 @@ npm-workspaces monorepo. `backend/` = Express + TypeScript + Prisma/MySQL REST A
 
 - **Auth** (`backend/src/modules/auth`, `frontend/src/features/auth`): register/login, JWT issuance/verification.
 - **Applicants** (`backend/src/modules/applicants`, `frontend/src/features/applicant-registration`): demographic profile, work experience, L&D interventions, awards, document uploads.
-- **Job Postings** (`backend/src/modules/job-postings`, `frontend/src/features/job-postings`, `frontend/src/features/admin`): browse open postings (applicant), admin creation with computed 10-day closing date.
+- **Job Postings** (`backend/src/modules/job-postings`, `frontend/src/features/job-postings`, `frontend/src/features/admin`): browse open postings (applicant); full admin CRUD (`JobManagementPage`) with computed 10-day closing date and a delete guard that blocks removing a posting with submitted applications.
 - **Applications** (`backend/src/modules/applications`, folded into the `applicant-registration` frontend feature for applicants): submit an application to a posting, enforcing eligibility/promotional document requirements.
-- **Admin / Evaluation** (`backend/src/modules/applications` evaluate endpoints, `frontend/src/features/admin`): separate role-gated section (`/admin/*`) where an `ADMIN` posts jobs (`CreateJobPostingPage`) and scores/decides on applications per posting (`EvaluateApplicantsPage`). See [decisions.md](./decisions.md) for why this is a single score+decision rather than the spec's full multi-board-member evaluation-forms system.
+- **Admin panel** (`frontend/src/features/admin`, wrapped in `AdminShell`'s sidebar layout): role-gated section (`/admin/*`) with four sections - **Job Management** (full CRUD), **Users Management** (`backend/src/modules/users`; full CRUD on `User` incl. admin-provisioning new admins, self-delete blocked), **Evaluate Applicants** (score/decision/remarks per application - see [decisions.md](./decisions.md) for why this is a single score rather than the spec's full multi-board-member evaluation-forms system), and **History of Logs** (`backend/src/modules/audit-logs`; read-only, deliberately no update/delete path - see decisions.md).
+
+## Audit Logging
+
+`AuditLog` records every Users/Job Postings/Evaluate write (see [patterns.md § Audit Trail](./patterns.md#audit-trail-append-only-log-via-injected-repository)). Not (yet) instrumented: applicant-side actions (profile edits, document uploads, application submission) - only admin actions are logged today. If "history of logs" needs to expand to cover applicant activity too, that's a straightforward extension of the same pattern in `ApplicantsService`/`DocumentsService`, not a redesign.
 
 ## Folder Structure
 
@@ -42,8 +46,10 @@ MySQL, Prisma migrations (`prisma migrate dev`), UUID primary keys, cascade dele
 
 ## Known Limitations
 
-- **Admin UI is minimal.** Covers only job posting creation and single-score application evaluation. There's still no screen for admins to validate Eligibility=N applicants, review sifting results, or manage multi-board evaluation forms.
-- **No automatic job-posting close job.** `JobPosting.status` doesn't flip to `CLOSED` on a timer; `JobPostingsService.isAcceptingApplications()` checks `closingAt` at submission time as a safeguard, but a stale `OPEN` posting past its window will still *list* as open in the UI (just can't be applied to).
+- **Admin UI covers Job Management, Users Management, Evaluate Applicants, and History of Logs only.** There's still no screen for admins to validate Eligibility=N applicants, review sifting results, or manage multi-board evaluation forms.
+- **No admin-initiated password reset.** `PATCH /api/users/:id` can change a user's email/role but not their password; a user who forgets their password has no self-serve or admin-assisted recovery path yet.
+- **Audit log details aren't a diff.** `JobPostingsService.update()`/`UsersService.update()` log the entire submitted payload in `details`, not just the fields that actually changed - accurate but noisier than necessary to read (visible e.g. as a full job-posting JSON dump in History of Logs for a status-only edit).
+- **No automatic job-posting close job.** `JobPosting.status` doesn't flip to `CLOSED` on a timer; `JobPostingsService.isAcceptingApplications()` checks `closingAt` at submission time as a safeguard, but a stale `OPEN` posting past its window will still *list* as open in the UI (just can't be applied to). Admins can close manually now via Job Management's edit form.
 - **Local disk file storage** — not durable across redeploys, not production-ready (see [decisions.md](./decisions.md)).
 - **No automated tests yet** — `vitest` is wired into both `package.json`s but no test files exist.
 - **Known dependency vulnerabilities (dev-only):** `npm audit` flags Vite/Vitest/react-router at moderate–critical severity; fixes require major version bumps (Vite 5→8, Vitest 2→4, react-router-dom 6→7) that weren't attempted in this pass to avoid destabilizing a fresh scaffold. Safe to defer since these affect the dev server / build tooling, not the shipped runtime bundle, but should be revisited before any production deployment.
@@ -58,7 +64,7 @@ MySQL, Prisma migrations (`prisma migrate dev`), UUID primary keys, cascade dele
 
 In priority order, following the RSP pipeline in [rsp-domain-spec.md](./rsp-domain-spec.md):
 
-1. **Admin console**: job posting *editing* (currently create-only), manual eligibility validation queue (surfacing the `eligibilityValidated`/Eligibility=N red-flag from the spec).
+1. **Admin console**: manual eligibility validation queue (surfacing the `eligibilityValidated`/Eligibility=N red-flag from the spec); admin-initiated password reset.
 2. **Sifting**: automatic qualification check against a posting's QS fields, qualified/non-qualified table, bulk letter-sending.
 3. **PQE**: batch scheduling (AM/PM/max 60 applicants), pass/fail recording, notification letters.
 4. **Evaluation (full)**: replace the current single-score `Application.evaluationScore` with a proper multi-evaluator `Evaluation` model (13-board-member access, per-battery-test forms), feeding CompAss.

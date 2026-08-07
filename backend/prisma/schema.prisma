@@ -61,6 +61,7 @@ model User {
   applicant       Applicant?
   jobPostingsMade JobPosting[]
   evaluationsMade Application[]
+  auditLogEntries AuditLog[]
 
   @@map("users")
 }
@@ -185,9 +186,12 @@ model JobPosting {
   postedAt      DateTime          @default(now())
   closingAt     DateTime
   status        JobPostingStatus  @default(OPEN)
-  createdByUserId String
+  // Nullable + SetNull (not the required/Restrict Prisma would otherwise
+  // default to) so deleting the admin who posted a job doesn't get
+  // blocked by, or cascade into deleting, the postings they made.
+  createdByUserId String?
 
-  createdBy    User          @relation(fields: [createdByUserId], references: [id])
+  createdBy    User?         @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
   applications Application[]
 
   @@index([status])
@@ -220,4 +224,24 @@ model Application {
   @@unique([applicantId, jobPostingId])
   @@index([jobPostingId])
   @@map("applications")
+}
+
+/// Append-only record of admin write actions (user/job-posting CRUD,
+/// application evaluation). Deliberately has no update/delete path through
+/// the API - see docs/decisions.md for why an audit trail must stay
+/// write-once from the app's perspective.
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  details     String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

@@ -10,6 +10,17 @@ export const createJobPostingSchema = z.object({
 });
 export type CreateJobPostingDto = z.infer<typeof createJobPostingSchema>;
 
+export const updateJobPostingSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  positionLevel: z.enum(["ENTRY", "PROMOTIONAL"]).optional(),
+  qualificationEducation: z.string().min(1).optional(),
+  qualificationTraining: z.string().min(1).optional(),
+  qualificationExperience: z.string().min(1).optional(),
+  qualificationEligibility: z.string().min(1).optional(),
+  status: z.enum(["OPEN", "CLOSED"]).optional(),
+});
+export type UpdateJobPostingDto = z.infer<typeof updateJobPostingSchema>;
+
 export const listJobPostingsQuerySchema = z.object({
   status: z.enum(["OPEN", "CLOSED"]).optional(),
 });

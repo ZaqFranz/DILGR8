@@ -7,7 +7,7 @@ DILGR8RSP is an npm-workspaces monorepo with two deployables:
 - **`backend/`** — Express + TypeScript REST API, MySQL via Prisma, JWT auth.
 - **`frontend/`** — React + TypeScript SPA (Vite), talks to the API over `fetch`.
 
-Both follow **feature-first** organization: code is grouped by business capability (`auth`, `applicants`, `job-postings`, `applications`, and on the frontend `admin`) rather than by technical layer at the top level. Within each backend feature, Clean Architecture layering is still enforced (see below).
+Both follow **feature-first** organization: code is grouped by business capability (`auth`, `applicants`, `job-postings`, `applications`, `users`, `audit-logs`, and on the frontend `admin`) rather than by technical layer at the top level. Within each backend feature, Clean Architecture layering is still enforced (see below).
 
 ## Backend layering
 
@@ -61,14 +61,20 @@ HTTP request
 
 ### Role-based routing (frontend)
 
-The `admin` feature (`frontend/src/features/admin/`) is a separate section of the app from the applicant-facing features, not just a different set of links on the same pages. `ProtectedRoute` (`shared/components/ProtectedRoute.tsx`) takes an optional `role` prop — `<ProtectedRoute role="ADMIN">` vs `<ProtectedRoute role="APPLICANT">` — and bounces a logged-in user of the wrong role to their own home (`/admin/jobs` or `/jobs`) rather than showing them the other side's pages. `Layout`'s nav renders a completely different link set depending on `user.role`: admins see only "Post a Job" and "Evaluate Applicants"; applicants see "Job Postings", "My Profile", "My Applications". There is no self-serve way to become an `ADMIN` — `/auth/register` always creates `APPLICANT` accounts (see [api.md](./api.md)) — so this split assumes admins are provisioned out-of-band (e.g. `prisma/seed.ts`).
+The `admin` feature (`frontend/src/features/admin/`) is a separate section of the app from the applicant-facing features, not just a different set of links on the same pages. `ProtectedRoute` (`shared/components/ProtectedRoute.tsx`) takes an optional `role` prop — `<ProtectedRoute role="ADMIN">` vs `<ProtectedRoute role="APPLICANT">` — and bounces a logged-in user of the wrong role to their own home (`/admin/jobs` or `/jobs`) rather than showing them the other side's pages. There is no self-serve way to become an `ADMIN` via `/auth/register` (always creates `APPLICANT`), but an existing admin can provision another admin account through Users Management (`POST /api/users` — see [api.md](./api.md)), or one can be seeded via `prisma/seed.ts`.
+
+Admin and applicant sections also look structurally different, not just role-gated: `Layout` (`shared/components/Layout.tsx`) renders the applicant-facing top nav ("Job Postings", "My Profile", "My Applications") only for `role === "APPLICANT"`, and stays minimal (brand + identity + logout) for admins. Every `/admin/*` page instead wraps its content in `AdminShell` (`features/admin/components/AdminShell.tsx`), a left sidebar with links to the four admin sections (Job Management, Users Management, Evaluate Applicants, History of Logs), active-link-highlighted via `useLocation()`. `Layout` detects `pathname.startsWith("/admin")` and swaps `.app-main` for the unconstrained `.app-main--full` so the sidebar can span full width instead of being squeezed into the applicant pages' centered 960px column.
 
 Routing (`App.tsx`) uses `react-router-dom`; `ProtectedRoute` redirects unauthenticated users to `/login`, and `HomeRedirect` sends `/` to the right role-specific landing page.
 
 ## Database
 
-See [database.md](./database.md) for the full schema. Summary: `User` (auth) 1:1 `Applicant` (profile) 1:N `WorkExperience`/`LdIntervention`/`Award`/`Document`; `Applicant` N:M `JobPosting` through `Application`.
+See [database.md](./database.md) for the full schema. Summary: `User` (auth) 1:1 `Applicant` (profile) 1:N `WorkExperience`/`LdIntervention`/`Award`/`Document`; `Applicant` N:M `JobPosting` through `Application`; `User` also 1:N `JobPosting` (creator), `Application` (evaluator), and `AuditLog` (actor) — all three nullable/`SetNull` so deleting a user never blocks on, or cascades into, those records.
+
+## Audit logging (cross-cutting)
+
+`AuditLogsRepository` (`backend/src/modules/audit-logs/audit-logs.repository.ts`) is injected into `UsersService`, `JobPostingsService`, and `ApplicationsService` the same way `DocumentsRepository` is injected into `ApplicationsService` — a repository consumed directly by another module's service, not wrapped in its own service layer for the write side. Each service calls `.record()` after a successful write (user/job-posting create-update-delete, application evaluate) to append one `AuditLog` row. The read side (`GET /api/audit-logs`) goes through a thin `AuditLogsService` for query shaping. See [patterns.md](./patterns.md) and [decisions.md](./decisions.md) for why this is deliberately append-only with no update/delete path.
 
 ## What's implemented vs. planned
 
-The **Application phase** (Applicant Registration + job posting browsing + application submission) and a first-cut **Evaluation** capability (admin scores an application 0-100, records a qualified/not-qualified decision and remarks) are implemented. See [project-memory.md](./project-memory.md) for the full status against the [RSP domain spec](./rsp-domain-spec.md).
+The **Application phase** (Applicant Registration + job posting browsing + application submission), a first-cut **Evaluation** capability (admin scores an application 0-100, records a qualified/not-qualified decision and remarks), and an **admin panel** (sidebar-navigated Job Management, Users Management, Evaluate Applicants, History of Logs — all full CRUD except the intentionally read-only logs) are implemented. See [project-memory.md](./project-memory.md) for the full status against the [RSP domain spec](./rsp-domain-spec.md).

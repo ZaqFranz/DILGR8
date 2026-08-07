@@ -22,3 +22,13 @@ export interface CreateJobPostingInput {
   qualificationExperience: string;
   qualificationEligibility: string;
 }
+
+export interface UpdateJobPostingInput {
+  title?: string;
+  positionLevel?: PositionLevel;
+  qualificationEducation?: string;
+  qualificationTraining?: string;
+  qualificationExperience?: string;
+  qualificationEligibility?: string;
+  status?: JobPostingStatus;
+}

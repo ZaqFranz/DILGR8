@@ -20,6 +20,14 @@ import { ApplicationsRepository } from "@/modules/applications/applications.repo
 import { ApplicationsService } from "@/modules/applications/applications.service";
 import { ApplicationsController } from "@/modules/applications/applications.controller";
 
+import { UsersRepository } from "@/modules/users/users.repository";
+import { UsersService } from "@/modules/users/users.service";
+import { UsersController } from "@/modules/users/users.controller";
+
+import { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
+import { AuditLogsService } from "@/modules/audit-logs/audit-logs.service";
+import { AuditLogsController } from "@/modules/audit-logs/audit-logs.controller";
+
 /**
  * Composition root: the one place that wires concrete repositories into
  * services into controllers. Every class up the chain takes its
@@ -33,17 +41,22 @@ function buildContainer() {
   const jobPostingsRepository = new JobPostingsRepository(prisma);
   const applicationsRepository = new ApplicationsRepository(prisma);
   const authRepository = new AuthRepository(prisma);
+  const usersRepository = new UsersRepository(prisma);
+  const auditLogsRepository = new AuditLogsRepository(prisma);
 
   const authService = new AuthService(authRepository);
   const applicantsService = new ApplicantsService(applicantsRepository);
   const documentsService = new DocumentsService(documentsRepository, applicantsRepository, prisma);
-  const jobPostingsService = new JobPostingsService(jobPostingsRepository);
+  const jobPostingsService = new JobPostingsService(jobPostingsRepository, auditLogsRepository);
   const applicationsService = new ApplicationsService(
     applicationsRepository,
     applicantsRepository,
     jobPostingsRepository,
     documentsRepository,
+    auditLogsRepository,
   );
+  const usersService = new UsersService(usersRepository, auditLogsRepository);
+  const auditLogsService = new AuditLogsService(auditLogsRepository);
 
   return {
     authController: new AuthController(authService),
@@ -51,6 +64,8 @@ function buildContainer() {
     documentsController: new DocumentsController(documentsService),
     jobPostingsController: new JobPostingsController(jobPostingsService),
     applicationsController: new ApplicationsController(applicationsService),
+    usersController: new UsersController(usersService),
+    auditLogsController: new AuditLogsController(auditLogsService),
   };
 }
 

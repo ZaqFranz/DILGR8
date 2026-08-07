@@ -4,7 +4,7 @@ import { authenticate, requireRole } from "@/shared/middleware/authenticate";
 import { validate } from "@/shared/validation/validate";
 import { idParamSchema } from "@/modules/applicants/applicants.dto";
 import type { JobPostingsController } from "./job-postings.controller";
-import { createJobPostingSchema, listJobPostingsQuerySchema } from "./job-postings.dto";
+import { createJobPostingSchema, listJobPostingsQuerySchema, updateJobPostingSchema } from "./job-postings.dto";
 
 export function createJobPostingsRouter(controller: JobPostingsController): Router {
   const router = Router();
@@ -19,6 +19,20 @@ export function createJobPostingsRouter(controller: JobPostingsController): Rout
     requireRole("ADMIN"),
     validate({ body: createJobPostingSchema }),
     asyncHandler(controller.create),
+  );
+  router.patch(
+    "/:id",
+    authenticate,
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema, body: updateJobPostingSchema }),
+    asyncHandler(controller.update),
+  );
+  router.delete(
+    "/:id",
+    authenticate,
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema }),
+    asyncHandler(controller.remove),
   );
 
   return router;
