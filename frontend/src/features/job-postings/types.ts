@@ -4,11 +4,15 @@ export type JobPostingStatus = "OPEN" | "CLOSED";
 export interface JobPosting {
   id: string;
   title: string;
+  description: string;
+  monthlySalary: string;
+  placeOfAssignment: string;
   positionLevel: PositionLevel;
   qualificationEducation: string;
   qualificationTraining: string;
   qualificationExperience: string;
   qualificationEligibility: string;
+  duties: string;
   postedAt: string;
   closingAt: string;
   status: JobPostingStatus;
@@ -16,19 +20,27 @@ export interface JobPosting {
 
 export interface CreateJobPostingInput {
   title: string;
+  description: string;
+  monthlySalary: string;
+  placeOfAssignment: string;
   positionLevel: PositionLevel;
   qualificationEducation: string;
   qualificationTraining: string;
   qualificationExperience: string;
   qualificationEligibility: string;
+  duties: string;
 }
 
 export interface UpdateJobPostingInput {
   title?: string;
+  description?: string;
+  monthlySalary?: string;
+  placeOfAssignment?: string;
   positionLevel?: PositionLevel;
   qualificationEducation?: string;
   qualificationTraining?: string;
   qualificationExperience?: string;
   qualificationEligibility?: string;
+  duties?: string;
   status?: JobPostingStatus;
 }

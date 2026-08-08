@@ -19,11 +19,15 @@ import type { CreateJobPostingInput, JobPosting, JobPostingStatus, PositionLevel
 
 const emptyForm: CreateJobPostingInput = {
   title: "",
+  description: "",
+  monthlySalary: "",
+  placeOfAssignment: "",
   positionLevel: "ENTRY",
   qualificationEducation: "",
   qualificationTraining: "",
   qualificationExperience: "",
   qualificationEligibility: "",
+  duties: "",
 };
 
 export function JobManagementPage() {
@@ -71,11 +75,15 @@ export function JobManagementPage() {
     setEditingStatus(posting.status);
     setForm({
       title: posting.title,
+      description: posting.description,
+      monthlySalary: posting.monthlySalary,
+      placeOfAssignment: posting.placeOfAssignment,
       positionLevel: posting.positionLevel,
       qualificationEducation: posting.qualificationEducation,
       qualificationTraining: posting.qualificationTraining,
       qualificationExperience: posting.qualificationExperience,
       qualificationEligibility: posting.qualificationEligibility,
+      duties: posting.duties,
     });
     setError(null);
     setFieldErrors({});
@@ -178,6 +186,7 @@ export function JobManagementPage() {
               <tr>
                 <th>Title</th>
                 <th>Level</th>
+                <th>Salary</th>
                 <th>Status</th>
                 <th>Closes</th>
                 <th></th>
@@ -186,14 +195,14 @@ export function JobManagementPage() {
             <tbody>
               {postings.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="table-empty">
+                  <td colSpan={6} className="table-empty">
                     No job postings yet.
                   </td>
                 </tr>
               )}
               {postings.length > 0 && filteredPostings.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="table-empty">
+                  <td colSpan={6} className="table-empty">
                     No job postings match your search/filter.
                   </td>
                 </tr>
@@ -202,6 +211,7 @@ export function JobManagementPage() {
                 <tr key={posting.id}>
                   <td>{posting.title}</td>
                   <td>{posting.positionLevel === "PROMOTIONAL" ? "Promotional" : "Entry level"}</td>
+                  <td>{posting.monthlySalary}</td>
                   <td>
                     <span className={`badge ${posting.status === "OPEN" ? "open" : "closed"}`}>{posting.status}</span>
                   </td>
@@ -248,7 +258,32 @@ export function JobManagementPage() {
             <input id="title" required value={form.title} onChange={(e) => update("title", e.target.value)} />
             <FieldError message={fieldErrors.title} />
           </div>
+          <div className={fieldErrors.description ? "field has-error" : "field"}>
+            <label htmlFor="description" className="required">
+              Job description
+            </label>
+            <textarea
+              id="description"
+              required
+              value={form.description}
+              onChange={(e) => update("description", e.target.value)}
+            />
+            <FieldError message={fieldErrors.description} />
+          </div>
           <div className="field-grid">
+            <div className={fieldErrors.monthlySalary ? "field has-error" : "field"}>
+              <label htmlFor="monthlySalary" className="required">
+                Monthly salary
+              </label>
+              <input
+                id="monthlySalary"
+                required
+                placeholder="e.g. ₱27,000.00"
+                value={form.monthlySalary}
+                onChange={(e) => update("monthlySalary", e.target.value)}
+              />
+              <FieldError message={fieldErrors.monthlySalary} />
+            </div>
             <div className="field">
               <label htmlFor="positionLevel">Position level</label>
               <select
@@ -317,6 +352,31 @@ export function JobManagementPage() {
               onChange={(e) => update("qualificationEligibility", e.target.value)}
             />
             <FieldError message={fieldErrors.qualificationEligibility} />
+          </div>
+          <div className={fieldErrors.placeOfAssignment ? "field has-error" : "field"}>
+            <label htmlFor="placeOfAssignment" className="required">
+              Place of assignment
+            </label>
+            <textarea
+              id="placeOfAssignment"
+              required
+              value={form.placeOfAssignment}
+              onChange={(e) => update("placeOfAssignment", e.target.value)}
+            />
+            <FieldError message={fieldErrors.placeOfAssignment} />
+          </div>
+          <div className={fieldErrors.duties ? "field has-error" : "field"}>
+            <label htmlFor="duties" className="required">
+              Duties and responsibilities
+            </label>
+            <textarea
+              id="duties"
+              required
+              placeholder="One duty per line"
+              value={form.duties}
+              onChange={(e) => update("duties", e.target.value)}
+            />
+            <FieldError message={fieldErrors.duties} />
           </div>
         </form>
       </Modal>

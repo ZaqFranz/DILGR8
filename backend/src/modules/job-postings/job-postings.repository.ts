@@ -2,11 +2,15 @@ import type { JobPosting, JobPostingStatus, PositionLevel, PrismaClient } from "
 
 export interface CreateJobPostingInput {
   title: string;
+  description: string;
+  monthlySalary: string;
+  placeOfAssignment: string;
   positionLevel: "ENTRY" | "PROMOTIONAL";
   qualificationEducation: string;
   qualificationTraining: string;
   qualificationExperience: string;
   qualificationEligibility: string;
+  duties: string;
   postedAt: Date;
   closingAt: Date;
   createdByUserId: string;
@@ -14,11 +18,15 @@ export interface CreateJobPostingInput {
 
 export interface UpdateJobPostingInput {
   title?: string;
+  description?: string;
+  monthlySalary?: string;
+  placeOfAssignment?: string;
   positionLevel?: PositionLevel;
   qualificationEducation?: string;
   qualificationTraining?: string;
   qualificationExperience?: string;
   qualificationEligibility?: string;
+  duties?: string;
   status?: JobPostingStatus;
 }
 
