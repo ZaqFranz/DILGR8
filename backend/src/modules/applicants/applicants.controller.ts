@@ -26,6 +26,11 @@ export class ApplicantsController {
     res.status(200).json(profile);
   };
 
+  completeRegistration = async (req: Request, res: Response): Promise<void> => {
+    const profile = await this.applicantsService.completeRegistration(req.user!.id);
+    res.status(200).json(profile);
+  };
+
   addWorkExperience = async (req: Request, res: Response): Promise<void> => {
     const result = await this.applicantsService.addWorkExperience(req.user!.id, req.body as CreateWorkExperienceDto);
     res.status(201).json(result);

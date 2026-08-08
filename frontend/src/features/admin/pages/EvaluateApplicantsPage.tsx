@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { listJobPostings } from "@/features/job-postings/api/jobPostingsApi";
 import type { JobPosting } from "@/features/job-postings/types";
 import { listApplicationsForAdmin } from "../api/adminApplicationsApi";
@@ -47,7 +48,7 @@ export function EvaluateApplicantsPage() {
   if (loadingPostings) {
     return (
       <AdminShell>
-        <p>Loading job postings...</p>
+        <LoadingBlock label="Loading job postings..." />
       </AdminShell>
     );
   }
@@ -72,30 +73,35 @@ export function EvaluateApplicantsPage() {
         </div>
       )}
 
-      {loadingApplications && <p>Loading applicants...</p>}
+      {loadingApplications && <LoadingBlock label="Loading applicants..." />}
 
-      {!loadingApplications && selectedPostingId && applications.length === 0 && (
-        <p>No applications for this posting yet.</p>
-      )}
-
-      {!loadingApplications && applications.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Applicant</th>
-              <th>Email</th>
-              <th>Submitted</th>
-              <th>Status</th>
-              <th>Score</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {applications.map((application) => (
-              <EvaluationRow key={application.id} application={application} onEvaluated={handleEvaluated} />
-            ))}
-          </tbody>
-        </table>
+      {!loadingApplications && selectedPostingId && (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Applicant</th>
+                <th>Email</th>
+                <th>Submitted</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {applications.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="table-empty">
+                    No applications for this posting yet.
+                  </td>
+                </tr>
+              )}
+              {applications.map((application) => (
+                <EvaluationRow key={application.id} application={application} onEvaluated={handleEvaluated} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

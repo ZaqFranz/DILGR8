@@ -91,6 +91,12 @@ model Applicant {
   eligibilityType      EligibilityType @default(NONE)
   eligibilityValidated Boolean         @default(false)
 
+  // Set once the applicant finishes every step of the registration flow
+  // (profile, work experience, L&D, awards, documents). Null means the
+  // applicant is mid-registration; gates access to the rest of the app so
+  // no applicant data collection is deferred to after login.
+  registrationCompletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

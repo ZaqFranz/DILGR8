@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { ApiError } from "@/shared/api/apiClient";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { FieldError } from "@/shared/components/FieldError";
+import { Spinner } from "@/shared/components/Spinner";
+import { useToast } from "@/shared/components/ToastProvider";
+import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { addWorkExperience, removeWorkExperience } from "../api/applicantsApi";
 import type { WorkExperience } from "../types";
 
@@ -12,13 +17,24 @@ interface Props {
 const emptyForm = { inclusiveFrom: "", inclusiveTo: "", positionDesignation: "", agency: "" };
 
 export function WorkExperienceSection({ items, onChange }: Props) {
+  const toast = useToast();
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
 
   async function handleAdd(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setFieldErrors({});
+
+    if (form.inclusiveTo && form.inclusiveTo < form.inclusiveFrom) {
+      setFieldErrors({ inclusiveTo: "End date can't be earlier than the start date." });
+      setError("Please fix the highlighted field before continuing.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const created = await addWorkExperience({
@@ -29,20 +45,30 @@ export function WorkExperienceSection({ items, onChange }: Props) {
       });
       onChange([...items, created]);
       setForm(emptyForm);
+      toast.success("Work experience added.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to add work experience");
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setFieldErrors(getFieldErrors(err));
+      } else {
+        setError("Failed to add work experience");
+      }
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleRemove(id: string) {
+  async function handleRemove() {
+    if (!pendingRemoveId) return;
     setError(null);
     try {
-      await removeWorkExperience(id);
-      onChange(items.filter((item) => item.id !== id));
+      await removeWorkExperience(pendingRemoveId);
+      onChange(items.filter((item) => item.id !== pendingRemoveId));
+      toast.success("Work experience removed.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to remove work experience");
+    } finally {
+      setPendingRemoveId(null);
     }
   }
 
@@ -50,36 +76,42 @@ export function WorkExperienceSection({ items, onChange }: Props) {
     <div className="card">
       <h2>Work Experience</h2>
       <ErrorBanner message={error} />
-      <table>
-        <thead>
-          <tr>
-            <th>From</th>
-            <th>To</th>
-            <th>Position/Designation</th>
-            <th>Agency</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id}>
-              <td>{item.inclusiveFrom.slice(0, 10)}</td>
-              <td>{item.inclusiveTo ? item.inclusiveTo.slice(0, 10) : "Present"}</td>
-              <td>{item.positionDesignation}</td>
-              <td>{item.agency}</td>
-              <td>
-                <button type="button" className="danger" onClick={() => handleRemove(item.id)}>
-                  Remove
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {items.length > 0 && (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Position/Designation</th>
+                <th>Agency</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.inclusiveFrom.slice(0, 10)}</td>
+                  <td>{item.inclusiveTo ? item.inclusiveTo.slice(0, 10) : "Present"}</td>
+                  <td>{item.positionDesignation}</td>
+                  <td>{item.agency}</td>
+                  <td>
+                    <button type="button" className="danger" onClick={() => setPendingRemoveId(item.id)}>
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      <form onSubmit={handleAdd} className="field-grid" style={{ marginTop: "1rem" }}>
+      <form onSubmit={handleAdd} className="field-grid" style={{ marginTop: "1rem" }} noValidate>
         <div className="field">
-          <label htmlFor="we-from">Inclusive from</label>
+          <label htmlFor="we-from" className="required">
+            Inclusive from
+          </label>
           <input
             id="we-from"
             type="date"
@@ -88,7 +120,7 @@ export function WorkExperienceSection({ items, onChange }: Props) {
             onChange={(e) => setForm({ ...form, inclusiveFrom: e.target.value })}
           />
         </div>
-        <div className="field">
+        <div className={fieldErrors.inclusiveTo ? "field has-error" : "field"}>
           <label htmlFor="we-to">Inclusive to (blank if present)</label>
           <input
             id="we-to"
@@ -96,9 +128,12 @@ export function WorkExperienceSection({ items, onChange }: Props) {
             value={form.inclusiveTo}
             onChange={(e) => setForm({ ...form, inclusiveTo: e.target.value })}
           />
+          <FieldError message={fieldErrors.inclusiveTo} />
         </div>
         <div className="field">
-          <label htmlFor="we-position">Position / Designation</label>
+          <label htmlFor="we-position" className="required">
+            Position / Designation
+          </label>
           <input
             id="we-position"
             required
@@ -107,7 +142,9 @@ export function WorkExperienceSection({ items, onChange }: Props) {
           />
         </div>
         <div className="field">
-          <label htmlFor="we-agency">Agency</label>
+          <label htmlFor="we-agency" className="required">
+            Agency
+          </label>
           <input
             id="we-agency"
             required
@@ -117,10 +154,20 @@ export function WorkExperienceSection({ items, onChange }: Props) {
         </div>
         <div className="field" style={{ alignSelf: "end" }}>
           <button type="submit" disabled={submitting}>
+            {submitting && <Spinner size="sm" onDark />}
             {submitting ? "Adding..." : "Add"}
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={pendingRemoveId !== null}
+        title="Remove work experience?"
+        description="This entry will be permanently removed from your profile."
+        confirmLabel="Remove"
+        onConfirm={handleRemove}
+        onCancel={() => setPendingRemoveId(null)}
+      />
     </div>
   );
 }

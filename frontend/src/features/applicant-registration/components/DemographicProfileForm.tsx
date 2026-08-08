@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { FieldError } from "@/shared/components/FieldError";
+import { Spinner } from "@/shared/components/Spinner";
+import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { createProfile, updateProfile } from "../api/applicantsApi";
 import type { ApplicantProfile, DemographicProfileInput, EligibilityType } from "../types";
 
@@ -50,15 +53,28 @@ const emptyForm: DemographicProfileInput = {
 export function DemographicProfileForm({ profile, onSaved }: Props) {
   const [form, setForm] = useState<DemographicProfileInput>(toInputValue(emptyForm, profile));
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   function update<K extends keyof DemographicProfileInput>(key: K, value: DemographicProfileInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function fieldClass(name: string): string {
+    return fieldErrors[name] ? "field has-error" : "field";
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setFieldErrors({});
+
+    if (form.hasEligibility && form.eligibilityType === "NONE") {
+      setFieldErrors({ eligibilityType: "Choose which eligibility you hold." });
+      setError("Please fix the highlighted field before continuing.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload: DemographicProfileInput = {
@@ -68,7 +84,12 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
       const saved = profile ? await updateProfile(payload) : await createProfile(payload);
       onSaved(saved);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to save profile");
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setFieldErrors(getFieldErrors(err));
+      } else {
+        setError("Failed to save profile");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -78,26 +99,36 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
     <div className="card">
       <h2>Demographic Profile</h2>
       <ErrorBanner message={error} />
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div className="field-grid">
-          <div className="field">
-            <label htmlFor="firstName">First name</label>
+          <div className={fieldClass("firstName")}>
+            <label htmlFor="firstName" className="required">
+              First name
+            </label>
             <input id="firstName" required value={form.firstName} onChange={(e) => update("firstName", e.target.value)} />
+            <FieldError message={fieldErrors.firstName} />
           </div>
-          <div className="field">
+          <div className={fieldClass("middleName")}>
             <label htmlFor="middleName">Middle name</label>
             <input id="middleName" value={form.middleName} onChange={(e) => update("middleName", e.target.value)} />
+            <FieldError message={fieldErrors.middleName} />
           </div>
-          <div className="field">
-            <label htmlFor="lastName">Last name</label>
+          <div className={fieldClass("lastName")}>
+            <label htmlFor="lastName" className="required">
+              Last name
+            </label>
             <input id="lastName" required value={form.lastName} onChange={(e) => update("lastName", e.target.value)} />
+            <FieldError message={fieldErrors.lastName} />
           </div>
-          <div className="field">
+          <div className={fieldClass("suffix")}>
             <label htmlFor="suffix">Suffix</label>
             <input id="suffix" value={form.suffix} onChange={(e) => update("suffix", e.target.value)} />
+            <FieldError message={fieldErrors.suffix} />
           </div>
-          <div className="field">
-            <label htmlFor="dateOfBirth">Date of birth</label>
+          <div className={fieldClass("dateOfBirth")}>
+            <label htmlFor="dateOfBirth" className="required">
+              Date of birth
+            </label>
             <input
               id="dateOfBirth"
               type="date"
@@ -105,15 +136,17 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
               value={form.dateOfBirth}
               onChange={(e) => update("dateOfBirth", e.target.value)}
             />
+            <FieldError message={fieldErrors.dateOfBirth} />
           </div>
-          <div className="field">
+          <div className={fieldClass("sex")}>
             <label htmlFor="sex">Sex</label>
             <select id="sex" value={form.sex} onChange={(e) => update("sex", e.target.value as DemographicProfileInput["sex"])}>
               <option value="MALE">Male</option>
               <option value="FEMALE">Female</option>
             </select>
+            <FieldError message={fieldErrors.sex} />
           </div>
-          <div className="field">
+          <div className={fieldClass("civilStatus")}>
             <label htmlFor="civilStatus">Civil status</label>
             <select
               id="civilStatus"
@@ -125,20 +158,27 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
               <option value="WIDOWED">Widowed</option>
               <option value="SEPARATED">Separated</option>
             </select>
+            <FieldError message={fieldErrors.civilStatus} />
           </div>
-          <div className="field">
-            <label htmlFor="contactNumber">Contact number</label>
+          <div className={fieldClass("contactNumber")}>
+            <label htmlFor="contactNumber" className="required">
+              Contact number
+            </label>
             <input
               id="contactNumber"
               required
               value={form.contactNumber}
               onChange={(e) => update("contactNumber", e.target.value)}
             />
+            <FieldError message={fieldErrors.contactNumber} />
           </div>
         </div>
-        <div className="field">
-          <label htmlFor="address">Address</label>
+        <div className={fieldClass("address")}>
+          <label htmlFor="address" className="required">
+            Address
+          </label>
           <textarea id="address" required value={form.address} onChange={(e) => update("address", e.target.value)} />
+          <FieldError message={fieldErrors.address} />
         </div>
 
         <div className="field">
@@ -153,8 +193,10 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
           </label>
         </div>
         {form.hasEligibility ? (
-          <div className="field">
-            <label htmlFor="eligibilityType">Eligibility type</label>
+          <div className={fieldClass("eligibilityType")}>
+            <label htmlFor="eligibilityType" className="required">
+              Eligibility type
+            </label>
             <select
               id="eligibilityType"
               value={form.eligibilityType}
@@ -166,7 +208,8 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
                 </option>
               ))}
             </select>
-            <p>Upload proof of eligibility in the Documents section below.</p>
+            <FieldError message={fieldErrors.eligibilityType} />
+            <p className="field-hint">Upload proof of eligibility in the Documents section below.</p>
           </div>
         ) : (
           <p className="flag-manual-validation">
@@ -175,6 +218,7 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
         )}
 
         <button type="submit" disabled={submitting}>
+          {submitting && <Spinner size="sm" onDark />}
           {submitting ? "Saving..." : profile ? "Update profile" : "Create profile"}
         </button>
       </form>

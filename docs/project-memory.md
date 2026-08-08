@@ -8,8 +8,8 @@ npm-workspaces monorepo. `backend/` = Express + TypeScript + Prisma/MySQL REST A
 
 ## Major Components
 
-- **Auth** (`backend/src/modules/auth`, `frontend/src/features/auth`): register/login, JWT issuance/verification.
-- **Applicants** (`backend/src/modules/applicants`, `frontend/src/features/applicant-registration`): demographic profile, work experience, L&D interventions, awards, document uploads.
+- **Auth** (`backend/src/modules/auth`, `frontend/src/features/auth`): register/login, JWT issuance/verification. Registration's UI lives in the `applicant-registration` feature (see below), not `auth` — `auth` only owns the account-credentials endpoints and `LoginPage`.
+- **Applicants** (`backend/src/modules/applicants`, `frontend/src/features/applicant-registration`): a single continuous registration flow (`RegistrationPage`, route `/register`) covering account creation, demographic profile, work experience, L&D interventions, awards, and document uploads — no applicant data collection happens after this flow, only edits to it. `POST /api/applicants/me/complete-registration` marks it done; `ProtectedRoute`/`HomeRedirect` block every other applicant page until `Applicant.registrationCompletedAt` is set (`AuthContext.registrationComplete`). See [architecture.md § Registration gating](./architecture.md#registration-gating-frontend).
 - **Job Postings** (`backend/src/modules/job-postings`, `frontend/src/features/job-postings`, `frontend/src/features/admin`): browse open postings (applicant); full admin CRUD (`JobManagementPage`) with computed 10-day closing date and a delete guard that blocks removing a posting with submitted applications.
 - **Applications** (`backend/src/modules/applications`, folded into the `applicant-registration` frontend feature for applicants): submit an application to a posting, enforcing eligibility/promotional document requirements.
 - **Admin panel** (`frontend/src/features/admin`, wrapped in `AdminShell`'s sidebar layout): role-gated section (`/admin/*`) with four sections - **Job Management** (full CRUD), **Users Management** (`backend/src/modules/users`; full CRUD on `User` incl. admin-provisioning new admins, self-delete blocked), **Evaluate Applicants** (score/decision/remarks per application - see [decisions.md](./decisions.md) for why this is a single score rather than the spec's full multi-board-member evaluation-forms system), and **History of Logs** (`backend/src/modules/audit-logs`; read-only, deliberately no update/delete path - see decisions.md).
@@ -56,6 +56,7 @@ MySQL, Prisma migrations (`prisma migrate dev`), UUID primary keys, cascade dele
 
 ## Technical Debt
 
+- `registrationComplete` (in `AuthContext`) is resolved via an extra `GET /api/applicants/me` call on session restore/login rather than being embedded in the JWT — simpler (no token-reissue-on-status-change problem) but costs one small round trip per session start. See [decisions.md](./decisions.md#2026-08-08--registration-unified-into-one-flow-applicant-pages-gated-on-registrationcompletedat).
 - Frontend `types.ts` files duplicate backend DTO shapes by hand; no generated client (e.g. OpenAPI/tRPC) keeping them in sync.
 - `ApplicantsRepository`/`ApplicationsRepository` etc. return Prisma's generated types directly rather than mapped domain models — acceptable at this scale, but if domain logic grows more complex than "check field, throw AppError," consider introducing real domain model classes distinct from Prisma's row types.
 - `PATCH /api/applications/:id/evaluate` lets any admin silently overwrite a previous evaluation (no evaluator identity check, no history). Fine for a single-evaluator MVP; not fine once the spec's 13-member board is modeled (see [decisions.md](./decisions.md)).

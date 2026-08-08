@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/shared/auth/AuthContext";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -17,6 +17,9 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <header className="app-header">
         <Link to="/" className="brand">
+          <span className="brand-mark" aria-hidden="true">
+            D
+          </span>
           DILGR8RSP
         </Link>
         <nav>
@@ -24,9 +27,15 @@ export function Layout({ children }: { children: ReactNode }) {
               bar stays minimal (identity + logout) for the admin section. */}
           {isAuthenticated && user?.role === "APPLICANT" && (
             <>
-              <Link to="/jobs">Job Postings</Link>
-              <Link to="/registration">My Profile</Link>
-              <Link to="/applications">My Applications</Link>
+              <NavLink to="/jobs" className={({ isActive }) => (isActive ? "active-link" : "")}>
+                Job Postings
+              </NavLink>
+              <NavLink to="/register" className={({ isActive }) => (isActive ? "active-link" : "")}>
+                My Profile
+              </NavLink>
+              <NavLink to="/applications" className={({ isActive }) => (isActive ? "active-link" : "")}>
+                My Applications
+              </NavLink>
             </>
           )}
           {isAuthenticated ? (

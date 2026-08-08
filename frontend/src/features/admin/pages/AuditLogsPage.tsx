@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { AdminShell } from "../components/AdminShell";
 import { listAuditLogs } from "../api/auditLogsApi";
 import type { AuditLogEntry } from "../types";
@@ -51,29 +52,31 @@ export function AuditLogsPage() {
         </select>
       </div>
 
-      {loading && <p>Loading...</p>}
+      {loading && <LoadingBlock />}
       {!loading && logs.length === 0 && <p>No log entries yet.</p>}
       {!loading && logs.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Actor</th>
-              <th>Action</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((log) => (
-              <tr key={log.id}>
-                <td>{new Date(log.createdAt).toLocaleString()}</td>
-                <td>{log.actor?.email ?? "(deleted user)"}</td>
-                <td>{formatAction(log.action)}</td>
-                <td>{log.details ?? "-"}</td>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Actor</th>
+                <th>Action</th>
+                <th>Details</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {logs.map((log) => (
+                <tr key={log.id}>
+                  <td>{new Date(log.createdAt).toLocaleString()}</td>
+                  <td>{log.actor?.email ?? "(deleted user)"}</td>
+                  <td>{formatAction(log.action)}</td>
+                  <td>{log.details ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminShell>
   );

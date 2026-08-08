@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { LoadingBlock } from "@/shared/components/LoadingBlock";
+import { Spinner } from "@/shared/components/Spinner";
+import { useToast } from "@/shared/components/ToastProvider";
 import { listJobPostings } from "../api/jobPostingsApi";
 import type { JobPosting } from "../types";
 import { submitApplication } from "@/features/applicant-registration/api/applicationsApi";
@@ -10,11 +13,11 @@ function isAcceptingApplications(posting: JobPosting): boolean {
 }
 
 export function JobPostingsListPage() {
+  const toast = useToast();
   const [postings, setPostings] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [applyingId, setApplyingId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     listJobPostings()
@@ -25,11 +28,10 @@ export function JobPostingsListPage() {
 
   async function handleApply(posting: JobPosting) {
     setError(null);
-    setMessage(null);
     setApplyingId(posting.id);
     try {
       await submitApplication(posting.id);
-      setMessage(`Application submitted for "${posting.title}".`);
+      toast.success(`Application submitted for "${posting.title}".`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to submit application");
     } finally {
@@ -37,13 +39,12 @@ export function JobPostingsListPage() {
     }
   }
 
-  if (loading) return <p>Loading job postings...</p>;
+  if (loading) return <LoadingBlock label="Loading job postings..." />;
 
   return (
     <div>
       <h1>Job Postings</h1>
       <ErrorBanner message={error} />
-      {message && <div className="card">{message}</div>}
       {postings.length === 0 && <p>No job postings available right now.</p>}
       {postings.map((posting) => {
         const acceptingApplications = isAcceptingApplications(posting);
@@ -53,24 +54,20 @@ export function JobPostingsListPage() {
               {posting.title}{" "}
               <span className={`badge ${posting.status === "OPEN" ? "open" : "closed"}`}>{posting.status}</span>
             </h2>
-            <p>
-              <strong>Level:</strong> {posting.positionLevel === "PROMOTIONAL" ? "Promotional" : "Entry level"}
-            </p>
-            <p>
-              <strong>Education:</strong> {posting.qualificationEducation}
-            </p>
-            <p>
-              <strong>Training:</strong> {posting.qualificationTraining}
-            </p>
-            <p>
-              <strong>Experience:</strong> {posting.qualificationExperience}
-            </p>
-            <p>
-              <strong>Eligibility:</strong> {posting.qualificationEligibility}
-            </p>
-            <p>
-              <strong>Applications close:</strong> {new Date(posting.closingAt).toLocaleString()}
-            </p>
+            <dl className="posting-meta">
+              <dt>Level</dt>
+              <dd>{posting.positionLevel === "PROMOTIONAL" ? "Promotional" : "Entry level"}</dd>
+              <dt>Education</dt>
+              <dd>{posting.qualificationEducation}</dd>
+              <dt>Training</dt>
+              <dd>{posting.qualificationTraining}</dd>
+              <dt>Experience</dt>
+              <dd>{posting.qualificationExperience}</dd>
+              <dt>Eligibility</dt>
+              <dd>{posting.qualificationEligibility}</dd>
+              <dt>Applications close</dt>
+              <dd>{new Date(posting.closingAt).toLocaleString()}</dd>
+            </dl>
             {posting.positionLevel === "PROMOTIONAL" && (
               <p>
                 <em>Promotional applications require an uploaded IPCR and Designation to a Higher Position
@@ -78,6 +75,7 @@ export function JobPostingsListPage() {
               </p>
             )}
             <button type="button" disabled={!acceptingApplications || applyingId === posting.id} onClick={() => handleApply(posting)}>
+              {applyingId === posting.id && <Spinner size="sm" onDark />}
               {applyingId === posting.id
                 ? "Submitting..."
                 : acceptingApplications

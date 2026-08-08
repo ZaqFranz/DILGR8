@@ -1,6 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { FieldError } from "@/shared/components/FieldError";
+import { Spinner } from "@/shared/components/Spinner";
+import { useToast } from "@/shared/components/ToastProvider";
+import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { evaluateApplication } from "../api/adminApplicationsApi";
 import type { AdminApplication, EvaluationDecision } from "../types";
 
@@ -10,6 +14,7 @@ interface Props {
 }
 
 export function EvaluationRow({ application, onEvaluated }: Props) {
+  const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [score, setScore] = useState(application.evaluationScore?.toString() ?? "");
   const [decision, setDecision] = useState<EvaluationDecision>(
@@ -17,14 +22,17 @@ export function EvaluationRow({ application, onEvaluated }: Props) {
   );
   const [remarks, setRemarks] = useState(application.evaluationRemarks ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setFieldErrors({});
     const parsedScore = Number(score);
     if (!Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > 100) {
-      setError("Score must be a whole number from 0 to 100");
+      setFieldErrors({ score: "Score must be a whole number from 0 to 100." });
+      setError("Please fix the highlighted field before continuing.");
       return;
     }
     setSubmitting(true);
@@ -35,9 +43,19 @@ export function EvaluationRow({ application, onEvaluated }: Props) {
         ...(remarks ? { remarks } : {}),
       });
       onEvaluated(updated);
+      toast.success(
+        `Evaluation saved for ${application.applicant.firstName} ${application.applicant.lastName} — ${
+          decision === "QUALIFIED" ? "Qualified" : "Not qualified"
+        }.`,
+      );
       setExpanded(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to save evaluation");
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setFieldErrors(getFieldErrors(err));
+      } else {
+        setError("Failed to save evaluation");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -51,7 +69,9 @@ export function EvaluationRow({ application, onEvaluated }: Props) {
         </td>
         <td>{application.applicant.user.email}</td>
         <td>{new Date(application.submittedAt).toLocaleDateString()}</td>
-        <td>{application.status}</td>
+        <td>
+          <span className={`badge ${application.status.toLowerCase()}`}>{application.status}</span>
+        </td>
         <td>{application.evaluationScore ?? "-"}</td>
         <td>
           <button type="button" className="secondary" onClick={() => setExpanded((prev) => !prev)}>
@@ -63,9 +83,11 @@ export function EvaluationRow({ application, onEvaluated }: Props) {
         <tr>
           <td colSpan={6}>
             <ErrorBanner message={error} />
-            <form onSubmit={handleSubmit} className="field-grid">
-              <div className="field">
-                <label htmlFor={`score-${application.id}`}>Score (0-100)</label>
+            <form onSubmit={handleSubmit} className="field-grid" noValidate>
+              <div className={fieldErrors.score ? "field has-error" : "field"}>
+                <label htmlFor={`score-${application.id}`} className="required">
+                  Score (0-100)
+                </label>
                 <input
                   id={`score-${application.id}`}
                   type="number"
@@ -75,6 +97,7 @@ export function EvaluationRow({ application, onEvaluated }: Props) {
                   value={score}
                   onChange={(e) => setScore(e.target.value)}
                 />
+                <FieldError message={fieldErrors.score} />
               </div>
               <div className="field">
                 <label htmlFor={`decision-${application.id}`}>Decision</label>
@@ -97,6 +120,7 @@ export function EvaluationRow({ application, onEvaluated }: Props) {
               </div>
               <div className="field" style={{ alignSelf: "end" }}>
                 <button type="submit" disabled={submitting}>
+                  {submitting && <Spinner size="sm" onDark />}
                   {submitting ? "Saving..." : "Save evaluation"}
                 </button>
               </div>

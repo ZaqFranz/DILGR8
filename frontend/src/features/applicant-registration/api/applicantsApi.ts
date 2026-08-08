@@ -26,6 +26,10 @@ export function updateProfile(input: Partial<DemographicProfileInput>): Promise<
   return apiRequest<ApplicantProfile>("/applicants/me", { method: "PATCH", body: input });
 }
 
+export function completeRegistration(): Promise<ApplicantProfile> {
+  return apiRequest<ApplicantProfile>("/applicants/me/complete-registration", { method: "POST" });
+}
+
 export function addWorkExperience(input: {
   inclusiveFrom: string;
   inclusiveTo?: string;

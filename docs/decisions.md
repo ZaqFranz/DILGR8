@@ -84,7 +84,7 @@
 
 **Context:** Asked for the admin panel to be visibly different from the applicant experience, with admins restricted to posting jobs and evaluating applicants only.
 
-**Decision:** `frontend/src/features/admin/` is a distinct feature with its own pages under `/admin/*` routes, guarded by `<ProtectedRoute role="ADMIN">`. Applicant routes (`/jobs`, `/registration`, `/applications`) are guarded by `<ProtectedRoute role="APPLICANT">` and redirect an admin back to `/admin/jobs` if they try to hit them directly (and vice versa). `Layout`'s nav shows an entirely different link set per role rather than the same links with some hidden. (Superseded/extended by the sidebar-shell decision below — the admin pages were originally `CreateJobPostingPage`/`EvaluateApplicantsPage` under the same top nav as applicants; now they're `JobManagementPage`/`UsersManagementPage`/`EvaluateApplicantsPage`/`AuditLogsPage` under `AdminShell`'s sidebar.)
+**Decision:** `frontend/src/features/admin/` is a distinct feature with its own pages under `/admin/*` routes, guarded by `<ProtectedRoute role="ADMIN">`. Applicant routes (`/jobs`, `/register`, `/applications`) are guarded by `<ProtectedRoute role="APPLICANT">` and redirect an admin back to `/admin/jobs` if they try to hit them directly (and vice versa). `Layout`'s nav shows an entirely different link set per role rather than the same links with some hidden. (Superseded/extended by the sidebar-shell decision below — the admin pages were originally `CreateJobPostingPage`/`EvaluateApplicantsPage` under the same top nav as applicants; now they're `JobManagementPage`/`UsersManagementPage`/`EvaluateApplicantsPage`/`AuditLogsPage` under `AdminShell`'s sidebar. `/registration` was later merged into `/register` — see the 2026-08-08 unified-registration decision below.)
 
 **Pros:** Clean separation matches "admin can only post jobs and evaluate applicants" literally — there's no code path where an admin session can reach the applicant registration wizard or an applicant session can reach evaluation screens.
 
@@ -137,5 +137,21 @@
 **Cons:** After deleting an admin, their past job postings/evaluations show no creator/evaluator in the UI (`createdBy`/`evaluatedBy` becomes `null`) — there's no "deleted user" placeholder value, just absence. Acceptable since the `AuditLog` history still records what they did (with `actor: null` shown as "(deleted user)" in `AuditLogsPage`), even after the `User` row itself is gone.
 
 **Reference:** [database.md § job_postings](./database.md#job_postings), `backend/prisma/schema.prisma`.
+
+---
+
+## 2026-08-08 — Registration unified into one flow; applicant pages gated on `registrationCompletedAt`
+
+**Context:** The original design split applicant onboarding into two steps: `POST /auth/register` (email/password only, at `/register`) immediately followed by a redirect to a separate post-login wizard (`/registration`, behind `<ProtectedRoute role="APPLICANT">`) for the demographic profile, work experience, L&D, awards, and documents. Nothing stopped an authenticated applicant from navigating straight to `/jobs` or `/applications` without ever finishing the wizard — the "rest of the flow" was reachable, and skippable, only by choice of navigation, not by enforcement. Explicit product direction: all applicant information must be captured as part of registration, not deferred to after the applicant is already logged in and using the app.
+
+**Decision:** Merged the account-creation form and the former wizard into a single component, `RegistrationPage` (`frontend/src/features/applicant-registration/pages/RegistrationPage.tsx`), mounted at one route (`/register`). It renders the account step for unauthenticated visitors and continues in place through profile → work experience → L&D → awards → documents after `register()` succeeds, with no route change in between. Added `Applicant.registrationCompletedAt` (nullable `DateTime`) and `POST /api/applicants/me/complete-registration`, called when the applicant finishes the last step (validates an eligibility-proof document has been uploaded if `hasEligibility` is true). `AuthContext` exposes `registrationComplete` (fetched from `GET /api/applicants/me` right after login/register and on session restore); `ProtectedRoute` and `HomeRedirect` redirect any applicant with `registrationComplete === false` to `/register`, whichever page they try to reach directly. The old `RegisterPage.tsx` and `RegistrationWizardPage.tsx` were deleted.
+
+**Pros:** Matches the "collect everything at registration" requirement literally — there is no code path to `/jobs` or `/applications` that bypasses profile/work-experience/L&D/awards/documents. `/register` also stays reachable after completion (e.g. Layout's "My Profile" link) so applicants can still edit their record without a separate profile-editing surface to maintain.
+
+**Cons:** `AuthContext` now depends on the `applicant-registration` feature's API module (`getMyProfile`) to resolve `registrationComplete`, which is a cross-feature import `shared/auth` didn't previously have. Every protected-route render for an applicant does one extra `GET /api/applicants/me` round trip on session restore/login (cheap single-row lookup, not on every navigation) that a JWT-embedded claim could have avoided at the cost of needing to re-issue tokens whenever registration status changes.
+
+**Future impact:** If more roles or a "partially registered admin" concept is ever introduced, `registrationComplete` and the redirect logic in `ProtectedRoute`/`HomeRedirect` should generalize to a role-keyed "onboarding complete" check rather than the current `APPLICANT`-only branch.
+
+**Reference:** [architecture.md § Registration gating](./architecture.md#registration-gating-frontend), [database.md § applicants](./database.md#applicants), [api.md § Applicants](./api.md#applicants--apiapplicants-all-require-auth).
 
 **Reference:** [architecture.md § Role-based routing](./architecture.md#role-based-routing-frontend), `frontend/src/shared/components/ProtectedRoute.tsx`, `frontend/src/App.tsx`.

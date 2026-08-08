@@ -1,4 +1,4 @@
-import type { Applicant, Award, LdIntervention, PrismaClient, WorkExperience } from "@prisma/client";
+import type { Applicant, Award, Document, LdIntervention, PrismaClient, WorkExperience } from "@prisma/client";
 import type {
   CreateApplicantProfileDto,
   CreateAwardDto,
@@ -18,6 +18,7 @@ export type ApplicantWithRelations = Applicant & {
   workExperiences: WorkExperience[];
   ldInterventions: LdIntervention[];
   awards: Award[];
+  documents: Document[];
 };
 
 export class ApplicantsRepository {
@@ -48,6 +49,14 @@ export class ApplicantsRepository {
     return this.db.applicant.update({
       where: { id },
       data: dto,
+      include: fullApplicantInclude,
+    });
+  }
+
+  markRegistrationComplete(id: string): Promise<ApplicantWithRelations> {
+    return this.db.applicant.update({
+      where: { id },
+      data: { registrationCompletedAt: new Date() },
       include: fullApplicantInclude,
     });
   }

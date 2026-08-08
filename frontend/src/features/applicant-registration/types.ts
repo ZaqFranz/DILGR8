@@ -45,6 +45,7 @@ export interface ApplicantProfile {
   hasEligibility: boolean;
   eligibilityType: EligibilityType;
   eligibilityValidated: boolean;
+  registrationCompletedAt: string | null;
   workExperiences: WorkExperience[];
   ldInterventions: LdIntervention[];
   awards: Award[];

@@ -1,4 +1,5 @@
-import { ConflictError, NotFoundError } from "@/shared/errors/AppError";
+import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
+import type { DocumentsRepository } from "./documents/documents.repository";
 import type { ApplicantsRepository, ApplicantWithRelations } from "./applicants.repository";
 import type {
   CreateApplicantProfileDto,
@@ -9,7 +10,10 @@ import type {
 } from "./applicants.dto";
 
 export class ApplicantsService {
-  constructor(private readonly applicantsRepository: ApplicantsRepository) {}
+  constructor(
+    private readonly applicantsRepository: ApplicantsRepository,
+    private readonly documentsRepository: DocumentsRepository,
+  ) {}
 
   async getMyProfile(userId: string): Promise<ApplicantWithRelations> {
     const applicant = await this.applicantsRepository.findByUserId(userId);
@@ -33,6 +37,30 @@ export class ApplicantsService {
   async updateProfile(userId: string, dto: UpdateApplicantProfileDto): Promise<ApplicantWithRelations> {
     const applicant = await this.getMyProfile(userId);
     return this.applicantsRepository.update(applicant.id, dto);
+  }
+
+  /**
+   * Marks the applicant as having finished every registration step. All
+   * applicant-side data (profile, work experience, L&D, awards, documents)
+   * must be captured here, before this flag is set - nothing about the
+   * applicant's own record should be collected after they start using the
+   * rest of the app.
+   */
+  async completeRegistration(userId: string): Promise<ApplicantWithRelations> {
+    const applicant = await this.getMyProfile(userId);
+    if (applicant.registrationCompletedAt) {
+      return applicant;
+    }
+
+    if (applicant.hasEligibility) {
+      const documents = await this.documentsRepository.findByApplicant(applicant.id);
+      const hasEligibilityProof = documents.some((doc) => doc.type === "ELIGIBILITY_PROOF");
+      if (!hasEligibilityProof) {
+        throw new ValidationError("Upload proof of eligibility before completing registration");
+      }
+    }
+
+    return this.applicantsRepository.markRegistrationComplete(applicant.id);
   }
 
   async addWorkExperience(userId: string, dto: CreateWorkExperienceDto) {

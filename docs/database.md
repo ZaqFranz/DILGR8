@@ -26,6 +26,7 @@ Auth identity. `role` is `APPLICANT` (default) or `ADMIN`. Password stored as a 
 One row per registered applicant, created once via `POST /api/applicants/me`. Holds the demographic profile plus the eligibility flag (`hasEligibility`, `eligibilityType`, `eligibilityValidated`).
 
 - `eligibilityValidated` always starts `false`. It exists for the admin-side manual validation workflow described in the domain spec (Eligibility=N is "subject to manual validation"; Eligibility=Y still needs an admin to confirm the uploaded proof) — **the admin validation UI itself is not built yet** (tracked in project-memory.md).
+- `registrationCompletedAt` (nullable) is set once via `POST /api/applicants/me/complete-registration`, after the applicant has gone through profile, work experience, L&D, awards, and documents. The frontend uses it (via `AuthContext.registrationComplete`) to gate access to the rest of the app — see [architecture.md § Registration gating](./architecture.md#registration-gating-frontend) — so applicant data collection is never deferred to after the applicant is already using the app.
 
 ### `work_experiences`, `ld_interventions`, `awards`
 Simple child tables of `applicants`, one row per entry the applicant adds. Cascade-deleted with the applicant.

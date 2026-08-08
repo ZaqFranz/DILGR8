@@ -14,6 +14,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
+        <p className="admin-sidebar-title">Admin Panel</p>
         <nav>
           {NAV_ITEMS.map((item) => (
             <Link key={item.to} to={item.to} className={location.pathname === item.to ? "active" : ""}>

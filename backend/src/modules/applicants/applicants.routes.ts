@@ -21,6 +21,7 @@ export function createApplicantsRouter(controller: ApplicantsController, documen
   router.get("/me", asyncHandler(controller.getMyProfile));
   router.post("/me", validate({ body: createApplicantProfileSchema }), asyncHandler(controller.createProfile));
   router.patch("/me", validate({ body: updateApplicantProfileSchema }), asyncHandler(controller.updateProfile));
+  router.post("/me/complete-registration", asyncHandler(controller.completeRegistration));
 
   router.post(
     "/me/work-experiences",

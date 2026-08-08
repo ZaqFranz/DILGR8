@@ -26,6 +26,7 @@ Two roles exist: `APPLICANT` (self-registers via `/auth/register`) and `ADMIN` (
 | GET | `/me` | — | Current user's applicant profile with relations. 404 if not created yet. |
 | POST | `/me` | `CreateApplicantProfileDto` | Creates the profile (one per user; 409 if it already exists). |
 | PATCH | `/me` | `Partial<CreateApplicantProfileDto>` | Updates the profile. |
+| POST | `/me/complete-registration` | — | Marks the applicant as fully registered (`registrationCompletedAt`). 400 if `hasEligibility` is true and no `ELIGIBILITY_PROOF` document has been uploaded yet. Idempotent — calling it again after completion just returns the profile unchanged. The frontend gates every other applicant page on this flag (see [architecture.md § Role-based routing](./architecture.md#role-based-routing-frontend)) so no applicant data collection is deferred to after login. |
 | POST | `/me/work-experiences` | `{ inclusiveFrom, inclusiveTo?, positionDesignation, agency }` | |
 | DELETE | `/me/work-experiences/:id` | — | 404 if the record doesn't belong to the caller. |
 | POST | `/me/ld-interventions` | `{ title, dateAttended, numberOfHours, sponsoringAgency }` | |

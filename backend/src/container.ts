@@ -45,7 +45,7 @@ function buildContainer() {
   const auditLogsRepository = new AuditLogsRepository(prisma);
 
   const authService = new AuthService(authRepository);
-  const applicantsService = new ApplicantsService(applicantsRepository);
+  const applicantsService = new ApplicantsService(applicantsRepository, documentsRepository);
   const documentsService = new DocumentsService(documentsRepository, applicantsRepository, prisma);
   const jobPostingsService = new JobPostingsService(jobPostingsRepository, auditLogsRepository);
   const applicationsService = new ApplicationsService(

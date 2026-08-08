@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { listMyApplications, type Application } from "../api/applicationsApi";
+
+function statusBadgeClass(status: string): string {
+  return `badge ${status.toLowerCase()}`;
+}
 
 export function MyApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -15,7 +20,7 @@ export function MyApplicationsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p>Loading your applications...</p>;
+  if (loading) return <LoadingBlock label="Loading your applications..." />;
 
   return (
     <div>
@@ -24,10 +29,9 @@ export function MyApplicationsPage() {
       {applications.length === 0 && <p>You have not submitted any applications yet.</p>}
       {applications.map((application) => (
         <div className="card" key={application.id}>
-          <h2>{application.jobPosting.title}</h2>
-          <p>
-            <strong>Status:</strong> {application.status}
-          </p>
+          <h2>
+            {application.jobPosting.title} <span className={statusBadgeClass(application.status)}>{application.status}</span>
+          </h2>
           <p>
             <strong>Submitted:</strong> {new Date(application.submittedAt).toLocaleString()}
           </p>

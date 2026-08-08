@@ -4,5 +4,10 @@ interface ErrorBannerProps {
 
 export function ErrorBanner({ message }: ErrorBannerProps) {
   if (!message) return null;
-  return <div className="error-banner">{message}</div>;
+  return (
+    <div className="error-banner" role="alert">
+      <span aria-hidden="true">⚠</span>
+      <span>{message}</span>
+    </div>
+  );
 }
