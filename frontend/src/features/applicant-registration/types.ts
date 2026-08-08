@@ -1,5 +1,5 @@
 export type EligibilityType = "RA1080" | "CSC_PROFESSIONAL" | "CSC_SUBPROFESSIONAL" | "BARANGAY" | "NONE";
-export type DocumentType = "ELIGIBILITY_PROOF" | "IPCR" | "DESIGNATION_ORDER" | "OTHER";
+export type DocumentType = "ELIGIBILITY_PROOF" | "IPCR" | "DESIGNATION_ORDER" | "LD_PROOF" | "OTHER";
 
 export interface WorkExperience {
   id: string;
@@ -29,6 +29,7 @@ export interface ApplicantDocument {
   type: DocumentType;
   fileName: string;
   uploadedAt: string;
+  ldInterventionId: string | null;
 }
 
 export interface ApplicantProfile {

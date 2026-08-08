@@ -5,12 +5,20 @@ export function listMyDocuments(): Promise<ApplicantDocument[]> {
   return apiRequest<ApplicantDocument[]>("/applicants/me/documents");
 }
 
-export function uploadDocument(file: File, type: DocumentType, applicationId?: string): Promise<ApplicantDocument> {
+export function uploadDocument(
+  file: File,
+  type: DocumentType,
+  applicationId?: string,
+  ldInterventionId?: string,
+): Promise<ApplicantDocument> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("type", type);
   if (applicationId) {
     formData.append("applicationId", applicationId);
+  }
+  if (ldInterventionId) {
+    formData.append("ldInterventionId", ldInterventionId);
   }
   return apiRequest<ApplicantDocument>("/applicants/me/documents", {
     method: "POST",

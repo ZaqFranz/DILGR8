@@ -17,8 +17,17 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   ELIGIBILITY_PROOF: "Eligibility Proof",
   IPCR: "IPCR (promotional)",
   DESIGNATION_ORDER: "Designation to Higher Position (promotional)",
+  LD_PROOF: "Learning & Development Proof",
   OTHER: "Other",
 };
+
+// LD_PROOF is uploaded per-entry from the Learning & Development section
+// (tied to a specific LdIntervention via ldInterventionId), not picked from
+// this generic type dropdown - it's still in the label map above so any
+// such document still renders correctly if it shows up in this flat list.
+const SELECTABLE_DOCUMENT_TYPES = (Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).filter(
+  (type) => type !== "LD_PROOF",
+);
 
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -115,9 +124,9 @@ export function DocumentsSection({ items, onChange }: Props) {
             Document type
           </label>
           <select id="doc-type" value={type} onChange={(e) => setType(e.target.value as DocumentType)}>
-            {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
+            {SELECTABLE_DOCUMENT_TYPES.map((value) => (
               <option key={value} value={value}>
-                {label}
+                {DOCUMENT_TYPE_LABELS[value]}
               </option>
             ))}
           </select>

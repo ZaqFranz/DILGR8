@@ -36,6 +36,13 @@ export class DocumentsService {
       }
     }
 
+    if (fields.ldInterventionId) {
+      const ldIntervention = await this.db.ldIntervention.findUnique({ where: { id: fields.ldInterventionId } });
+      if (!ldIntervention || ldIntervention.applicantId !== applicant.id) {
+        throw new NotFoundError("L&D intervention");
+      }
+    }
+
     const input: CreateDocumentInput = {
       applicantId: applicant.id,
       type: fields.type,
@@ -44,6 +51,7 @@ export class DocumentsService {
       mimeType: file.mimetype,
       fileSizeBytes: file.size,
       ...(fields.applicationId ? { applicationId: fields.applicationId } : {}),
+      ...(fields.ldInterventionId ? { ldInterventionId: fields.ldInterventionId } : {}),
     };
 
     return this.documentsRepository.create(input);

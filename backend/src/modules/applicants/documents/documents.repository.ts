@@ -3,6 +3,7 @@ import type { Document, DocumentType, PrismaClient } from "@prisma/client";
 export interface CreateDocumentInput {
   applicantId: string;
   applicationId?: string;
+  ldInterventionId?: string;
   type: DocumentType;
   fileName: string;
   filePath: string;
