@@ -30,4 +30,9 @@ export class ApplicationsController {
     );
     res.status(200).json(application);
   };
+
+  scheduleInterview = async (req: Request, res: Response): Promise<void> => {
+    const application = await this.applicationsService.scheduleInterview(req.params.id as string, req.user!.id);
+    res.status(200).json(application);
+  };
 }

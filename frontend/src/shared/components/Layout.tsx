@@ -38,6 +38,11 @@ export function Layout({ children }: { children: ReactNode }) {
               </NavLink>
             </>
           )}
+          {isAuthenticated && user?.role === "PANEL" && (
+            <NavLink to="/panel/interviews" className={({ isActive }) => (isActive ? "active-link" : "")}>
+              My Interviews
+            </NavLink>
+          )}
           {isAuthenticated ? (
             <>
               <span className="user-email">{user?.email}</span>

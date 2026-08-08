@@ -1,6 +1,13 @@
-export const APPLICATION_STATUSES = ["SUBMITTED", "UNDER_SIFTING", "QUALIFIED", "NOT_QUALIFIED", "WITHDRAWN"] as const;
+export const APPLICATION_STATUSES = [
+  "SUBMITTED",
+  "UNDER_SIFTING",
+  "FOR_INTERVIEW",
+  "QUALIFIED",
+  "NOT_QUALIFIED",
+  "WITHDRAWN",
+] as const;
 export const JOB_POSTING_STATUSES = ["OPEN", "CLOSED"] as const;
-export const USER_ROLES = ["ADMIN", "APPLICANT"] as const;
+export const USER_ROLES = ["ADMIN", "APPLICANT", "PANEL"] as const;
 
 export interface DashboardSummaryDto {
   applicants: {

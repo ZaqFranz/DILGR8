@@ -10,6 +10,7 @@ import type { ApplicationStatus, DashboardSummary } from "../types";
 const APPLICATION_STATUS_META: Record<ApplicationStatus, { label: string; color: string }> = {
   SUBMITTED: { label: "Submitted", color: "var(--color-info)" },
   UNDER_SIFTING: { label: "Under Sifting", color: "var(--color-warning)" },
+  FOR_INTERVIEW: { label: "For Interview", color: "var(--color-accent-hover)" },
   QUALIFIED: { label: "Qualified", color: "var(--color-success)" },
   NOT_QUALIFIED: { label: "Not Qualified", color: "var(--color-danger)" },
   WITHDRAWN: { label: "Withdrawn", color: "var(--color-muted)" },
@@ -17,6 +18,7 @@ const APPLICATION_STATUS_META: Record<ApplicationStatus, { label: string; color:
 const APPLICATION_STATUS_ORDER: ApplicationStatus[] = [
   "SUBMITTED",
   "UNDER_SIFTING",
+  "FOR_INTERVIEW",
   "QUALIFIED",
   "NOT_QUALIFIED",
   "WITHDRAWN",
@@ -156,7 +158,10 @@ export function DashboardPage() {
                 <span className="stat-tile-label">Applications</span>
                 <span className="stat-tile-value">{summary.applications.total}</span>
                 <span className="stat-tile-sub">
-                  {summary.applications.byStatus.SUBMITTED + summary.applications.byStatus.UNDER_SIFTING} awaiting evaluation
+                  {summary.applications.byStatus.SUBMITTED +
+                    summary.applications.byStatus.UNDER_SIFTING +
+                    summary.applications.byStatus.FOR_INTERVIEW}{" "}
+                  awaiting a decision
                 </span>
               </div>
             </div>
@@ -168,7 +173,8 @@ export function DashboardPage() {
                 <span className="stat-tile-label">Users</span>
                 <span className="stat-tile-value">{summary.users.total}</span>
                 <span className="stat-tile-sub">
-                  {summary.users.byRole.ADMIN} admin &middot; {summary.users.byRole.APPLICANT} applicant
+                  {summary.users.byRole.ADMIN} admin &middot; {summary.users.byRole.PANEL} panel &middot;{" "}
+                  {summary.users.byRole.APPLICANT} applicant
                 </span>
               </div>
             </div>

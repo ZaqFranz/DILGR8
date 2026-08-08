@@ -98,4 +98,28 @@ export class ApplicationsService {
 
     return updated;
   }
+
+  async scheduleInterview(applicationId: string, actorUserId: string): Promise<ApplicationWithApplicant> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+    if (application.status !== "SUBMITTED" && application.status !== "UNDER_SIFTING") {
+      throw new ValidationError(
+        `Cannot schedule an interview for an application with status ${application.status}`,
+      );
+    }
+
+    const updated = await this.applicationsRepository.updateStatus(applicationId, "FOR_INTERVIEW");
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_SCHEDULED_INTERVIEW,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Scheduled ${application.applicant.firstName} ${application.applicant.lastName} for interview - "${application.jobPosting.title}"`,
+    });
+
+    return updated;
+  }
 }

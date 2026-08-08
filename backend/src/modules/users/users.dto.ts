@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const roleSchema = z.enum(["APPLICANT", "ADMIN"]);
+const roleSchema = z.enum(["APPLICANT", "ADMIN", "PANEL"]);
 
 export const createUserSchema = z.object({
   email: z.string().email(),

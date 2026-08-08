@@ -2,15 +2,18 @@ import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/shared/auth/AuthContext";
 
+type AppRole = "ADMIN" | "APPLICANT" | "PANEL";
+
 interface Props {
   children: ReactNode;
-  /** Restrict this route to a single role. Omit to allow any authenticated user. */
-  role?: "ADMIN" | "APPLICANT";
+  /** Restrict this route to one role, or any of several. Omit to allow any authenticated user. */
+  role?: AppRole | AppRole[];
 }
 
-const HOME_BY_ROLE: Record<"ADMIN" | "APPLICANT", string> = {
+const HOME_BY_ROLE: Record<AppRole, string> = {
   ADMIN: "/admin/dashboard",
   APPLICANT: "/jobs",
+  PANEL: "/panel/interviews",
 };
 
 export function ProtectedRoute({ children, role }: Props) {
@@ -26,10 +29,12 @@ export function ProtectedRoute({ children, role }: Props) {
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
-  // Admins only post jobs and evaluate applicants; applicants only manage
-  // their own registration/applications - each is bounced to their own
-  // home rather than shown the other role's pages.
-  if (role && user.role !== role) {
+  // Admins only post jobs and evaluate applicants, panel members only score
+  // their assigned interviews, applicants only manage their own
+  // registration/applications - each is bounced to their own home rather
+  // than shown another role's pages.
+  const allowedRoles = role ? (Array.isArray(role) ? role : [role]) : null;
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to={HOME_BY_ROLE[user.role]} replace />;
   }
   // All applicant data must be captured during registration, not doled out

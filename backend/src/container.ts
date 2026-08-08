@@ -32,6 +32,18 @@ import { DashboardRepository } from "@/modules/dashboard/dashboard.repository";
 import { DashboardService } from "@/modules/dashboard/dashboard.service";
 import { DashboardController } from "@/modules/dashboard/dashboard.controller";
 
+import { EvaluationCriteriaRepository } from "@/modules/evaluation-criteria/evaluation-criteria.repository";
+import { EvaluationCriteriaService } from "@/modules/evaluation-criteria/evaluation-criteria.service";
+import { EvaluationCriteriaController } from "@/modules/evaluation-criteria/evaluation-criteria.controller";
+
+import { PanelAssignmentsRepository } from "@/modules/panel-assignments/panel-assignments.repository";
+import { PanelAssignmentsService } from "@/modules/panel-assignments/panel-assignments.service";
+import { PanelAssignmentsController } from "@/modules/panel-assignments/panel-assignments.controller";
+
+import { PanelEvaluationsRepository } from "@/modules/panel-evaluations/panel-evaluations.repository";
+import { PanelEvaluationsService } from "@/modules/panel-evaluations/panel-evaluations.service";
+import { PanelEvaluationsController } from "@/modules/panel-evaluations/panel-evaluations.controller";
+
 /**
  * Composition root: the one place that wires concrete repositories into
  * services into controllers. Every class up the chain takes its
@@ -48,6 +60,9 @@ function buildContainer() {
   const usersRepository = new UsersRepository(prisma);
   const auditLogsRepository = new AuditLogsRepository(prisma);
   const dashboardRepository = new DashboardRepository(prisma);
+  const evaluationCriteriaRepository = new EvaluationCriteriaRepository(prisma);
+  const panelAssignmentsRepository = new PanelAssignmentsRepository(prisma);
+  const panelEvaluationsRepository = new PanelEvaluationsRepository(prisma);
 
   const authService = new AuthService(authRepository);
   const applicantsService = new ApplicantsService(applicantsRepository, documentsRepository);
@@ -63,6 +78,19 @@ function buildContainer() {
   const usersService = new UsersService(usersRepository, auditLogsRepository);
   const auditLogsService = new AuditLogsService(auditLogsRepository);
   const dashboardService = new DashboardService(dashboardRepository, auditLogsRepository);
+  const evaluationCriteriaService = new EvaluationCriteriaService(evaluationCriteriaRepository, auditLogsRepository);
+  const panelAssignmentsService = new PanelAssignmentsService(
+    panelAssignmentsRepository,
+    jobPostingsRepository,
+    usersRepository,
+    auditLogsRepository,
+  );
+  const panelEvaluationsService = new PanelEvaluationsService(
+    panelEvaluationsRepository,
+    panelAssignmentsRepository,
+    evaluationCriteriaRepository,
+    auditLogsRepository,
+  );
 
   return {
     authController: new AuthController(authService),
@@ -73,6 +101,9 @@ function buildContainer() {
     usersController: new UsersController(usersService),
     auditLogsController: new AuditLogsController(auditLogsService),
     dashboardController: new DashboardController(dashboardService),
+    evaluationCriteriaController: new EvaluationCriteriaController(evaluationCriteriaService),
+    panelAssignmentsController: new PanelAssignmentsController(panelAssignmentsService),
+    panelEvaluationsController: new PanelEvaluationsController(panelEvaluationsService),
   };
 }
 

@@ -9,3 +9,7 @@ export function listApplicationsForAdmin(jobPostingId?: string): Promise<AdminAp
 export function evaluateApplication(id: string, input: EvaluateApplicationInput): Promise<AdminApplication> {
   return apiRequest<AdminApplication>(`/applications/${id}/evaluate`, { method: "PATCH", body: input });
 }
+
+export function scheduleInterview(id: string): Promise<AdminApplication> {
+  return apiRequest<AdminApplication>(`/applications/${id}/schedule-interview`, { method: "PATCH" });
+}

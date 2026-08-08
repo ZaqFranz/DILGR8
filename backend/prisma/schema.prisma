@@ -15,6 +15,7 @@ datasource db {
 enum Role {
   APPLICANT
   ADMIN
+  PANEL
 }
 
 enum PositionLevel {
@@ -45,6 +46,7 @@ enum JobPostingStatus {
 enum ApplicationStatus {
   SUBMITTED
   UNDER_SIFTING
+  FOR_INTERVIEW
   QUALIFIED
   NOT_QUALIFIED
   WITHDRAWN
@@ -58,10 +60,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  applicant       Applicant?
-  jobPostingsMade JobPosting[]
-  evaluationsMade Application[]
-  auditLogEntries AuditLog[]
+  applicant        Applicant?
+  jobPostingsMade  JobPosting[]
+  evaluationsMade  Application[]
+  auditLogEntries  AuditLog[]
+  panelAssignments PanelAssignment[]
+  panelEvaluations PanelEvaluation[]
 
   @@map("users")
 }
@@ -197,8 +201,9 @@ model JobPosting {
   // blocked by, or cascade into deleting, the postings they made.
   createdByUserId String?
 
-  createdBy    User?         @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  applications Application[]
+  createdBy        User?             @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  applications     Application[]
+  panelAssignments PanelAssignment[]
 
   @@index([status])
   @@map("job_postings")
@@ -222,14 +227,87 @@ model Application {
   evaluatedAt       DateTime?
   evaluatedByUserId String?
 
-  applicant   Applicant  @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  jobPosting  JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
-  evaluatedBy User?      @relation(fields: [evaluatedByUserId], references: [id])
-  documents   Document[]
+  applicant        Applicant         @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  jobPosting       JobPosting        @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  evaluatedBy      User?             @relation(fields: [evaluatedByUserId], references: [id])
+  documents        Document[]
+  panelEvaluations PanelEvaluation[]
 
   @@unique([applicantId, jobPostingId])
   @@index([jobPostingId])
   @@map("applications")
+}
+
+/// Admin-managed interview rubric (spec: "Administrator can edit/update
+/// evaluation forms"). maxScore doubles as the criterion's weight - a
+/// panelist's total for one application is the sum of their per-criterion
+/// scores. isActive lets a criterion be retired without breaking historical
+/// PanelScore rows (see the delete guard in EvaluationCriteriaService).
+model EvaluationCriterion {
+  id        String   @id @default(uuid())
+  name      String
+  maxScore  Int
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  scores PanelScore[]
+
+  @@map("evaluation_criteria")
+}
+
+/// Which PANEL users sit on which job posting's interview board. Pure
+/// assignment metadata - deleting the posting or the panel user just drops
+/// the assignment, not blocked (unlike the audit-relevant rows below).
+model PanelAssignment {
+  id           String   @id @default(uuid())
+  jobPostingId String
+  panelUserId  String
+  assignedAt   DateTime @default(now())
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  panelUser  User       @relation(fields: [panelUserId], references: [id], onDelete: Cascade)
+
+  @@unique([jobPostingId, panelUserId])
+  @@map("panel_assignments")
+}
+
+/// One panelist's evaluation of one application - header row (remarks +
+/// timestamps); per-criterion scores live in PanelScore. Upserted by
+/// PanelEvaluationsService.submit() the same way ApplicationsService.evaluate()
+/// overwrites a prior single-admin evaluation.
+model PanelEvaluation {
+  id            String   @id @default(uuid())
+  applicationId String
+  panelUserId   String
+  remarks       String?  @db.Text
+  submittedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  application Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  panelUser   User         @relation(fields: [panelUserId], references: [id], onDelete: Cascade)
+  scores      PanelScore[]
+
+  @@unique([applicationId, panelUserId])
+  @@map("panel_evaluations")
+}
+
+/// One criterion's score within a PanelEvaluation. criterionId has no
+/// onDelete override (defaults to Restrict) - EvaluationCriteriaService
+/// blocks deleting a criterion that already has scores, directing the admin
+/// to deactivate it instead (see EvaluationCriterion.isActive).
+model PanelScore {
+  id                String @id @default(uuid())
+  panelEvaluationId String
+  criterionId       String
+  score             Int
+
+  panelEvaluation PanelEvaluation     @relation(fields: [panelEvaluationId], references: [id], onDelete: Cascade)
+  criterion       EvaluationCriterion @relation(fields: [criterionId], references: [id])
+
+  @@unique([panelEvaluationId, criterionId])
+  @@map("panel_scores")
 }
 
 /// Append-only record of admin write actions (user/job-posting CRUD,

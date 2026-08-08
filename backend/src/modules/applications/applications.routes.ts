@@ -25,6 +25,12 @@ export function createApplicationsRouter(controller: ApplicationsController): Ro
     validate({ params: idParamSchema, body: evaluateApplicationSchema }),
     asyncHandler(controller.evaluate),
   );
+  router.patch(
+    "/:id/schedule-interview",
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema }),
+    asyncHandler(controller.scheduleInterview),
+  );
 
   return router;
 }

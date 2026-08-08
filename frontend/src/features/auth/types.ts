@@ -1,7 +1,7 @@
 export interface AuthUser {
   id: string;
   email: string;
-  role: "APPLICANT" | "ADMIN";
+  role: "APPLICANT" | "ADMIN" | "PANEL";
 }
 
 export interface AuthResponse {

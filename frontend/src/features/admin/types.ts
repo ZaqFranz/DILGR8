@@ -1,6 +1,12 @@
 import type { JobPosting } from "@/features/job-postings/types";
 
-export type ApplicationStatus = "SUBMITTED" | "UNDER_SIFTING" | "QUALIFIED" | "NOT_QUALIFIED" | "WITHDRAWN";
+export type ApplicationStatus =
+  | "SUBMITTED"
+  | "UNDER_SIFTING"
+  | "FOR_INTERVIEW"
+  | "QUALIFIED"
+  | "NOT_QUALIFIED"
+  | "WITHDRAWN";
 export type EvaluationDecision = "QUALIFIED" | "NOT_QUALIFIED";
 
 export interface AdminApplication {
@@ -25,7 +31,7 @@ export interface EvaluateApplicationInput {
   remarks?: string;
 }
 
-export type UserRole = "ADMIN" | "APPLICANT";
+export type UserRole = "ADMIN" | "APPLICANT" | "PANEL";
 
 export interface AdminUser {
   id: string;
@@ -54,6 +60,81 @@ export interface AuditLogEntry {
   details: string | null;
   createdAt: string;
   actor: { email: string } | null;
+}
+
+export interface EvaluationCriterion {
+  id: string;
+  name: string;
+  maxScore: number;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEvaluationCriterionInput {
+  name: string;
+  maxScore: number;
+  sortOrder?: number;
+}
+
+export interface UpdateEvaluationCriterionInput {
+  name?: string;
+  maxScore?: number;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface PanelAssignment {
+  id: string;
+  jobPostingId: string;
+  panelUserId: string;
+  assignedAt: string;
+  panelUser: { id: string; email: string };
+}
+
+export interface PanelScore {
+  criterionId: string;
+  score: number;
+}
+
+export interface PanelEvaluation {
+  id: string;
+  applicationId: string;
+  panelUserId: string;
+  remarks: string | null;
+  submittedAt: string;
+  updatedAt: string;
+  scores: PanelScore[];
+}
+
+export interface InterviewQueueApplication {
+  id: string;
+  status: ApplicationStatus;
+  submittedAt: string;
+  jobPosting: { id: string; title: string };
+  applicant: { firstName: string; lastName: string };
+  panelEvaluations: PanelEvaluation[];
+}
+
+export interface SubmitPanelEvaluationInput {
+  remarks?: string;
+  scores: { criterionId: string; score: number }[];
+}
+
+export interface TabulationRow {
+  applicationId: string;
+  applicantName: string;
+  perPanelist: Record<string, number | null>;
+  average: number | null;
+  rank: number | null;
+  panelistsSubmitted: number;
+  panelistsAssigned: number;
+}
+
+export interface TabulationResult {
+  panelists: { id: string; email: string }[];
+  rows: TabulationRow[];
 }
 
 export interface DashboardSummary {

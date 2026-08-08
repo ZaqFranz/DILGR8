@@ -11,6 +11,15 @@ import { JobManagementPage } from "@/features/admin/pages/JobManagementPage";
 import { UsersManagementPage } from "@/features/admin/pages/UsersManagementPage";
 import { EvaluateApplicantsPage } from "@/features/admin/pages/EvaluateApplicantsPage";
 import { AuditLogsPage } from "@/features/admin/pages/AuditLogsPage";
+import { EvaluationCriteriaPage } from "@/features/admin/pages/EvaluationCriteriaPage";
+import { PanelAssignmentsPage } from "@/features/admin/pages/PanelAssignmentsPage";
+import { MyInterviewsPage } from "@/features/panel/pages/MyInterviewsPage";
+
+const HOME_BY_ROLE: Record<"ADMIN" | "APPLICANT" | "PANEL", string> = {
+  ADMIN: "/admin/dashboard",
+  APPLICANT: "/jobs",
+  PANEL: "/panel/interviews",
+};
 
 function HomeRedirect() {
   const { isAuthenticated, isLoading, user, registrationComplete } = useAuth();
@@ -19,7 +28,7 @@ function HomeRedirect() {
   if (user.role === "APPLICANT" && registrationComplete === false) {
     return <Navigate to="/register" replace />;
   }
-  return <Navigate to={user.role === "ADMIN" ? "/admin/dashboard" : "/jobs"} replace />;
+  return <Navigate to={HOME_BY_ROLE[user.role]} replace />;
 }
 
 export default function App() {
@@ -90,6 +99,32 @@ export default function App() {
           element={
             <ProtectedRoute role="ADMIN">
               <AuditLogsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/panel-interviews"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <PanelAssignmentsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/criteria"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <EvaluationCriteriaPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Panel-only */}
+        <Route
+          path="/panel/interviews"
+          element={
+            <ProtectedRoute role="PANEL">
+              <MyInterviewsPage />
             </ProtectedRoute>
           }
         />

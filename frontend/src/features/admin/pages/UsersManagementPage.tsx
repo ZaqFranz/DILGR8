@@ -212,6 +212,7 @@ export function UsersManagementPage() {
             <label htmlFor="role">Role</label>
             <select id="role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}>
               <option value="APPLICANT">Applicant</option>
+              <option value="PANEL">Panel</option>
               <option value="ADMIN">Admin</option>
             </select>
           </div>

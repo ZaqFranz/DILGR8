@@ -1,3 +1,4 @@
+import type { Role } from "@prisma/client";
 import { z } from "zod";
 
 export const registerSchema = z.object({
@@ -17,6 +18,6 @@ export interface AuthResponseDto {
   user: {
     id: string;
     email: string;
-    role: "APPLICANT" | "ADMIN";
+    role: Role;
   };
 }

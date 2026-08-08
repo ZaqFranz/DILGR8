@@ -10,17 +10,20 @@ User (1) ── (1) Applicant (1) ── (N) WorkExperience
    │                      │  ── (N) Award
    │                      │  ── (N) Document
    │                      │  ── (N) Application ── (1) JobPosting
-   │                      │                     └── (N) Document (IPCR/DesignationOrder, applicationId set)
+   │                      │                     ├── (N) Document (IPCR/DesignationOrder, applicationId set)
+   │                      │                     └── (N) PanelEvaluation ── (N) PanelScore ── (1) EvaluationCriterion
    │
    ├── (N) JobPosting (createdBy, nullable)
    ├── (N) Application (evaluatedBy, nullable)
-   └── (N) AuditLog (actor, nullable)
+   ├── (N) AuditLog (actor, nullable)
+   ├── (N) PanelAssignment (panelUser) ── (1) JobPosting
+   └── (N) PanelEvaluation (panelUser)
 ```
 
 ## Tables
 
 ### `users`
-Auth identity. `role` is `APPLICANT` (default) or `ADMIN`. Password stored as a bcrypt hash, never plaintext. Full CRUD via `/api/users` (ADMIN only) — see [api.md](./api.md); a user can't delete their own account.
+Auth identity. `role` is `APPLICANT` (default), `ADMIN`, or `PANEL` (interview board members - see the `panel_assignments`/`panel_evaluations` tables below). Password stored as a bcrypt hash, never plaintext. Full CRUD via `/api/users` (ADMIN only) — see [api.md](./api.md); a user can't delete their own account.
 
 ### `applicants`
 One row per registered applicant, created once via `POST /api/applicants/me`. Holds the demographic profile plus the eligibility flag (`hasEligibility`, `eligibilityType`, `eligibilityValidated`).
@@ -40,12 +43,21 @@ A vacancy. `positionLevel` is `ENTRY` or `PROMOTIONAL`. `closingAt` is computed 
 `createdByUserId` is nullable with `onDelete: SetNull` (not the required/Restrict Prisma would default to) specifically so deleting the admin who posted a job doesn't get blocked by, or cascade into deleting, the posting — see [decisions.md](./decisions.md). Deleting a posting itself is blocked (409) while it has any applications, to avoid silently wiping out submitted applications via cascade; close it instead.
 
 ### `applications`
-Join between `applicants` and `job_postings`, unique on `(applicantId, jobPostingId)` — an applicant may apply to several postings but only once each. `status` defaults to `SUBMITTED`. `UNDER_SIFTING` is unused (sifting isn't implemented yet); `QUALIFIED`/`NOT_QUALIFIED` are set by the admin evaluation flow (`PATCH /api/applications/:id/evaluate`), which also stamps `evaluationScore` (0-100), `evaluationRemarks`, `evaluatedAt`, and `evaluatedByUserId` (→ `users.id`). `WITHDRAWN` exists in the enum but nothing sets it yet — there's no applicant-facing withdraw action.
+Join between `applicants` and `job_postings`, unique on `(applicantId, jobPostingId)` — an applicant may apply to several postings but only once each. `status` defaults to `SUBMITTED`. `UNDER_SIFTING` is unused (sifting isn't implemented yet). `FOR_INTERVIEW` is set by `PATCH /api/applications/:id/schedule-interview` (admin) and is what makes an application visible to assigned panelists' interview queue. `QUALIFIED`/`NOT_QUALIFIED` are set by the admin evaluation flow (`PATCH /api/applications/:id/evaluate`), which also stamps `evaluationScore` (0-100), `evaluationRemarks`, `evaluatedAt`, and `evaluatedByUserId` (→ `users.id`) — this can be called regardless of current status, including on a `FOR_INTERVIEW` application with incomplete panel scores; nothing at this layer blocks it (see [decisions.md](./decisions.md)). `WITHDRAWN` exists in the enum but nothing sets it yet — there's no applicant-facing withdraw action.
 
-This is a deliberately simplified stand-in for the domain spec's full Evaluation phase (13-member board, per-battery-test forms, mandatory-field + score-threshold validation feeding into CompAss). What's implemented covers only the last part — a single score/decision/remarks recorded by whichever admin evaluates the application — as a first cut; see [decisions.md](./decisions.md) for the scope call and [project-memory.md](./project-memory.md) for what's still future work.
+`evaluationScore`/`evaluationRemarks` remain the admin's own single final score+decision, separate from the panel's per-criterion scoring below — the panel average is display-only context (via `GET /panel-evaluations/tabulation/:jobPostingId`), never written back onto `Application`.
+
+### `evaluation_criteria`
+The admin-editable interview rubric (domain spec: "administrator can edit/update evaluation forms"). Each row is one scoring criterion: `name`, `maxScore` (doubles as its weight — a panelist's total per application is the sum of their per-criterion scores), `sortOrder`, `isActive`. `isActive: false` retires a criterion without deleting it; `DELETE` is blocked (409) once any `panel_scores` row references it, the same shape as the `job_postings` delete-guard.
+
+### `panel_assignments`
+Which `PANEL` users sit on which job posting's interview board, unique on `(jobPostingId, panelUserId)`. Pure assignment metadata — both FKs `onDelete: Cascade`, since dropping the assignment when a posting or panel user is deleted has no data-loss implications (unlike `job_postings.createdByUserId`, there's nothing else referencing the assignment row). Determines both what a panelist can see (`GET /panel-evaluations/my-queue`) and score (`PATCH /panel-evaluations/:applicationId` 403s if not assigned).
+
+### `panel_evaluations` / `panel_scores`
+One panelist's scoring of one application. `panel_evaluations` is the header row (`applicationId`, `panelUserId` — unique together, `remarks`, timestamps); `panel_scores` holds the per-criterion values (`panelEvaluationId`, `criterionId` — unique together, `score`), cascade-deleted with the evaluation. Re-submitting a panelist's scores for the same application upserts the header and replaces every score row in one transaction (`PanelEvaluationsRepository.upsertEvaluation`), mirroring how `applications.evaluate` overwrites a prior admin evaluation rather than versioning it. `GET /panel-evaluations/tabulation/:jobPostingId` sums and averages these at read time (application code, not SQL) into the CompAss ranked matrix — see [architecture.md § Interview panel & CompAss tabulation](./architecture.md#interview-panel--compass-tabulation).
 
 ### `audit_logs`
-Append-only history of admin write actions: `USER_CREATED/UPDATED/DELETED`, `JOB_POSTING_CREATED/UPDATED/DELETED`, `APPLICATION_EVALUATED`. `action` and `entityType` are plain strings, not DB enums, so new action types don't need a migration (see `backend/src/modules/audit-logs/audit-actions.ts` for the known set). `actorUserId` is nullable with `onDelete: SetNull` — deleting a user preserves the log entries they created, just with the actor link severed rather than the rows disappearing. There is deliberately no `PATCH`/`DELETE` on `/api/audit-logs` — see [decisions.md](./decisions.md).
+Append-only history of admin/panel write actions: `USER_CREATED/UPDATED/DELETED`, `JOB_POSTING_CREATED/UPDATED/DELETED`, `APPLICATION_EVALUATED`, `APPLICATION_SCHEDULED_INTERVIEW`, `CRITERION_CREATED/UPDATED/DELETED`, `PANEL_ASSIGNED/UNASSIGNED`, `PANEL_EVALUATION_SUBMITTED`. `action` and `entityType` are plain strings, not DB enums, so new action types don't need a migration (see `backend/src/modules/audit-logs/audit-actions.ts` for the known set). `actorUserId` is nullable with `onDelete: SetNull` — deleting a user preserves the log entries they created, just with the actor link severed rather than the rows disappearing. There is deliberately no `PATCH`/`DELETE` on `/api/audit-logs` — see [decisions.md](./decisions.md).
 
 ## Conventions
 

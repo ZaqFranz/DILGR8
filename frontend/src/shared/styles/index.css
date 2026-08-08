@@ -295,6 +295,28 @@ textarea::placeholder {
   font-size: 0.8rem;
 }
 
+.field-warning {
+  margin: 0.4rem 0 0;
+  color: var(--color-warning);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.card-inset {
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel-score-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
 /* ---------- Buttons ---------- */
 
 button {
@@ -438,6 +460,11 @@ button.secondary:disabled:hover {
 .badge.pending {
   background: var(--color-warning-bg);
   color: var(--color-warning);
+}
+
+.badge.for_interview {
+  background: #fdf3d0;
+  color: var(--color-accent-hover);
 }
 
 .badge.withdrawn {

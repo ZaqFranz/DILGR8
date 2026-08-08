@@ -5,15 +5,20 @@ import { FieldError } from "@/shared/components/FieldError";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
-import { evaluateApplication } from "../api/adminApplicationsApi";
-import type { AdminApplication, EvaluationDecision } from "../types";
+import { evaluateApplication, scheduleInterview } from "../api/adminApplicationsApi";
+import type { AdminApplication, EvaluationDecision, TabulationRow } from "../types";
 
 interface Props {
   application: AdminApplication;
   onEvaluated: (updated: AdminApplication) => void;
+  onScheduled: (updated: AdminApplication) => void;
+  tabulation: TabulationRow | null;
+  panelists: { id: string; email: string }[];
 }
 
-export function EvaluationRow({ application, onEvaluated }: Props) {
+const SCHEDULABLE_STATUSES = new Set(["SUBMITTED", "UNDER_SIFTING"]);
+
+export function EvaluationRow({ application, onEvaluated, onScheduled, tabulation, panelists }: Props) {
   const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [score, setScore] = useState(application.evaluationScore?.toString() ?? "");
@@ -24,6 +29,7 @@ export function EvaluationRow({ application, onEvaluated }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -61,6 +67,22 @@ export function EvaluationRow({ application, onEvaluated }: Props) {
     }
   }
 
+  async function handleScheduleInterview() {
+    setError(null);
+    setScheduling(true);
+    try {
+      const updated = await scheduleInterview(application.id);
+      onScheduled(updated);
+      toast.success(`${application.applicant.firstName} ${application.applicant.lastName} was scheduled for interview.`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to schedule interview");
+    } finally {
+      setScheduling(false);
+    }
+  }
+
+  const incompleteScoring = tabulation !== null && tabulation.panelistsSubmitted < tabulation.panelistsAssigned;
+
   return (
     <>
       <tr>
@@ -73,16 +95,45 @@ export function EvaluationRow({ application, onEvaluated }: Props) {
           <span className={`badge ${application.status.toLowerCase()}`}>{application.status}</span>
         </td>
         <td>{application.evaluationScore ?? "-"}</td>
+        <td>{tabulation?.average !== undefined && tabulation.average !== null ? tabulation.average.toFixed(1) : "-"}</td>
+        <td>{tabulation?.rank ?? "-"}</td>
         <td>
-          <button type="button" className="secondary" onClick={() => setExpanded((prev) => !prev)}>
-            {expanded ? "Cancel" : application.evaluatedAt ? "Re-evaluate" : "Evaluate"}
-          </button>
+          <div className="data-table-actions">
+            {SCHEDULABLE_STATUSES.has(application.status) && (
+              <button type="button" className="secondary" disabled={scheduling} onClick={handleScheduleInterview}>
+                {scheduling ? "Scheduling..." : "Schedule Interview"}
+              </button>
+            )}
+            <button type="button" className="secondary" onClick={() => setExpanded((prev) => !prev)}>
+              {expanded ? "Cancel" : application.evaluatedAt ? "Re-evaluate" : "Evaluate"}
+            </button>
+          </div>
         </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6}>
+          <td colSpan={8}>
             <ErrorBanner message={error} />
+            {tabulation && tabulation.panelistsAssigned > 0 && (
+              <div className="card-inset">
+                <p className="field-hint">
+                  Panel scores ({tabulation.panelistsSubmitted}/{tabulation.panelistsAssigned} submitted):
+                </p>
+                <ul className="panel-score-list">
+                  {panelists.map((panelist) => (
+                    <li key={panelist.id}>
+                      {panelist.email}: {tabulation.perPanelist[panelist.id] ?? "not yet scored"}
+                    </li>
+                  ))}
+                </ul>
+                {incompleteScoring && (
+                  <p className="field-warning">
+                    {tabulation.panelistsAssigned - tabulation.panelistsSubmitted} of {tabulation.panelistsAssigned}{" "}
+                    panelist(s) haven&apos;t submitted scores yet.
+                  </p>
+                )}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="field-grid" noValidate>
               <div className={fieldErrors.score ? "field has-error" : "field"}>
                 <label htmlFor={`score-${application.id}`} className="required">

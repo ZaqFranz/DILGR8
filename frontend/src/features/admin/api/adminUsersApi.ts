@@ -1,8 +1,12 @@
 import { apiRequest } from "@/shared/api/apiClient";
-import type { AdminUser, CreateUserInput, UpdateUserInput } from "../types";
+import type { AdminUser, CreateUserInput, UpdateUserInput, UserRole } from "../types";
 
-export function listUsers(): Promise<AdminUser[]> {
-  return apiRequest<AdminUser[]>("/users");
+export function listUsers(filters?: { role?: UserRole; search?: string }): Promise<AdminUser[]> {
+  const params = new URLSearchParams();
+  if (filters?.role) params.set("role", filters.role);
+  if (filters?.search) params.set("search", filters.search);
+  const query = params.toString();
+  return apiRequest<AdminUser[]>(`/users${query ? `?${query}` : ""}`);
 }
 
 export function createUser(input: CreateUserInput): Promise<AdminUser> {

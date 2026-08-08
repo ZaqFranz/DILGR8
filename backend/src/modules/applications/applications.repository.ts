@@ -84,4 +84,12 @@ export class ApplicationsRepository {
       include: applicationWithApplicantInclude,
     }) as Promise<ApplicationWithApplicant>;
   }
+
+  updateStatus(id: string, status: ApplicationStatus): Promise<ApplicationWithApplicant> {
+    return this.db.application.update({
+      where: { id },
+      data: { status },
+      include: applicationWithApplicantInclude,
+    }) as Promise<ApplicationWithApplicant>;
+  }
 }

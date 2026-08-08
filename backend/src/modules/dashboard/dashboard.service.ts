@@ -51,7 +51,7 @@ export class DashboardService {
     return {
       applicants: { total: applicantsTotal, registrationComplete: applicantsComplete },
       users: {
-        total: byRole.ADMIN + byRole.APPLICANT,
+        total: Object.values(byRole).reduce((sum, n) => sum + n, 0),
         byRole,
       },
       jobPostings: {

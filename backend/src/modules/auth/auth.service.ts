@@ -1,3 +1,4 @@
+import type { Role } from "@prisma/client";
 import { ConflictError, UnauthorizedError } from "@/shared/errors/AppError";
 import { hashPassword, verifyPassword } from "@/shared/utils/password";
 import { signAccessToken } from "@/shared/utils/jwt";
@@ -33,7 +34,7 @@ export class AuthService {
     return this.buildAuthResponse(user.id, user.email, user.role);
   }
 
-  private buildAuthResponse(id: string, email: string, role: "APPLICANT" | "ADMIN"): AuthResponseDto {
+  private buildAuthResponse(id: string, email: string, role: Role): AuthResponseDto {
     const accessToken = signAccessToken({ sub: id, email, role });
     return { accessToken, user: { id, email, role } };
   }
