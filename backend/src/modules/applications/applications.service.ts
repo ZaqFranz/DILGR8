@@ -5,8 +5,57 @@ import type { JobPostingsRepository } from "@/modules/job-postings/job-postings.
 import { JobPostingsService } from "@/modules/job-postings/job-postings.service";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
+import type { EmailService } from "@/shared/email/emailService";
+import {
+  decisionEmail,
+  examScoreEmail,
+  forInterviewEmail,
+  submittedEmail,
+} from "@/shared/email/applicationEmailTemplates";
 import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
-import type { EvaluateApplicationDto } from "./applications.dto";
+import type { ScheduleInterviewDto, SiftApplicationDto } from "./applications.dto";
+import { parseExamScoreWorkbook } from "./examScoreParser";
+
+function normalizeName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[.,]/g, "") // "R." vs "R" shouldn't be a mismatch
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// PQE score sheets are hand-written outside the system and commonly include
+// the middle name/initial and/or suffix even though the rest of the app
+// only ever displays "firstName lastName" - so a plain firstName+lastName
+// key would silently fail to match e.g. "Gibo R. Ormeneta" against an
+// applicant on file as firstName "Gibo", middleName "R.", lastName
+// "Ormeneta". Generate every name form a spreadsheet realistically uses and
+// index all of them to the same application.
+function buildNameVariants(applicant: {
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  suffix: string | null;
+}): string[] {
+  const { firstName, middleName, lastName, suffix } = applicant;
+  const middleInitial = middleName ? `${middleName.trim().charAt(0)}.` : null;
+
+  const baseNames = [
+    `${firstName} ${lastName}`,
+    middleName ? `${firstName} ${middleName} ${lastName}` : null,
+    middleInitial ? `${firstName} ${middleInitial} ${lastName}` : null,
+  ].filter((name): name is string => name !== null);
+
+  const withSuffix = suffix ? baseNames.map((name) => `${name} ${suffix}`) : [];
+
+  return [...baseNames, ...withSuffix].map(normalizeName);
+}
+
+export interface ExamScoreImportResult {
+  matched: { applicationId: string; applicantName: string; score: number }[];
+  unmatched: { name: string; score: number }[];
+}
 
 export class ApplicationsService {
   constructor(
@@ -15,9 +64,10 @@ export class ApplicationsService {
     private readonly jobPostingsRepository: JobPostingsRepository,
     private readonly documentsRepository: DocumentsRepository,
     private readonly auditLogsRepository: AuditLogsRepository,
+    private readonly emailService: EmailService,
   ) {}
 
-  async submit(userId: string, jobPostingId: string): Promise<ApplicationWithPosting> {
+  async submit(userId: string, jobPostingId: string, applicantEmail: string): Promise<ApplicationWithPosting> {
     const applicant = await this.applicantsRepository.findByUserId(userId);
     if (!applicant) {
       throw new NotFoundError("Applicant profile");
@@ -56,7 +106,12 @@ export class ApplicationsService {
       }
     }
 
-    return this.applicationsRepository.create(applicant.id, jobPostingId);
+    const created = await this.applicationsRepository.create(applicant.id, jobPostingId);
+
+    const { subject, html } = submittedEmail(`${applicant.firstName} ${applicant.lastName}`, posting.title);
+    await this.emailService.send({ to: applicantEmail, subject, html });
+
+    return created;
   }
 
   async listMine(userId: string): Promise<ApplicationWithPosting[]> {
@@ -71,54 +126,143 @@ export class ApplicationsService {
     return this.applicationsRepository.findMany(jobPostingId);
   }
 
-  async evaluate(
+  async sift(
     applicationId: string,
-    evaluatorUserId: string,
-    dto: EvaluateApplicationDto,
+    actorUserId: string,
+    dto: SiftApplicationDto,
   ): Promise<ApplicationWithApplicant> {
     const application = await this.applicationsRepository.findById(applicationId);
     if (!application) {
       throw new NotFoundError("Application");
     }
+    if (application.status !== "UNDER_SIFTING") {
+      throw new ValidationError(`Cannot record a sifting decision for an application with status ${application.status}`);
+    }
 
-    const updated = await this.applicationsRepository.evaluate(applicationId, {
-      score: dto.score,
+    const updated = await this.applicationsRepository.sift(applicationId, {
       status: dto.decision,
-      evaluatedByUserId: evaluatorUserId,
+      siftedByUserId: actorUserId,
       ...(dto.remarks ? { remarks: dto.remarks } : {}),
     });
 
     await this.auditLogsRepository.record({
-      actorUserId: evaluatorUserId,
-      action: AuditAction.APPLICATION_EVALUATED,
+      actorUserId,
+      action: AuditAction.APPLICATION_SIFTED,
       entityType: AuditEntityType.APPLICATION,
       entityId: applicationId,
-      details: `Scored ${application.applicant.firstName} ${application.applicant.lastName} for "${application.jobPosting.title}": ${dto.score}/100, ${dto.decision}`,
+      details: `Sifted ${application.applicant.firstName} ${application.applicant.lastName} for "${application.jobPosting.title}": ${dto.decision}`,
     });
+
+    const { subject, html } = decisionEmail(
+      `${application.applicant.firstName} ${application.applicant.lastName}`,
+      application.jobPosting.title,
+      dto.decision,
+    );
+    await this.emailService.send({ to: application.applicant.user.email, subject, html });
 
     return updated;
   }
 
-  async scheduleInterview(applicationId: string, actorUserId: string): Promise<ApplicationWithApplicant> {
+  async importExaminationScores(
+    jobPostingId: string,
+    actorUserId: string,
+    fileBuffer: Buffer,
+  ): Promise<ExamScoreImportResult> {
+    const rows = await parseExamScoreWorkbook(fileBuffer);
+
+    const applications = await this.applicationsRepository.findMany(jobPostingId);
+    const qualified = applications.filter((application) => application.status === "QUALIFIED");
+    const byNormalizedName = new Map<string, (typeof qualified)[number]>();
+    for (const application of qualified) {
+      for (const variant of buildNameVariants(application.applicant)) {
+        byNormalizedName.set(variant, application);
+      }
+    }
+
+    const matched: ExamScoreImportResult["matched"] = [];
+    const unmatched: ExamScoreImportResult["unmatched"] = [];
+
+    for (const row of rows) {
+      const application = byNormalizedName.get(normalizeName(row.name));
+      if (!application) {
+        unmatched.push({ name: row.name, score: row.score });
+        continue;
+      }
+      matched.push({
+        applicationId: application.id,
+        applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
+        score: row.score,
+      });
+    }
+
+    await this.applicationsRepository.bulkSetExaminationScores(
+      matched.map((m) => ({ applicationId: m.applicationId, score: m.score })),
+    );
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_EXAM_SCORES_IMPORTED,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: jobPostingId,
+      details: `Imported PQE scores for job posting ${jobPostingId}: ${matched.length} matched, ${unmatched.length} unmatched`,
+    });
+
+    for (const application of qualified) {
+      const match = matched.find((m) => m.applicationId === application.id);
+      if (!match) continue;
+      const { subject, html } = examScoreEmail(
+        `${application.applicant.firstName} ${application.applicant.lastName}`,
+        application.jobPosting.title,
+        match.score,
+      );
+      await this.emailService.send({ to: application.applicant.user.email, subject, html });
+    }
+
+    return { matched, unmatched };
+  }
+
+  async scheduleInterview(
+    applicationId: string,
+    actorUserId: string,
+    dto: ScheduleInterviewDto,
+  ): Promise<ApplicationWithApplicant> {
     const application = await this.applicationsRepository.findById(applicationId);
     if (!application) {
       throw new NotFoundError("Application");
     }
-    if (application.status !== "SUBMITTED" && application.status !== "UNDER_SIFTING") {
+    if (application.status !== "QUALIFIED" || application.examinationScore === null) {
       throw new ValidationError(
-        `Cannot schedule an interview for an application with status ${application.status}`,
+        "Cannot schedule an interview until the applicant has passed sifting and has a recorded PQE score",
       );
     }
+    if (dto.scheduledAt.getTime() <= Date.now()) {
+      throw new ValidationError("Interview date/time must be in the future");
+    }
 
-    const updated = await this.applicationsRepository.updateStatus(applicationId, "FOR_INTERVIEW");
+    const updated = await this.applicationsRepository.scheduleInterview(applicationId, {
+      scheduledAt: dto.scheduledAt,
+      venue: dto.venue,
+      ...(dto.attire ? { attire: dto.attire } : {}),
+      ...(dto.notes ? { notes: dto.notes } : {}),
+    });
 
     await this.auditLogsRepository.record({
       actorUserId,
       action: AuditAction.APPLICATION_SCHEDULED_INTERVIEW,
       entityType: AuditEntityType.APPLICATION,
       entityId: applicationId,
-      details: `Scheduled ${application.applicant.firstName} ${application.applicant.lastName} for interview - "${application.jobPosting.title}"`,
+      details: `Scheduled ${application.applicant.firstName} ${application.applicant.lastName} for interview - "${application.jobPosting.title}" on ${dto.scheduledAt.toISOString()} at ${dto.venue}`,
     });
+
+    const { subject, html } = forInterviewEmail(
+      `${application.applicant.firstName} ${application.applicant.lastName}`,
+      application.jobPosting.title,
+      dto.scheduledAt,
+      dto.venue,
+      dto.attire,
+      dto.notes,
+    );
+    await this.emailService.send({ to: application.applicant.user.email, subject, html });
 
     return updated;
   }

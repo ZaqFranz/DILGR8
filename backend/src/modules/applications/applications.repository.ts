@@ -25,11 +25,22 @@ export type ApplicationWithApplicant = Application & {
   };
 };
 
-export interface EvaluateApplicationInput {
-  score: number;
+export interface SiftApplicationInput {
   status: ApplicationStatus;
   remarks?: string;
-  evaluatedByUserId: string;
+  siftedByUserId: string;
+}
+
+export interface ExaminationScoreUpdate {
+  applicationId: string;
+  score: number;
+}
+
+export interface ScheduleInterviewInput {
+  scheduledAt: Date;
+  venue: string;
+  attire?: string;
+  notes?: string;
 }
 
 export class ApplicationsRepository {
@@ -37,7 +48,9 @@ export class ApplicationsRepository {
 
   create(applicantId: string, jobPostingId: string): Promise<ApplicationWithPosting> {
     return this.db.application.create({
-      data: { applicantId, jobPostingId },
+      // Applications move straight to UNDER_SIFTING on submission - sifting
+      // starts automatically, there's no separate manual "start sifting" step.
+      data: { applicantId, jobPostingId, status: "UNDER_SIFTING" },
       include: applicationWithPostingInclude,
     }) as Promise<ApplicationWithPosting>;
   }
@@ -71,25 +84,43 @@ export class ApplicationsRepository {
     }) as Promise<ApplicationWithApplicant[]>;
   }
 
-  evaluate(id: string, input: EvaluateApplicationInput): Promise<ApplicationWithApplicant> {
+  sift(id: string, input: SiftApplicationInput): Promise<ApplicationWithApplicant> {
     return this.db.application.update({
       where: { id },
       data: {
-        evaluationScore: input.score,
-        evaluationRemarks: input.remarks,
-        evaluatedAt: new Date(),
-        evaluatedByUserId: input.evaluatedByUserId,
+        siftingRemarks: input.remarks,
+        siftedAt: new Date(),
+        siftedByUserId: input.siftedByUserId,
         status: input.status,
       },
       include: applicationWithApplicantInclude,
     }) as Promise<ApplicationWithApplicant>;
   }
 
-  updateStatus(id: string, status: ApplicationStatus): Promise<ApplicationWithApplicant> {
+  scheduleInterview(id: string, input: ScheduleInterviewInput): Promise<ApplicationWithApplicant> {
     return this.db.application.update({
       where: { id },
-      data: { status },
+      data: {
+        status: "FOR_INTERVIEW",
+        interviewScheduledAt: input.scheduledAt,
+        interviewVenue: input.venue,
+        interviewAttire: input.attire,
+        interviewNotes: input.notes,
+      },
       include: applicationWithApplicantInclude,
     }) as Promise<ApplicationWithApplicant>;
+  }
+
+  async bulkSetExaminationScores(updates: ExaminationScoreUpdate[]): Promise<void> {
+    if (updates.length === 0) return;
+    const now = new Date();
+    await this.db.$transaction(
+      updates.map((update) =>
+        this.db.application.update({
+          where: { id: update.applicationId },
+          data: { examinationScore: update.score, examinationScoredAt: now },
+        }),
+      ),
+    );
   }
 }

@@ -35,6 +35,7 @@ enum DocumentType {
   ELIGIBILITY_PROOF
   IPCR
   DESIGNATION_ORDER
+  LD_PROOF
   OTHER
 }
 
@@ -62,7 +63,7 @@ model User {
 
   applicant        Applicant?
   jobPostingsMade  JobPosting[]
-  evaluationsMade  Application[]
+  siftingsMade     Application[]
   auditLogEntries  AuditLog[]
   panelAssignments PanelAssignment[]
   panelEvaluations PanelEvaluation[]
@@ -140,7 +141,8 @@ model LdIntervention {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  applicant Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicant Applicant  @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  documents Document[]
 
   @@index([applicantId])
   @@map("ld_interventions")
@@ -163,36 +165,46 @@ model Award {
 
 /// Uploaded proof documents. Eligibility proof is applicant-level
 /// (applicationId null); IPCR / Designation-to-Higher-Position uploads are
-/// tied to the specific promotional Application they support.
+/// tied to the specific promotional Application they support; LD_PROOF
+/// uploads are tied to the specific LdIntervention entry they back up.
 model Document {
-  id            String       @id @default(uuid())
-  applicantId   String
-  applicationId String?
-  type          DocumentType
-  fileName      String
-  filePath      String
-  mimeType      String
-  fileSizeBytes Int
-  uploadedAt    DateTime     @default(now())
+  id               String          @id @default(uuid())
+  applicantId      String
+  applicationId    String?
+  ldInterventionId String?
+  type             DocumentType
+  fileName         String
+  filePath         String
+  mimeType         String
+  fileSizeBytes    Int
+  uploadedAt       DateTime        @default(now())
 
-  applicant   Applicant    @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  application Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicant      Applicant       @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  application    Application?    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  ldIntervention LdIntervention? @relation(fields: [ldInterventionId], references: [id], onDelete: Cascade)
 
   @@index([applicantId])
   @@index([applicationId])
+  @@index([ldInterventionId])
   @@map("documents")
 }
 
 /// A vacancy applicants can apply to. closingAt is computed server-side at
 /// creation time as postedAt + 10 days, 23:59:59 (see JobPostingsService).
 model JobPosting {
-  id            String            @id @default(uuid())
-  title         String
+  id                String        @id @default(uuid())
+  title             String
+  description       String        @db.Text
+  monthlySalary     String
+  placeOfAssignment String        @db.Text
   positionLevel PositionLevel
   qualificationEducation   String @db.Text
   qualificationTraining    String @db.Text
   qualificationExperience  String @db.Text
   qualificationEligibility String @db.Text
+  // Free text, one duty per line - rendered as a numbered list on the
+  // applicant-facing details view.
+  duties        String            @db.Text
   postedAt      DateTime          @default(now())
   closingAt     DateTime
   status        JobPostingStatus  @default(OPEN)
@@ -219,17 +231,31 @@ model Application {
   status       ApplicationStatus @default(SUBMITTED)
   submittedAt  DateTime          @default(now())
 
-  // Set together by ApplicationsService.evaluate() (admin-only). Score is
-  // bounded 0-100 at the DTO validation layer, not the DB, so the
-  // allowable-threshold check stays visible in one place (see api.md).
-  evaluationScore   Int?
-  evaluationRemarks String?   @db.Text
-  evaluatedAt       DateTime?
-  evaluatedByUserId String?
+  // Set together by ApplicationsService.sift() (admin-only) - the Sifting
+  // phase's pass/fail call against the posting's qualification standards
+  // (education/training/experience/eligibility). See docs/rsp-domain-spec.md.
+  siftingRemarks String?   @db.Text
+  siftedAt       DateTime?
+  siftedByUserId String?
+
+  // Set by ApplicationsService.importExaminationScores() (admin-only) - the
+  // Pre-Qualifying Examination is conducted outside the system; the score is
+  // imported via an Excel upload matched to the applicant by name.
+  examinationScore    Int?
+  examinationScoredAt DateTime?
+
+  // Set together by ApplicationsService.scheduleInterview() (admin-only).
+  // interviewVenue is required once scheduled (a date with no place isn't
+  // useful); attire/notes are optional free text for anything else the
+  // applicant needs to know ("what to wear", parking, documents to bring).
+  interviewScheduledAt DateTime?
+  interviewVenue       String?   @db.Text
+  interviewAttire      String?   @db.Text
+  interviewNotes       String?   @db.Text
 
   applicant        Applicant         @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   jobPosting       JobPosting        @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
-  evaluatedBy      User?             @relation(fields: [evaluatedByUserId], references: [id])
+  siftedBy         User?             @relation(fields: [siftedByUserId], references: [id])
   documents        Document[]
   panelEvaluations PanelEvaluation[]
 

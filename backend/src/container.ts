@@ -1,4 +1,5 @@
 import { prisma } from "@/shared/db/prismaClient";
+import { EmailService } from "@/shared/email/emailService";
 
 import { AuthRepository } from "@/modules/auth/auth.repository";
 import { AuthService } from "@/modules/auth/auth.service";
@@ -63,6 +64,7 @@ function buildContainer() {
   const evaluationCriteriaRepository = new EvaluationCriteriaRepository(prisma);
   const panelAssignmentsRepository = new PanelAssignmentsRepository(prisma);
   const panelEvaluationsRepository = new PanelEvaluationsRepository(prisma);
+  const emailService = new EmailService();
 
   const authService = new AuthService(authRepository);
   const applicantsService = new ApplicantsService(applicantsRepository, documentsRepository);
@@ -74,6 +76,7 @@ function buildContainer() {
     jobPostingsRepository,
     documentsRepository,
     auditLogsRepository,
+    emailService,
   );
   const usersService = new UsersService(usersRepository, auditLogsRepository);
   const auditLogsService = new AuditLogsService(auditLogsRepository);

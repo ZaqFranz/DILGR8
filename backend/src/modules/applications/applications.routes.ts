@@ -4,7 +4,13 @@ import { authenticate, requireRole } from "@/shared/middleware/authenticate";
 import { validate } from "@/shared/validation/validate";
 import { idParamSchema } from "@/modules/applicants/applicants.dto";
 import type { ApplicationsController } from "./applications.controller";
-import { createApplicationSchema, evaluateApplicationSchema, listApplicationsQuerySchema } from "./applications.dto";
+import {
+  createApplicationSchema,
+  listApplicationsQuerySchema,
+  scheduleInterviewSchema,
+  siftApplicationSchema,
+} from "./applications.dto";
+import { uploadExamScoreFile } from "./examScoreImport.upload";
 
 export function createApplicationsRouter(controller: ApplicationsController): Router {
   const router = Router();
@@ -20,15 +26,21 @@ export function createApplicationsRouter(controller: ApplicationsController): Ro
     asyncHandler(controller.listForAdmin),
   );
   router.patch(
-    "/:id/evaluate",
+    "/:id/sift",
     requireRole("ADMIN"),
-    validate({ params: idParamSchema, body: evaluateApplicationSchema }),
-    asyncHandler(controller.evaluate),
+    validate({ params: idParamSchema, body: siftApplicationSchema }),
+    asyncHandler(controller.sift),
+  );
+  router.post(
+    "/import-exam-scores",
+    requireRole("ADMIN"),
+    uploadExamScoreFile,
+    asyncHandler(controller.importExamScores),
   );
   router.patch(
     "/:id/schedule-interview",
     requireRole("ADMIN"),
-    validate({ params: idParamSchema }),
+    validate({ params: idParamSchema, body: scheduleInterviewSchema }),
     asyncHandler(controller.scheduleInterview),
   );
 

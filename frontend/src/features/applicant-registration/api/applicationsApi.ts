@@ -5,6 +5,11 @@ export interface Application {
   id: string;
   status: "SUBMITTED" | "UNDER_SIFTING" | "FOR_INTERVIEW" | "QUALIFIED" | "NOT_QUALIFIED" | "WITHDRAWN";
   submittedAt: string;
+  examinationScore: number | null;
+  interviewScheduledAt: string | null;
+  interviewVenue: string | null;
+  interviewAttire: string | null;
+  interviewNotes: string | null;
   jobPosting: JobPosting;
 }
 

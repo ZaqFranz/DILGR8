@@ -13,9 +13,14 @@ export interface AdminApplication {
   id: string;
   status: ApplicationStatus;
   submittedAt: string;
-  evaluationScore: number | null;
-  evaluationRemarks: string | null;
-  evaluatedAt: string | null;
+  siftingRemarks: string | null;
+  siftedAt: string | null;
+  examinationScore: number | null;
+  examinationScoredAt: string | null;
+  interviewScheduledAt: string | null;
+  interviewVenue: string | null;
+  interviewAttire: string | null;
+  interviewNotes: string | null;
   jobPosting: JobPosting;
   applicant: {
     id: string;
@@ -25,10 +30,21 @@ export interface AdminApplication {
   };
 }
 
-export interface EvaluateApplicationInput {
-  score: number;
+export interface SiftApplicationInput {
   decision: EvaluationDecision;
   remarks?: string;
+}
+
+export interface ScheduleInterviewInput {
+  scheduledAt: string;
+  venue: string;
+  attire?: string;
+  notes?: string;
+}
+
+export interface ExamScoreImportResult {
+  matched: { applicationId: string; applicantName: string; score: number }[];
+  unmatched: { name: string; score: number }[];
 }
 
 export type UserRole = "ADMIN" | "APPLICANT" | "PANEL";

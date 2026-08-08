@@ -3,6 +3,7 @@ import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { listMyApplications, type Application } from "../api/applicationsApi";
+import { ApplicationStageTracker } from "../components/ApplicationStageTracker";
 
 function statusBadgeClass(status: string): string {
   return `badge ${status.toLowerCase()}`;
@@ -35,6 +36,33 @@ export function MyApplicationsPage() {
           <p>
             <strong>Submitted:</strong> {new Date(application.submittedAt).toLocaleString()}
           </p>
+          <ApplicationStageTracker status={application.status} />
+          {application.examinationScore !== null && (
+            <p className="field-hint">PQE score: {application.examinationScore}</p>
+          )}
+          {application.interviewScheduledAt !== null && (
+            <div className="card-inset">
+              <p className="field-hint">Interview details:</p>
+              <ul>
+                <li>
+                  <strong>When:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
+                </li>
+                <li>
+                  <strong>Where:</strong> {application.interviewVenue}
+                </li>
+                {application.interviewAttire && (
+                  <li>
+                    <strong>What to wear:</strong> {application.interviewAttire}
+                  </li>
+                )}
+                {application.interviewNotes && (
+                  <li>
+                    <strong>Additional instructions:</strong> {application.interviewNotes}
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
         </div>
       ))}
     </div>
