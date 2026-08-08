@@ -24,10 +24,26 @@ export function AwardsSection({ items, onChange }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
 
+  function validate(): Record<string, string> {
+    const errors: Record<string, string> = {};
+    if (!form.title.trim()) errors.title = "Title is required.";
+    if (!form.dateAwarded) errors.dateAwarded = "Date awarded is required.";
+    if (!form.issuingBody.trim()) errors.issuingBody = "Issuing body is required.";
+    return errors;
+  }
+
   async function handleAdd(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setFieldErrors({});
+
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      setError("Please fill in the highlighted field(s) before continuing.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const created = await addAward(form);
@@ -106,7 +122,7 @@ export function AwardsSection({ items, onChange }: Props) {
           />
           <FieldError message={fieldErrors.title} />
         </div>
-        <div className="field">
+        <div className={fieldErrors.dateAwarded ? "field has-error" : "field"}>
           <label htmlFor="award-date" className="required">
             Date awarded
           </label>
@@ -117,8 +133,9 @@ export function AwardsSection({ items, onChange }: Props) {
             value={form.dateAwarded}
             onChange={(e) => setForm({ ...form, dateAwarded: e.target.value })}
           />
+          <FieldError message={fieldErrors.dateAwarded} />
         </div>
-        <div className="field">
+        <div className={fieldErrors.issuingBody ? "field has-error" : "field"}>
           <label htmlFor="award-body" className="required">
             Issuing body
           </label>
@@ -128,6 +145,7 @@ export function AwardsSection({ items, onChange }: Props) {
             value={form.issuingBody}
             onChange={(e) => setForm({ ...form, issuingBody: e.target.value })}
           />
+          <FieldError message={fieldErrors.issuingBody} />
         </div>
         <div className="field" style={{ alignSelf: "end" }}>
           <button type="submit" disabled={submitting}>

@@ -24,14 +24,26 @@ export function WorkExperienceSection({ items, onChange }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
 
+  function validate(): Record<string, string> {
+    const errors: Record<string, string> = {};
+    if (!form.inclusiveFrom) errors.inclusiveFrom = "Inclusive from date is required.";
+    if (!form.positionDesignation.trim()) errors.positionDesignation = "Position/Designation is required.";
+    if (!form.agency.trim()) errors.agency = "Agency is required.";
+    if (form.inclusiveTo && form.inclusiveFrom && form.inclusiveTo < form.inclusiveFrom) {
+      errors.inclusiveTo = "End date can't be earlier than the start date.";
+    }
+    return errors;
+  }
+
   async function handleAdd(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setFieldErrors({});
 
-    if (form.inclusiveTo && form.inclusiveTo < form.inclusiveFrom) {
-      setFieldErrors({ inclusiveTo: "End date can't be earlier than the start date." });
-      setError("Please fix the highlighted field before continuing.");
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      setError("Please fill in the highlighted field(s) before continuing.");
       return;
     }
 
@@ -108,7 +120,7 @@ export function WorkExperienceSection({ items, onChange }: Props) {
       )}
 
       <form onSubmit={handleAdd} className="field-grid" style={{ marginTop: "1rem" }} noValidate>
-        <div className="field">
+        <div className={fieldErrors.inclusiveFrom ? "field has-error" : "field"}>
           <label htmlFor="we-from" className="required">
             Inclusive from
           </label>
@@ -119,6 +131,7 @@ export function WorkExperienceSection({ items, onChange }: Props) {
             value={form.inclusiveFrom}
             onChange={(e) => setForm({ ...form, inclusiveFrom: e.target.value })}
           />
+          <FieldError message={fieldErrors.inclusiveFrom} />
         </div>
         <div className={fieldErrors.inclusiveTo ? "field has-error" : "field"}>
           <label htmlFor="we-to">Inclusive to (blank if present)</label>
@@ -130,7 +143,7 @@ export function WorkExperienceSection({ items, onChange }: Props) {
           />
           <FieldError message={fieldErrors.inclusiveTo} />
         </div>
-        <div className="field">
+        <div className={fieldErrors.positionDesignation ? "field has-error" : "field"}>
           <label htmlFor="we-position" className="required">
             Position / Designation
           </label>
@@ -140,8 +153,9 @@ export function WorkExperienceSection({ items, onChange }: Props) {
             value={form.positionDesignation}
             onChange={(e) => setForm({ ...form, positionDesignation: e.target.value })}
           />
+          <FieldError message={fieldErrors.positionDesignation} />
         </div>
-        <div className="field">
+        <div className={fieldErrors.agency ? "field has-error" : "field"}>
           <label htmlFor="we-agency" className="required">
             Agency
           </label>
@@ -151,6 +165,7 @@ export function WorkExperienceSection({ items, onChange }: Props) {
             value={form.agency}
             onChange={(e) => setForm({ ...form, agency: e.target.value })}
           />
+          <FieldError message={fieldErrors.agency} />
         </div>
         <div className="field" style={{ alignSelf: "end" }}>
           <button type="submit" disabled={submitting}>

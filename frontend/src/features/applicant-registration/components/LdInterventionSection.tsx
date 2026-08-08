@@ -24,18 +24,31 @@ export function LdInterventionSection({ items, onChange }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
 
+  function validate(): Record<string, string> {
+    const errors: Record<string, string> = {};
+    if (!form.title.trim()) errors.title = "Title is required.";
+    if (!form.dateAttended) errors.dateAttended = "Date attended is required.";
+    const numberOfHours = Number(form.numberOfHours);
+    if (!form.numberOfHours || !Number.isInteger(numberOfHours) || numberOfHours <= 0) {
+      errors.numberOfHours = "Enter a whole number of hours greater than 0.";
+    }
+    if (!form.sponsoringAgency.trim()) errors.sponsoringAgency = "Sponsoring agency is required.";
+    return errors;
+  }
+
   async function handleAdd(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setFieldErrors({});
 
-    const numberOfHours = Number(form.numberOfHours);
-    if (!Number.isInteger(numberOfHours) || numberOfHours <= 0) {
-      setFieldErrors({ numberOfHours: "Enter a whole number of hours greater than 0." });
-      setError("Please fix the highlighted field before continuing.");
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      setError("Please fill in the highlighted field(s) before continuing.");
       return;
     }
 
+    const numberOfHours = Number(form.numberOfHours);
     setSubmitting(true);
     try {
       const created = await addLdIntervention({
@@ -109,13 +122,14 @@ export function LdInterventionSection({ items, onChange }: Props) {
       )}
 
       <form onSubmit={handleAdd} className="field-grid" style={{ marginTop: "1rem" }} noValidate>
-        <div className="field">
+        <div className={fieldErrors.title ? "field has-error" : "field"}>
           <label htmlFor="ld-title" className="required">
             Title
           </label>
           <input id="ld-title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <FieldError message={fieldErrors.title} />
         </div>
-        <div className="field">
+        <div className={fieldErrors.dateAttended ? "field has-error" : "field"}>
           <label htmlFor="ld-date" className="required">
             Date attended
           </label>
@@ -126,6 +140,7 @@ export function LdInterventionSection({ items, onChange }: Props) {
             value={form.dateAttended}
             onChange={(e) => setForm({ ...form, dateAttended: e.target.value })}
           />
+          <FieldError message={fieldErrors.dateAttended} />
         </div>
         <div className={fieldErrors.numberOfHours ? "field has-error" : "field"}>
           <label htmlFor="ld-hours" className="required">
@@ -141,7 +156,7 @@ export function LdInterventionSection({ items, onChange }: Props) {
           />
           <FieldError message={fieldErrors.numberOfHours} />
         </div>
-        <div className="field">
+        <div className={fieldErrors.sponsoringAgency ? "field has-error" : "field"}>
           <label htmlFor="ld-agency" className="required">
             Sponsoring agency
           </label>
@@ -151,6 +166,7 @@ export function LdInterventionSection({ items, onChange }: Props) {
             value={form.sponsoringAgency}
             onChange={(e) => setForm({ ...form, sponsoringAgency: e.target.value })}
           />
+          <FieldError message={fieldErrors.sponsoringAgency} />
         </div>
         <div className="field" style={{ alignSelf: "end" }}>
           <button type="submit" disabled={submitting}>

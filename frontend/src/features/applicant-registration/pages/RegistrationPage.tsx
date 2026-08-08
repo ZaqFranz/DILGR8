@@ -78,10 +78,33 @@ export function RegistrationPage() {
   // them back through account creation.
   const alreadyRegistered = isAuthenticated && registrationComplete === true;
 
+  function validateAccount(): Record<string, string> {
+    const errors: Record<string, string> = {};
+    if (!email.trim()) {
+      errors.email = "Email is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errors.email = "Enter a valid email address.";
+    }
+    if (!password) {
+      errors.password = "Password is required.";
+    } else if (password.length < 8) {
+      errors.password = "Password must be at least 8 characters.";
+    }
+    return errors;
+  }
+
   async function handleAccountSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setAccountFieldErrors({});
+
+    const validationErrors = validateAccount();
+    if (Object.keys(validationErrors).length > 0) {
+      setAccountFieldErrors(validationErrors);
+      setError("Please fill in the highlighted field(s) before continuing.");
+      return;
+    }
+
     setAccountSubmitting(true);
     try {
       await register(email, password);
@@ -108,7 +131,15 @@ export function RegistrationPage() {
     }
   }
 
+  const missingEligibilityProof = Boolean(
+    profile?.hasEligibility && !documents.some((doc) => doc.type === "ELIGIBILITY_PROOF"),
+  );
+
   async function handleFinish() {
+    if (missingEligibilityProof) {
+      setError("Upload proof of eligibility in the Documents section before finishing registration.");
+      return;
+    }
     setError(null);
     setFinishSubmitting(true);
     try {
@@ -227,6 +258,13 @@ export function RegistrationPage() {
 
           {profile && step === "documents" && <DocumentsSection items={documents} onChange={setDocuments} />}
 
+          {profile && isLastStep && missingEligibilityProof && (
+            <p className="field-warning">
+              You indicated you have a civil service eligibility — upload proof of it above before finishing
+              registration.
+            </p>
+          )}
+
           {profile && (
             <div className="actions-row">
               <button
@@ -238,7 +276,7 @@ export function RegistrationPage() {
                 Back
               </button>
               {isLastStep ? (
-                <button type="button" onClick={handleFinish} disabled={finishSubmitting}>
+                <button type="button" onClick={handleFinish} disabled={finishSubmitting || missingEligibilityProof}>
                   {finishSubmitting && <Spinner size="sm" onDark />}
                   {finishSubmitting
                     ? "Finishing..."

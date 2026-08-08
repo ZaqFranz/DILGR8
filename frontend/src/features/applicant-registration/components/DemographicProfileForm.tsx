@@ -64,14 +64,28 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
     return fieldErrors[name] ? "field has-error" : "field";
   }
 
+  function validate(): Record<string, string> {
+    const errors: Record<string, string> = {};
+    if (!form.firstName.trim()) errors.firstName = "First name is required.";
+    if (!form.lastName.trim()) errors.lastName = "Last name is required.";
+    if (!form.dateOfBirth) errors.dateOfBirth = "Date of birth is required.";
+    if (!form.address.trim()) errors.address = "Address is required.";
+    if (!form.contactNumber.trim()) errors.contactNumber = "Contact number is required.";
+    if (form.hasEligibility && form.eligibilityType === "NONE") {
+      errors.eligibilityType = "Choose which eligibility you hold.";
+    }
+    return errors;
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setFieldErrors({});
 
-    if (form.hasEligibility && form.eligibilityType === "NONE") {
-      setFieldErrors({ eligibilityType: "Choose which eligibility you hold." });
-      setError("Please fix the highlighted field before continuing.");
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      setError("Please fill in the highlighted field(s) before continuing.");
       return;
     }
 
