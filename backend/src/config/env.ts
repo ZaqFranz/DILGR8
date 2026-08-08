@@ -10,6 +10,21 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
   UPLOAD_DIR: z.string().default("uploads"),
   MAX_UPLOAD_SIZE_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
+  // All optional - EmailService falls back to logging emails instead of sending
+  // them when SMTP_HOST isn't set, so local dev works with no mail server.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  // NOT z.coerce.boolean() - Zod's coercion is just JS Boolean(value), which
+  // makes the *string* "false" coerce to true (any non-empty string is
+  // truthy). Explicit string comparison is the only safe way to parse a
+  // boolean-shaped env var.
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  SMTP_FROM: z.string().default("DILGR8RSP <no-reply@dilg.gov.ph>"),
 });
 
 function loadEnv() {

@@ -48,6 +48,14 @@
   box-sizing: border-box;
 }
 
+/* .auth-page's full-bleed breakout uses 100vw, which (unlike 100%) counts
+   the vertical scrollbar's own width, producing a few px of horizontal
+   overflow. html is the actual scroll root in most browsers, so both need
+   the clip. */
+html {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   background: var(--color-bg);
@@ -55,6 +63,7 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 h1,
@@ -746,6 +755,107 @@ tbody tr:last-child td {
   border-color: var(--color-primary);
 }
 
+/* ---------- Application stage tracker ---------- */
+
+.stage-tracker {
+  display: flex;
+  align-items: flex-start;
+  margin: 1rem 0 0.5rem;
+}
+
+.stage-tracker-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 92px;
+}
+
+.stage-tracker-line {
+  flex: 1;
+  height: 2px;
+  background: var(--color-border);
+  margin-top: 14px;
+}
+
+.stage-tracker-line.filled {
+  background: var(--color-success);
+}
+
+.stage-tracker-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.stage-tracker-circle.completed {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: white;
+}
+
+.stage-tracker-circle.current-submitted {
+  background: var(--color-info);
+  border-color: var(--color-info);
+  color: white;
+}
+
+.stage-tracker-circle.current-under_sifting {
+  background: var(--color-warning);
+  border-color: var(--color-warning);
+  color: white;
+}
+
+.stage-tracker-circle.current-examination {
+  background: var(--color-info);
+  border-color: var(--color-info);
+  color: white;
+}
+
+.stage-tracker-circle.current-for_interview {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  color: white;
+}
+
+.stage-tracker-circle.not-qualified {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: white;
+}
+
+.stage-tracker-circle.withdrawn {
+  background: var(--color-muted);
+  border-color: var(--color-muted);
+  color: white;
+}
+
+.stage-tracker-label {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.stage-tracker-label.reached,
+.stage-tracker-label.current {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.stage-tracker--withdrawn {
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .actions-row {
   display: flex;
   gap: 0.75rem;
@@ -754,18 +864,107 @@ tbody tr:last-child td {
 
 /* ---------- Auth ---------- */
 
+/* .app-main normally has vertical padding, which would leave a grey gap
+   above/below this panel; drop it specifically when .auth-page is present
+   instead of fighting it with negative-margin arithmetic (which fed back
+   into .app-main's own flex-computed height and overshot the viewport).
+   Descendant, not direct-child, selector - RegistrationPage nests .auth-page
+   one level inside its own wrapper <div>, while LoginPage renders it as the
+   top-level element, so ">" would only match one of the two pages. */
+.app-main:has(.auth-page) {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Full-bleed hero panel behind the login / registration-account cards.
+   Escapes .app-main's centered 960px column via the classic "left:50% +
+   negative viewport margin" breakout, independent of parent padding.
+   min-height:100vh fills the full viewport - safe to use directly since
+   Layout hides the header on these two pages and .app-main's padding is
+   zeroed above, so there's nothing left to compensate for. */
+.auth-page {
+  position: relative;
+  left: 50%;
+  right: 50%;
+  width: 100vw;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 20%, var(--color-primary-hover) 0%, transparent 55%),
+    linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 70%, #061c37 100%);
+  border-top: 3px solid var(--color-accent);
+  border-bottom: 3px solid var(--color-accent);
+  padding: 3rem 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Two large blurred copies in opposite corners - a single centered copy
+   would just be hidden directly behind the card. */
+.auth-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/dilg-logo.webp"), url("/dilg-logo.webp");
+  background-repeat: no-repeat, no-repeat;
+  background-position:
+    -120px -100px,
+    calc(100% + 120px) calc(100% + 100px);
+  background-size: 720px 720px, 720px 720px;
+  filter: blur(24px);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.auth-page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 45%, rgba(242, 183, 5, 0.16), transparent 60%);
+  pointer-events: none;
+}
+
+.auth-logo {
+  display: block;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  background: var(--color-surface);
+  padding: 6px;
+  box-shadow: var(--shadow-lg);
+}
+
 .auth-form {
+  /* .auth-page is a flex container, and flex items default to shrink-to-fit
+     their own content rather than filling available width the way a normal
+     block element would - without an explicit width, this card would size
+     itself off whichever page has the longer paragraph text, so login (a
+     shorter form) rendered visibly narrower than registration. */
+  position: relative;
+  z-index: 1;
+  width: 100%;
   max-width: 400px;
-  margin: 3rem auto;
+  margin: 0 auto;
 }
 
 .auth-form h2 {
   margin-bottom: 0.35rem;
+  text-align: center;
 }
 
 .auth-form > p {
   margin-top: 0;
   font-size: 0.88rem;
+  text-align: center;
+}
+
+.auth-form .auth-switch {
+  margin-top: 1.1rem;
+  color: var(--color-muted);
 }
 
 /* ---------- Admin shell ---------- */
@@ -1039,6 +1238,29 @@ tbody tr:last-child td {
   color: var(--color-text);
 }
 
+.posting-duties {
+  margin: 0.4rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.88rem;
+  color: var(--color-text);
+}
+
+.posting-duties li {
+  margin-bottom: 0.3rem;
+}
+
+.ld-proof-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.ld-proof-item span {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 720px) {
   .admin-shell {
     flex-direction: column;
@@ -1070,5 +1292,20 @@ tbody tr:last-child td {
 
   .posting-meta {
     grid-template-columns: 1fr;
+  }
+
+  .auth-page {
+    padding: 2rem 1rem;
+  }
+
+  .auth-page::before {
+    background-position:
+      -100px -100px,
+      calc(100% + 100px) calc(100% + 100px);
+    background-size: 360px 360px, 360px 360px;
+  }
+
+  .auth-form {
+    max-width: 100%;
   }
 }

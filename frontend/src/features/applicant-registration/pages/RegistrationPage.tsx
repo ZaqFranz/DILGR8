@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
@@ -160,11 +160,15 @@ export function RegistrationPage() {
 
   return (
     <div>
-      <h1>Applicant Registration</h1>
-      <p className="muted">
-        Step {stepIndex + 1} of {STEPS.length}
-        {alreadyRegistered ? " — editing your completed registration" : ""}
-      </p>
+      {isAuthenticated && (
+        <>
+          <h1>Applicant Registration</h1>
+          <p className="muted">
+            Step {stepIndex + 1} of {STEPS.length}
+            {alreadyRegistered ? " — editing your completed registration" : ""}
+          </p>
+        </>
+      )}
       <ErrorBanner message={error} />
 
       {isAuthenticated && (
@@ -187,39 +191,45 @@ export function RegistrationPage() {
       )}
 
       {step === "account" && !isAuthenticated && (
-        <div className="card auth-form">
-          <h2>Create an applicant account</h2>
-          <p className="muted">
-            This is step 1 of {STEPS.length} - the rest of your applicant information follows immediately after.
-          </p>
-          <form onSubmit={handleAccountSubmit} noValidate>
-            <div className={`field${accountFieldErrors.email ? " has-error" : ""}`}>
-              <label htmlFor="email" className="required">
-                Email
-              </label>
-              <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-              <FieldError message={accountFieldErrors.email} />
-            </div>
-            <div className={`field${accountFieldErrors.password ? " has-error" : ""}`}>
-              <label htmlFor="password" className="required">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <FieldError message={accountFieldErrors.password} />
-              {!accountFieldErrors.password && <p className="field-hint">At least 8 characters.</p>}
-            </div>
-            <button type="submit" disabled={accountSubmitting}>
-              {accountSubmitting && <Spinner size="sm" onDark />}
-              {accountSubmitting ? "Creating account..." : "Continue"}
-            </button>
-          </form>
+        <div className="auth-page">
+          <div className="card auth-form">
+            <img className="auth-logo" src="/dilg-logo.webp" alt="DILG logo" />
+            <h2>Create an applicant account</h2>
+            <p className="muted">
+              This is step 1 of {STEPS.length} - the rest of your applicant information follows immediately after.
+            </p>
+            <form onSubmit={handleAccountSubmit} noValidate>
+              <div className={`field${accountFieldErrors.email ? " has-error" : ""}`}>
+                <label htmlFor="email" className="required">
+                  Email
+                </label>
+                <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                <FieldError message={accountFieldErrors.email} />
+              </div>
+              <div className={`field${accountFieldErrors.password ? " has-error" : ""}`}>
+                <label htmlFor="password" className="required">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <FieldError message={accountFieldErrors.password} />
+                {!accountFieldErrors.password && <p className="field-hint">At least 8 characters.</p>}
+              </div>
+              <button type="submit" disabled={accountSubmitting}>
+                {accountSubmitting && <Spinner size="sm" onDark />}
+                {accountSubmitting ? "Creating account..." : "Continue"}
+              </button>
+            </form>
+            <p className="auth-switch">
+              Already have an account? <Link to="/login">Log in</Link>
+            </p>
+          </div>
         </div>
       )}
 
@@ -249,6 +259,8 @@ export function RegistrationPage() {
             <LdInterventionSection
               items={profile.ldInterventions}
               onChange={(ldInterventions) => setProfile({ ...profile, ldInterventions })}
+              documents={documents}
+              onDocumentsChange={setDocuments}
             />
           )}
 

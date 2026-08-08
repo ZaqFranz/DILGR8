@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { Spinner } from "@/shared/components/Spinner";
@@ -33,34 +33,40 @@ export function LoginPage() {
   }
 
   return (
-    <div className="card auth-form">
-      <h2>Log in</h2>
-      <p className="muted">Welcome back to DILGR8RSP.</p>
-      <ErrorBanner message={error} />
-      <form onSubmit={handleSubmit} noValidate>
-        <div className="field">
-          <label htmlFor="email" className="required">
-            Email
-          </label>
-          <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="password" className="required">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        <button type="submit" disabled={submitting}>
-          {submitting && <Spinner size="sm" onDark />}
-          {submitting ? "Logging in..." : "Log in"}
-        </button>
-      </form>
+    <div className="auth-page">
+      <div className="card auth-form">
+        <img className="auth-logo" src="/dilg-logo.webp" alt="DILG logo" />
+        <h2>Log in</h2>
+        <p className="muted">Welcome back to DILGR8RSP.</p>
+        <ErrorBanner message={error} />
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="field">
+            <label htmlFor="email" className="required">
+              Email
+            </label>
+            <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="password" className="required">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <button type="submit" disabled={submitting}>
+            {submitting && <Spinner size="sm" onDark />}
+            {submitting ? "Logging in..." : "Log in"}
+          </button>
+        </form>
+        <p className="auth-switch">
+          Don&apos;t have an account? <Link to="/register">Register</Link>
+        </p>
+      </div>
     </div>
   );
 }
