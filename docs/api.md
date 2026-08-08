@@ -33,7 +33,7 @@ Three roles exist: `APPLICANT` (self-registers via `/auth/register`), `ADMIN`, a
 | DELETE | `/me/ld-interventions/:id` | — | |
 | POST | `/me/awards` | `{ title, dateAwarded, issuingBody }` | |
 | DELETE | `/me/awards/:id` | — | |
-| POST | `/me/documents` | `multipart/form-data`: `file`, `type`, `applicationId?` | `type` ∈ `ELIGIBILITY_PROOF`, `IPCR`, `DESIGNATION_ORDER`, `OTHER`. PDF/JPEG/PNG only, ≤5MB. |
+| POST | `/me/documents` | `multipart/form-data`: `file`, `type`, `applicationId?`, `ldInterventionId?` | `type` ∈ `ELIGIBILITY_PROOF`, `IPCR`, `DESIGNATION_ORDER`, `LD_PROOF`, `OTHER`. PDF/JPEG/PNG only, ≤5MB. `ldInterventionId` (required in practice for `LD_PROOF`, but not DTO-enforced) must belong to the caller's own `LdIntervention` row or 404s - it's how the Learning & Development section's per-entry proof upload attaches a file to the specific claim it backs up. |
 | GET | `/me/documents` | — | Lists the caller's uploaded documents. |
 | DELETE | `/me/documents/:id` | — | Deletes the DB record and the file on disk. |
 
@@ -66,12 +66,17 @@ Three roles exist: `APPLICANT` (self-registers via `/auth/register`), `ADMIN`, a
 
 ```ts
 {
-  title?: string; positionLevel?: "ENTRY" | "PROMOTIONAL";
+  title?: string; description?: string;
+  monthlySalary?: string; placeOfAssignment?: string;
+  positionLevel?: "ENTRY" | "PROMOTIONAL";
   qualificationEducation?: string; qualificationTraining?: string;
   qualificationExperience?: string; qualificationEligibility?: string;
+  duties?: string;
   status?: "OPEN" | "CLOSED";
 }
 ```
+
+`CreateJobPostingDto` is the same shape with every field (except `status`, which isn't settable on create) required rather than optional. `description` is free-text role/duties overview, distinct from the four `qualification*` fields (which are the formal QS requirements) — it's what the applicant-facing "View Details" modal on `JobPostingsListPage` leads with. `monthlySalary` is free-text (not numeric) so it can carry a formatted salary grade string (e.g. `"₱27,000.00"`); `placeOfAssignment` and `duties` are free-text too, with `duties` expected as one duty per line — the frontend splits on `\n` to render it as a numbered list. These three fields (plus the pre-existing `description`) were added to mirror the level of detail on typical DILG job-posting flyers (salary, assignment, duties enumerated alongside the qualification standards).
 
 ## Applications — `/api/applications` (all require auth)
 
@@ -80,18 +85,33 @@ Three roles exist: `APPLICANT` (self-registers via `/auth/register`), `ADMIN`, a
 | POST | `/` | applicant | `{ jobPostingId }` | Submits an application. Validates: profile exists, posting is open and within its 10-day window, not already applied, and — if `positionLevel === PROMOTIONAL` — an `IPCR` and `DESIGNATION_ORDER` document have been uploaded; if `hasEligibility` is true, an `ELIGIBILITY_PROOF` document has been uploaded. |
 | GET | `/me` | applicant | — | Lists the caller's applications with their job posting. |
 | GET | `/` | ADMIN | — | Lists applications for evaluation. Query `?jobPostingId=<uuid>` optional (unfiltered otherwise). Each entry includes the applicant's name/email and the job posting. |
-| PATCH | `/:id/evaluate` | ADMIN | `EvaluateApplicationDto` | Records a score, decision, and optional remarks; sets `status` to the decision and stamps `evaluatedAt`/`evaluatedByUserId`. Works regardless of current status — including finalizing an application still `FOR_INTERVIEW` with incomplete panel scores; the frontend warns but nothing server-side blocks it (see [decisions.md](./decisions.md)). |
-| PATCH | `/:id/schedule-interview` | ADMIN | — | Moves the application into the interview stage (`status: FOR_INTERVIEW`), making it visible to assigned panelists' `GET /panel-evaluations/my-queue`. 400 if current status isn't `SUBMITTED` or `UNDER_SIFTING`. |
+| PATCH | `/:id/sift` | ADMIN | `SiftApplicationDto` | The Sifting phase's pass/fail call against the posting's qualification standards (education/training/experience/eligibility). Sets `status` to the decision and stamps `siftedAt`/`siftedByUserId`/`siftingRemarks`. 400 unless current status is `UNDER_SIFTING` (every application starts there automatically on submit - see below). |
+| POST | `/import-exam-scores` | ADMIN | multipart: `file` (`.xlsx`/`.xls`) + `jobPostingId` | Imports Pre-Qualifying Examination (PQE) scores, conducted outside the system. Expects a header row with "Name"/"Score" columns; each row is matched against that posting's `QUALIFIED` applicants by trying several normalized name forms per applicant (`firstName lastName`, plus `firstName middleName lastName` and `firstName middleInitial. lastName` when a middle name is on file, each optionally with `suffix` appended) — case/whitespace/period-insensitive, so "Gibo R. Ormeneta" matches an applicant on file as firstName "Gibo", middleName "R.", lastName "Ormeneta" just as well as plain "Gibo Ormeneta" does. On match, sets `examinationScore`/`examinationScoredAt`. Returns `{ matched: [{applicationId, applicantName, score}], unmatched: [{name, score}] }` — non-matches aren't an error, the admin reviews and can fix names and re-upload. |
+| PATCH | `/:id/schedule-interview` | ADMIN | `ScheduleInterviewDto` | Moves the application into the interview stage (`status: FOR_INTERVIEW`), making it visible to assigned panelists' `GET /panel-evaluations/my-queue`. 400 unless `status === "QUALIFIED"` **and** `examinationScore` is recorded — sifting and the PQE score must both be done first. 400 if `scheduledAt` isn't in the future. Stamps `interviewScheduledAt`/`interviewVenue`/`interviewAttire`/`interviewNotes`, all of which are rendered into the notification email so the applicant actually knows when/where to show up and what to wear, rather than a vague "the panel will be in touch." |
 
-### `EvaluateApplicationDto`
+`POST /`, `PATCH /:id/sift`, `POST /import-exam-scores`, and `PATCH /:id/schedule-interview` each email the applicant after their write succeeds (application received / sifted qualified-or-not / PQE score recorded / scheduled for interview respectively), via `EmailService` (`backend/src/shared/email/emailService.ts`). Real sending requires `SMTP_HOST` (+ optional `SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_SECURE`/`SMTP_FROM`) in `backend/.env`; with `SMTP_HOST` unset (the default - see `.env.example`), the email is logged to the console prefixed `[DEV EMAIL]` instead of sent, so this is fully testable without a mail server. Either path: a send failure is logged, never thrown - none of these endpoints fail because a notification couldn't go out.
+
+### `ScheduleInterviewDto`
 
 ```ts
 {
-  score: number;      // integer 0-100 (mandatory field + threshold checks per the domain spec's Eval Forms requirement)
+  scheduledAt: string; // ISO datetime, must be in the future
+  venue: string;
+  attire?: string;
+  notes?: string;
+}
+```
+
+### `SiftApplicationDto`
+
+```ts
+{
   decision: "QUALIFIED" | "NOT_QUALIFIED";
   remarks?: string;
 }
 ```
+
+No numeric score here - Sifting is a pass/fail checklist call (per the domain spec's Sifting phase), distinct from both the PQE score (`examinationScore`, imported separately) and the interview panel's per-criterion scoring (`PanelScore`, see below).
 
 ## Users — `/api/users` (all ADMIN only)
 
@@ -108,7 +128,7 @@ Three roles exist: `APPLICANT` (self-registers via `/auth/register`), `ADMIN`, a
 |---|---|---|
 | GET | `/` | Query `?entityType=User|JobPosting|Application&limit=<1-500, default 200>`. Newest first. No POST/PATCH/DELETE exist for this resource — see [decisions.md](./decisions.md) for why an audit trail has no mutation path through the API at all. |
 
-Each entry: `{ id, action, entityType, entityId, details, createdAt, actor: { email } | null }`. `action` is a plain string (`USER_CREATED`, `USER_UPDATED`, `USER_DELETED`, `JOB_POSTING_CREATED`, `JOB_POSTING_UPDATED`, `JOB_POSTING_DELETED`, `APPLICATION_EVALUATED`, `APPLICATION_SCHEDULED_INTERVIEW`, `CRITERION_CREATED`, `CRITERION_UPDATED`, `CRITERION_DELETED`, `PANEL_ASSIGNED`, `PANEL_UNASSIGNED`, `PANEL_EVALUATION_SUBMITTED`), not a DB enum, so new action types don't need a migration.
+Each entry: `{ id, action, entityType, entityId, details, createdAt, actor: { email } | null }`. `action` is a plain string (`USER_CREATED`, `USER_UPDATED`, `USER_DELETED`, `JOB_POSTING_CREATED`, `JOB_POSTING_UPDATED`, `JOB_POSTING_DELETED`, `APPLICATION_SIFTED`, `APPLICATION_EXAM_SCORES_IMPORTED`, `APPLICATION_SCHEDULED_INTERVIEW`, `CRITERION_CREATED`, `CRITERION_UPDATED`, `CRITERION_DELETED`, `PANEL_ASSIGNED`, `PANEL_UNASSIGNED`, `PANEL_EVALUATION_SUBMITTED`), not a DB enum, so new action types don't need a migration.
 
 ## Dashboard — `/api/dashboard` (ADMIN only, read-only)
 
@@ -153,7 +173,7 @@ Every status/role key is always present with a count of `0` rather than omitted 
 | Method | Path | Auth | Body | Notes |
 |---|---|---|---|---|
 | GET | `/my-queue` | PANEL | — | Applications with `status: FOR_INTERVIEW` across every posting the caller is assigned to, each including the caller's own existing evaluation (if any) so the frontend can pre-fill an in-progress form. |
-| PATCH | `/:applicationId` | PANEL | `{ remarks?, scores: [{ criterionId, score }] }` | Upserts the caller's own evaluation for that application (one per panelist per application — re-submitting overwrites, mirroring `applications.evaluate`'s pattern). 400 if the application isn't `FOR_INTERVIEW`, a score is missing for any active criterion, or a score exceeds that criterion's `maxScore` (the spec's mandatory-field + threshold rules); 403 if the caller isn't assigned to that application's posting. |
+| PATCH | `/:applicationId` | PANEL | `{ remarks?, scores: [{ criterionId, score }] }` | Upserts the caller's own evaluation for that application (one per panelist per application — re-submitting overwrites, mirroring `applications.sift`'s upsert-on-resubmit pattern). 400 if the application isn't `FOR_INTERVIEW`, a score is missing for any active criterion, or a score exceeds that criterion's `maxScore` (the spec's mandatory-field + threshold rules); 403 if the caller isn't assigned to that application's posting. |
 | GET | `/tabulation/:jobPostingId` | ADMIN | — | The CompAss ranked matrix for a posting: every assigned panelist, and per application (`FOR_INTERVIEW`/`QUALIFIED`/`NOT_QUALIFIED`) each panelist's total score, the average across panelists who've submitted, a descending rank, and `panelistsSubmitted`/`panelistsAssigned` counts (drives the "N of M haven't scored yet" warning `EvaluateApplicantsPage` shows before an admin finalizes early). |
 
 ## Health

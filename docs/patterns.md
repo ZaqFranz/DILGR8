@@ -154,7 +154,7 @@ Patterns actually in use in this codebase, documented as they're introduced (per
 
 **Disadvantages:** Not transactional with the mutation it describes (a crash between the write and the `.record()` call loses that one log entry) — acceptable for an admin activity feed, not acceptable if this were ever repurposed as a compliance-grade audit log requiring atomicity.
 
-**Example usage:** `backend/src/modules/users/users.service.ts` (`USER_CREATED`/`USER_UPDATED`/`USER_DELETED`), `backend/src/modules/job-postings/job-postings.service.ts`, `backend/src/modules/applications/applications.service.ts` (`APPLICATION_EVALUATED`).
+**Example usage:** `backend/src/modules/users/users.service.ts` (`USER_CREATED`/`USER_UPDATED`/`USER_DELETED`), `backend/src/modules/job-postings/job-postings.service.ts`, `backend/src/modules/applications/applications.service.ts` (`APPLICATION_SIFTED`).
 
 **Related files:** `modules/audit-logs/audit-logs.repository.ts`, `modules/audit-logs/audit-actions.ts`, `frontend/src/features/admin/pages/AuditLogsPage.tsx`.
 
