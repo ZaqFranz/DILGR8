@@ -109,6 +109,27 @@ Two roles exist: `APPLICANT` (self-registers via `/auth/register`) and `ADMIN` (
 
 Each entry: `{ id, action, entityType, entityId, details, createdAt, actor: { email } | null }`. `action` is a plain string (`USER_CREATED`, `USER_UPDATED`, `USER_DELETED`, `JOB_POSTING_CREATED`, `JOB_POSTING_UPDATED`, `JOB_POSTING_DELETED`, `APPLICATION_EVALUATED`), not a DB enum, so new action types don't need a migration.
 
+## Dashboard — `/api/dashboard` (ADMIN only, read-only)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/summary` | No query params. Aggregates counts directly from `User`/`Applicant`/`JobPosting`/`Application` (not routed through those modules' own repositories - a cross-cutting reporting read, the same pattern `AuditLogsRepository` uses) plus the 8 most recent audit log entries. |
+
+Response shape:
+
+```
+{
+  applicants: { total, registrationComplete },
+  users: { total, byRole: { ADMIN, APPLICANT } },
+  jobPostings: { total, byStatus: { OPEN, CLOSED } },
+  applications: { total, byStatus: { SUBMITTED, UNDER_SIFTING, QUALIFIED, NOT_QUALIFIED, WITHDRAWN } },
+  topJobPostings: [{ jobPostingId, title, applicationCount }],  // top 5, by application count
+  recentActivity: AuditLogEntry[]  // same shape as GET /api/audit-logs, limit 8
+}
+```
+
+Every status/role key is always present with a count of `0` rather than omitted - `groupBy` only returns rows for combinations that exist, so the service fills every known enum value before responding, letting the frontend render a fixed set of chart rows without a presence check per key.
+
 ## Health
 
 | Method | Path | Notes |

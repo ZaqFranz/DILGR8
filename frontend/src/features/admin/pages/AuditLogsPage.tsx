@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
+import { formatAuditAction } from "@/shared/utils/formatAuditAction";
 import { AdminShell } from "../components/AdminShell";
 import { listAuditLogs } from "../api/auditLogsApi";
 import type { AuditLogEntry } from "../types";
@@ -12,14 +13,6 @@ const ENTITY_TYPE_OPTIONS = [
   { value: "JobPosting", label: "Job Postings" },
   { value: "Application", label: "Applications" },
 ];
-
-function formatAction(action: string): string {
-  return action
-    .toLowerCase()
-    .split("_")
-    .map((word) => word[0]!.toUpperCase() + word.slice(1))
-    .join(" ");
-}
 
 export function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
@@ -70,7 +63,7 @@ export function AuditLogsPage() {
                 <tr key={log.id}>
                   <td>{new Date(log.createdAt).toLocaleString()}</td>
                   <td>{log.actor?.email ?? "(deleted user)"}</td>
-                  <td>{formatAction(log.action)}</td>
+                  <td>{formatAuditAction(log.action)}</td>
                   <td>{log.details ?? "-"}</td>
                 </tr>
               ))}

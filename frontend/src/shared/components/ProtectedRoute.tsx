@@ -9,7 +9,7 @@ interface Props {
 }
 
 const HOME_BY_ROLE: Record<"ADMIN" | "APPLICANT", string> = {
-  ADMIN: "/admin/jobs",
+  ADMIN: "/admin/dashboard",
   APPLICANT: "/jobs",
 };
 

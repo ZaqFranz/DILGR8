@@ -12,6 +12,7 @@ import { createJobPostingsRouter } from "@/modules/job-postings/job-postings.rou
 import { createApplicationsRouter } from "@/modules/applications/applications.routes";
 import { createUsersRouter } from "@/modules/users/users.routes";
 import { createAuditLogsRouter } from "@/modules/audit-logs/audit-logs.routes";
+import { createDashboardRouter } from "@/modules/dashboard/dashboard.routes";
 
 export function createApp(): Express {
   const app = express();
@@ -31,6 +32,7 @@ export function createApp(): Express {
   app.use("/api/applications", createApplicationsRouter(container.applicationsController));
   app.use("/api/users", createUsersRouter(container.usersController));
   app.use("/api/audit-logs", createAuditLogsRouter(container.auditLogsController));
+  app.use("/api/dashboard", createDashboardRouter(container.dashboardController));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -55,3 +55,24 @@ export interface AuditLogEntry {
   createdAt: string;
   actor: { email: string } | null;
 }
+
+export interface DashboardSummary {
+  applicants: {
+    total: number;
+    registrationComplete: number;
+  };
+  users: {
+    total: number;
+    byRole: Record<UserRole, number>;
+  };
+  jobPostings: {
+    total: number;
+    byStatus: Record<"OPEN" | "CLOSED", number>;
+  };
+  applications: {
+    total: number;
+    byStatus: Record<ApplicationStatus, number>;
+  };
+  topJobPostings: Array<{ jobPostingId: string; title: string; applicationCount: number }>;
+  recentActivity: AuditLogEntry[];
+}

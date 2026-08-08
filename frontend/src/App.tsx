@@ -6,6 +6,7 @@ import { LoginPage } from "@/features/auth/pages/LoginPage";
 import { JobPostingsListPage } from "@/features/job-postings/pages/JobPostingsListPage";
 import { RegistrationPage } from "@/features/applicant-registration/pages/RegistrationPage";
 import { MyApplicationsPage } from "@/features/applicant-registration/pages/MyApplicationsPage";
+import { DashboardPage } from "@/features/admin/pages/DashboardPage";
 import { JobManagementPage } from "@/features/admin/pages/JobManagementPage";
 import { UsersManagementPage } from "@/features/admin/pages/UsersManagementPage";
 import { EvaluateApplicantsPage } from "@/features/admin/pages/EvaluateApplicantsPage";
@@ -18,7 +19,7 @@ function HomeRedirect() {
   if (user.role === "APPLICANT" && registrationComplete === false) {
     return <Navigate to="/register" replace />;
   }
-  return <Navigate to={user.role === "ADMIN" ? "/admin/jobs" : "/jobs"} replace />;
+  return <Navigate to={user.role === "ADMIN" ? "/admin/dashboard" : "/jobs"} replace />;
 }
 
 export default function App() {
@@ -52,6 +53,14 @@ export default function App() {
         />
 
         {/* Admin-only */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin/jobs"
           element={

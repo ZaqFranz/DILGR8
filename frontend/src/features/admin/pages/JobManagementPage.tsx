@@ -38,6 +38,8 @@ export function JobManagementPage() {
   const [submitting, setSubmitting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<JobPosting | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [levelFilter, setLevelFilter] = useState<PositionLevel | "">("");
 
   useEffect(() => {
     listJobPostings()
@@ -45,6 +47,12 @@ export function JobManagementPage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load job postings"))
       .finally(() => setLoading(false));
   }, []);
+
+  const filteredPostings = postings.filter((posting) => {
+    const matchesSearch = posting.title.toLowerCase().includes(search.trim().toLowerCase());
+    const matchesLevel = levelFilter === "" || posting.positionLevel === levelFilter;
+    return matchesSearch && matchesLevel;
+  });
 
   function update<K extends keyof CreateJobPostingInput>(key: K, value: CreateJobPostingInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -135,6 +143,33 @@ export function JobManagementPage() {
       </div>
       <ErrorBanner message={error} />
 
+      {!loading && postings.length > 0 && (
+        <div className="filters-row">
+          <div className="field">
+            <label htmlFor="job-search">Search</label>
+            <input
+              id="job-search"
+              type="search"
+              placeholder="Search by title..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="job-level-filter">Level</label>
+            <select
+              id="job-level-filter"
+              value={levelFilter}
+              onChange={(e) => setLevelFilter(e.target.value as PositionLevel | "")}
+            >
+              <option value="">All levels</option>
+              <option value="ENTRY">Entry level</option>
+              <option value="PROMOTIONAL">Promotional</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {loading && <LoadingBlock />}
       {!loading && (
         <div className="table-wrap">
@@ -156,7 +191,14 @@ export function JobManagementPage() {
                   </td>
                 </tr>
               )}
-              {postings.map((posting) => (
+              {postings.length > 0 && filteredPostings.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="table-empty">
+                    No job postings match your search/filter.
+                  </td>
+                </tr>
+              )}
+              {filteredPostings.map((posting) => (
                 <tr key={posting.id}>
                   <td>{posting.title}</td>
                   <td>{posting.positionLevel === "PROMOTIONAL" ? "Promotional" : "Entry level"}</td>

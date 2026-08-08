@@ -28,6 +28,10 @@ import { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository"
 import { AuditLogsService } from "@/modules/audit-logs/audit-logs.service";
 import { AuditLogsController } from "@/modules/audit-logs/audit-logs.controller";
 
+import { DashboardRepository } from "@/modules/dashboard/dashboard.repository";
+import { DashboardService } from "@/modules/dashboard/dashboard.service";
+import { DashboardController } from "@/modules/dashboard/dashboard.controller";
+
 /**
  * Composition root: the one place that wires concrete repositories into
  * services into controllers. Every class up the chain takes its
@@ -43,6 +47,7 @@ function buildContainer() {
   const authRepository = new AuthRepository(prisma);
   const usersRepository = new UsersRepository(prisma);
   const auditLogsRepository = new AuditLogsRepository(prisma);
+  const dashboardRepository = new DashboardRepository(prisma);
 
   const authService = new AuthService(authRepository);
   const applicantsService = new ApplicantsService(applicantsRepository, documentsRepository);
@@ -57,6 +62,7 @@ function buildContainer() {
   );
   const usersService = new UsersService(usersRepository, auditLogsRepository);
   const auditLogsService = new AuditLogsService(auditLogsRepository);
+  const dashboardService = new DashboardService(dashboardRepository, auditLogsRepository);
 
   return {
     authController: new AuthController(authService),
@@ -66,6 +72,7 @@ function buildContainer() {
     applicationsController: new ApplicationsController(applicationsService),
     usersController: new UsersController(usersService),
     auditLogsController: new AuditLogsController(auditLogsService),
+    dashboardController: new DashboardController(dashboardService),
   };
 }
 
