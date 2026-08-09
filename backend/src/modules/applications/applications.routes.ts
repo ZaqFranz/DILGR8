@@ -18,6 +18,7 @@ export function createApplicationsRouter(controller: ApplicationsController): Ro
 
   router.post("/", validate({ body: createApplicationSchema }), asyncHandler(controller.submit));
   router.get("/me", asyncHandler(controller.listMine));
+  router.patch("/:id/withdraw", validate({ params: idParamSchema }), asyncHandler(controller.withdraw));
 
   router.get(
     "/",

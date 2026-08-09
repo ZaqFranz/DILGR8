@@ -11,10 +11,23 @@ import {
   examScoreEmail,
   forInterviewEmail,
   submittedEmail,
+  withdrawnEmail,
 } from "@/shared/email/applicationEmailTemplates";
 import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
 import type { ScheduleInterviewDto, SiftApplicationDto } from "./applications.dto";
 import { parseExamScoreWorkbook } from "./examScoreParser";
+
+// An application can be withdrawn any time before its outcome is already
+// final - NOT_QUALIFIED and WITHDRAWN itself are terminal, so they're the
+// only statuses excluded here.
+const WITHDRAWABLE_STATUSES = ["SUBMITTED", "UNDER_SIFTING", "QUALIFIED", "FOR_INTERVIEW"] as const;
+
+const ELIGIBILITY_LABELS: Record<string, string> = {
+  RA1080: "RA 1080",
+  CSC_PROFESSIONAL: "CSC Professional",
+  CSC_SUBPROFESSIONAL: "CSC Sub-Professional",
+  BARANGAY: "Barangay Eligibility",
+};
 
 function normalizeName(name: string): string {
   return name
@@ -97,6 +110,17 @@ export class ApplicationsService {
       }
     }
 
+    if (posting.requiredEligibilityTypes.length > 0) {
+      const satisfiesEligibility =
+        applicant.hasEligibility && posting.requiredEligibilityTypes.includes(applicant.eligibilityType);
+      if (!satisfiesEligibility) {
+        const required = posting.requiredEligibilityTypes.map((type) => ELIGIBILITY_LABELS[type] ?? type).join(", ");
+        throw new ValidationError(
+          `This job posting requires one of the following eligibilities: ${required}. Update your eligibility on your profile before applying.`,
+        );
+      }
+    }
+
     if (applicant.hasEligibility) {
       const hasProof = (await this.documentsRepository.findByApplicant(applicant.id)).some(
         (doc) => doc.type === "ELIGIBILITY_PROOF",
@@ -124,6 +148,33 @@ export class ApplicationsService {
 
   listForAdmin(jobPostingId?: string): Promise<ApplicationWithApplicant[]> {
     return this.applicationsRepository.findMany(jobPostingId);
+  }
+
+  async withdraw(applicationId: string, userId: string): Promise<ApplicationWithApplicant> {
+    const applicant = await this.applicantsRepository.findByUserId(userId);
+    if (!applicant) {
+      throw new NotFoundError("Applicant profile");
+    }
+
+    const application = await this.applicationsRepository.findById(applicationId);
+    // Applicants can't distinguish "doesn't exist" from "isn't yours" -
+    // 404 either way, same as any other resource lookup scoped to the caller.
+    if (!application || application.applicantId !== applicant.id) {
+      throw new NotFoundError("Application");
+    }
+    if (!WITHDRAWABLE_STATUSES.includes(application.status as (typeof WITHDRAWABLE_STATUSES)[number])) {
+      throw new ValidationError(`Cannot withdraw an application with status ${application.status}`);
+    }
+
+    const updated = await this.applicationsRepository.withdraw(applicationId);
+
+    const { subject, html } = withdrawnEmail(
+      `${application.applicant.firstName} ${application.applicant.lastName}`,
+      application.jobPosting.title,
+    );
+    await this.emailService.send({ to: application.applicant.user.email, subject, html });
+
+    return updated;
   }
 
   async sift(

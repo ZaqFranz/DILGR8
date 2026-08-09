@@ -33,6 +33,11 @@ export class ApplicationsController {
     res.status(200).json(applications);
   };
 
+  withdraw = async (req: Request, res: Response): Promise<void> => {
+    const application = await this.applicationsService.withdraw(req.params.id as string, req.user!.id);
+    res.status(200).json(application);
+  };
+
   sift = async (req: Request, res: Response): Promise<void> => {
     const application = await this.applicationsService.sift(
       req.params.id as string,

@@ -4,6 +4,7 @@ import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { FieldError } from "@/shared/components/FieldError";
 import { Spinner } from "@/shared/components/Spinner";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
+import { ELIGIBILITY_OPTIONS } from "@/shared/constants/eligibility";
 import { createProfile, updateProfile } from "../api/applicantsApi";
 import type { ApplicantProfile, DemographicProfileInput, EligibilityType } from "../types";
 
@@ -11,13 +12,6 @@ interface Props {
   profile: ApplicantProfile | null;
   onSaved: (profile: ApplicantProfile) => void;
 }
-
-const ELIGIBILITY_OPTIONS: { value: EligibilityType; label: string }[] = [
-  { value: "RA1080", label: "RA 1080" },
-  { value: "CSC_PROFESSIONAL", label: "CSC Professional" },
-  { value: "CSC_SUBPROFESSIONAL", label: "CSC Sub-Professional" },
-  { value: "BARANGAY", label: "Barangay Eligibility" },
-];
 
 function toInputValue(input: DemographicProfileInput, profile: ApplicantProfile | null): DemographicProfileInput {
   if (!profile) return input;

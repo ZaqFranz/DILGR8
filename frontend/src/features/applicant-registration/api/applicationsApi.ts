@@ -20,3 +20,7 @@ export function submitApplication(jobPostingId: string): Promise<Application> {
 export function listMyApplications(): Promise<Application[]> {
   return apiRequest<Application[]>("/applications/me");
 }
+
+export function withdrawApplication(id: string): Promise<Application> {
+  return apiRequest<Application>(`/applications/${id}/withdraw`, { method: "PATCH" });
+}

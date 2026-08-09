@@ -96,6 +96,38 @@
 
 ---
 
+## 2026-08-08 — Eligibility gate at application submission: structured per-posting requirement, join table over JSON/scalar-list
+
+**Context:** Applicants without the eligibility a posting requires were able to apply — `ApplicationsService.submit()` only checked that a self-declared-eligible applicant had uploaded *some* `ELIGIBILITY_PROOF` document, never that their `eligibilityType` actually satisfied the posting. The posting side had no structured field to compare against: `JobPosting.qualificationEligibility` is free text (e.g. "RA 1080 or CSC Professional required") written by an admin for applicants to read, not something the backend can parse reliably. Fixing this required deciding how a posting expresses which eligibility type(s) it needs.
+
+**Decision:** Added `JobPostingRequiredEligibility`, a join table (`jobPostingId`, `eligibilityType`, unique together) rather than a Prisma scalar-list field or a `Json` column on `JobPosting`. `JobPostingsRepository` flattens the join rows into a `requiredEligibilityTypes: EligibilityType[]` array on every read and replaces the full set (`deleteMany` + `create`) on update, so every other layer (service, controller, frontend) just sees a plain array — the join table is an implementation detail. An empty array means no eligibility is required. `ApplicationsService.submit()` now 400s before creating the application unless `applicant.hasEligibility && posting.requiredEligibilityTypes.includes(applicant.eligibilityType)` (skipped entirely when the array is empty), and the frontend's `JobPostingsListPage` disables/relabels the "Apply" button using the same check so an ineligible applicant is told why before clicking, not after. The pre-existing "if you claim eligibility, prove it with a document" check is unchanged and still runs independently.
+
+**Pros:** A join table matches the codebase's existing style for admin-managed one-to-many links (`PanelAssignment` is structurally identical) and lets Prisma/MySQL enforce the schema directly, rather than trusting an unvalidated `Json` blob or working around MySQL's lack of native scalar-list support. Keeping the free-text `qualificationEligibility` field alongside it (rather than deriving display text from the structured array) preserves whatever nuance an admin already wrote there for applicants to read, while the structured array is the only thing enforcement logic touches.
+
+**Cons:** Two eligibility-related fields on `JobPosting` now (`qualificationEligibility` free text, `requiredEligibilityTypes` structured) that admins must keep in sync by hand — nothing stops them drifting (e.g. the text says "RA 1080 preferred" while the checkboxes require CSC Professional). A join table also means every job-posting read does an extra `include`, though at this data volume it's immaterial.
+
+**Future impact:** If eligibility requirements ever need per-posting nuance beyond "any one of these types" (e.g. "RA 1080 AND 2 years experience", or an eligibility type that's only acceptable for certain positions), the flat `EligibilityType[]` check in `ApplicationsService.submit()` is the first place to extend — it's isolated to a single `if` block, not spread across the codebase.
+
+**Reference:** [database.md § job_posting_required_eligibilities](./database.md#job_posting_required_eligibilities), [api.md § Job Postings](./api.md#job-postings--apijob-postings) / [§ Applications](./api.md#applications--apiapplications-all-require-auth), `backend/src/modules/job-postings/job-postings.repository.ts`, `backend/src/modules/applications/applications.service.ts`, `frontend/src/features/job-postings/pages/JobPostingsListPage.tsx`.
+
+---
+
+## 2026-08-08 — Applicant-initiated application withdrawal: allowed up to FOR_INTERVIEW, not logged to the audit trail
+
+**Context:** `Application.status` has included `WITHDRAWN` since the pipeline's first migration, but nothing ever set it - there was no applicant-facing withdraw action. `docs/rsp-domain-spec.md` has zero mentions of "withdraw"; there's no specified cutoff for when an applicant may withdraw, so which statuses should allow it was an undocumented call to make. Separately, every other `Application` transition (`sift`, `scheduleInterview`, exam-score import) is admin/panel-initiated and gets an `AuditLog` entry; `submit()` - the only prior applicant-initiated transition - does not, per the existing "applicant-side actions aren't audited yet" convention (see Audit Logging in `docs/project-memory.md`).
+
+**Decision:** An application can be withdrawn (`PATCH /api/applications/:id/withdraw`) from `SUBMITTED`/`UNDER_SIFTING`/`QUALIFIED`/`FOR_INTERVIEW` - i.e. any non-terminal status. `NOT_QUALIFIED` and `WITHDRAWN` itself are excluded (400) since both are already terminal outcomes with nothing left to withdraw from. Ownership is enforced the same way `submit`/`listMine` do it - resolve the caller's own `Applicant` row via `userId`, then compare `application.applicantId` against it - and a mismatch 404s (not 403), so an applicant probing another applicant's application ID can't distinguish "not yours" from "doesn't exist." Like `submit()`, `withdraw()` does not write an `AuditLog` entry, staying consistent with the existing applicant-action convention rather than auditing this one applicant action while every other one stays unaudited.
+
+**Pros:** The status whitelist matches how the rest of the pipeline already treats `NOT_QUALIFIED`/`WITHDRAWN` as terminal (nothing else transitions out of them either). Reusing `submit`/`listMine`'s exact ownership-resolution pattern, rather than inventing a new one, keeps applicant-scoped resource access consistent across the module.
+
+**Cons:** The specific cutoff (through `FOR_INTERVIEW`, not further) is a judgment call with no spec backing it - a real DILG process might want to disallow withdrawal once an interview is scheduled, or allow it all the way through Deliberation once that phase exists. Not auditing applicant-initiated actions at all (submit, now withdraw) means there's no admin-visible trail if an applicant repeatedly submits and withdraws, though the audit log's stated purpose (`docs/decisions.md`'s audit-trail entry, `docs/patterns.md`) has always been about admin/panel write accountability, not applicant activity monitoring.
+
+**Future impact:** If the domain spec is ever clarified with an explicit withdrawal cutoff, the whitelist is a single `WITHDRAWABLE_STATUSES` constant in `applications.service.ts` to change. If applicant-side audit logging is added later (tracked as a known gap in `docs/project-memory.md`), `withdraw()` should get the same treatment as `submit()` in that pass, not be singled out now.
+
+**Reference:** [database.md § applications](./database.md#applications), [api.md § Applications](./api.md#applications--apiapplications-all-require-auth), `backend/src/modules/applications/applications.service.ts`, `frontend/src/features/applicant-registration/pages/MyApplicationsPage.tsx`.
+
+---
+
 ## 2026-08-08 — Admin panel redesigned around a sidebar shell (`AdminShell`), not the shared top nav
 
 **Context:** Asked for the admin panel to look like "an admin panel setup" — sidebar navigation — with full CRUD for Users, Jobs, and a new History of Logs section, distinct from the two-link top nav the admin section had before.

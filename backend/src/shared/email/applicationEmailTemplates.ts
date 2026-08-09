@@ -60,3 +60,10 @@ export function examScoreEmail(applicantName: string, jobTitle: string, score: n
     html: `<p>Hi ${applicantName},</p><p>Your Pre-Qualifying Examination score for <strong>${jobTitle}</strong> has been recorded: <strong>${score}</strong>.</p>${FOOTER}`,
   };
 }
+
+export function withdrawnEmail(applicantName: string, jobTitle: string): EmailContent {
+  return {
+    subject: `Application withdrawn - ${jobTitle}`,
+    html: `<p>Hi ${applicantName},</p><p>Your application for <strong>${jobTitle}</strong> has been withdrawn at your request. If this was a mistake, you'll need to submit a new application while the posting is still open.</p>${FOOTER}`,
+  };
+}

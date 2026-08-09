@@ -8,6 +8,8 @@ import { Modal } from "@/shared/components/Modal";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
+import { ELIGIBILITY_OPTIONS } from "@/shared/constants/eligibility";
+import type { EligibilityType } from "@/features/applicant-registration/types";
 import { AdminShell } from "../components/AdminShell";
 import {
   createJobPosting,
@@ -27,6 +29,7 @@ const emptyForm: CreateJobPostingInput = {
   qualificationTraining: "",
   qualificationExperience: "",
   qualificationEligibility: "",
+  requiredEligibilityTypes: [],
   duties: "",
 };
 
@@ -62,6 +65,15 @@ export function JobManagementPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function toggleRequiredEligibility(type: EligibilityType, checked: boolean) {
+    setForm((prev) => ({
+      ...prev,
+      requiredEligibilityTypes: checked
+        ? [...prev.requiredEligibilityTypes, type]
+        : prev.requiredEligibilityTypes.filter((t) => t !== type),
+    }));
+  }
+
   function openAddModal() {
     setEditingId(null);
     setForm(emptyForm);
@@ -83,6 +95,7 @@ export function JobManagementPage() {
       qualificationTraining: posting.qualificationTraining,
       qualificationExperience: posting.qualificationExperience,
       qualificationEligibility: posting.qualificationEligibility,
+      requiredEligibilityTypes: posting.requiredEligibilityTypes,
       duties: posting.duties,
     });
     setError(null);
@@ -352,6 +365,26 @@ export function JobManagementPage() {
               onChange={(e) => update("qualificationEligibility", e.target.value)}
             />
             <FieldError message={fieldErrors.qualificationEligibility} />
+          </div>
+          <div className={fieldErrors.requiredEligibilityTypes ? "field has-error" : "field"}>
+            <label>Required eligibility (leave unchecked if none is required)</label>
+            <div className="checkbox-group">
+              {ELIGIBILITY_OPTIONS.map((option) => (
+                <label key={option.value} className="checkbox-option">
+                  <input
+                    type="checkbox"
+                    checked={form.requiredEligibilityTypes.includes(option.value)}
+                    onChange={(e) => toggleRequiredEligibility(option.value, e.target.checked)}
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+            <p className="field-hint">
+              Applicants must hold at least one of the checked eligibilities to apply. This drives enforcement; the
+              qualification text above is shown to applicants for context only.
+            </p>
+            <FieldError message={fieldErrors.requiredEligibilityTypes} />
           </div>
           <div className={fieldErrors.placeOfAssignment ? "field has-error" : "field"}>
             <label htmlFor="placeOfAssignment" className="required">

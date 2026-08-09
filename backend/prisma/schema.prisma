@@ -213,12 +213,28 @@ model JobPosting {
   // blocked by, or cascade into deleting, the postings they made.
   createdByUserId String?
 
-  createdBy        User?             @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  applications     Application[]
-  panelAssignments PanelAssignment[]
+  createdBy             User?                            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  applications          Application[]
+  panelAssignments      PanelAssignment[]
+  requiredEligibilities JobPostingRequiredEligibility[]
 
   @@index([status])
   @@map("job_postings")
+}
+
+/// One required eligibility type for a posting (e.g. a posting requiring
+/// either RA1080 or CSC Professional has two rows). Empty for a posting -
+/// no row at all - means no eligibility is required to apply. A join table
+/// rather than a Prisma scalar list because MySQL doesn't support those.
+model JobPostingRequiredEligibility {
+  id              String          @id @default(uuid())
+  jobPostingId    String
+  eligibilityType EligibilityType
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@unique([jobPostingId, eligibilityType])
+  @@map("job_posting_required_eligibilities")
 }
 
 /// One applicant's application to one job posting. Unique per
@@ -252,6 +268,11 @@ model Application {
   interviewVenue       String?   @db.Text
   interviewAttire      String?   @db.Text
   interviewNotes       String?   @db.Text
+
+  // Set by ApplicationsService.withdraw() - applicant-initiated, on their own
+  // application only (no admin equivalent, so unlike siftedByUserId there's
+  // no separate actor column: applicantId already identifies who withdrew).
+  withdrawnAt DateTime?
 
   applicant        Applicant         @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   jobPosting       JobPosting        @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)

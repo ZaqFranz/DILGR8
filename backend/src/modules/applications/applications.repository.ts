@@ -97,6 +97,14 @@ export class ApplicationsRepository {
     }) as Promise<ApplicationWithApplicant>;
   }
 
+  withdraw(id: string): Promise<ApplicationWithApplicant> {
+    return this.db.application.update({
+      where: { id },
+      data: { status: "WITHDRAWN", withdrawnAt: new Date() },
+      include: applicationWithApplicantInclude,
+    }) as Promise<ApplicationWithApplicant>;
+  }
+
   scheduleInterview(id: string, input: ScheduleInterviewInput): Promise<ApplicationWithApplicant> {
     return this.db.application.update({
       where: { id },

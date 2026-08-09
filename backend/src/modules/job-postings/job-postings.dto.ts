@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const eligibilityTypeSchema = z.enum(["RA1080", "CSC_PROFESSIONAL", "CSC_SUBPROFESSIONAL", "BARANGAY"]);
+
 export const createJobPostingSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1),
@@ -10,6 +12,7 @@ export const createJobPostingSchema = z.object({
   qualificationTraining: z.string().min(1),
   qualificationExperience: z.string().min(1),
   qualificationEligibility: z.string().min(1),
+  requiredEligibilityTypes: z.array(eligibilityTypeSchema).default([]),
   duties: z.string().min(1),
 });
 export type CreateJobPostingDto = z.infer<typeof createJobPostingSchema>;
@@ -24,6 +27,7 @@ export const updateJobPostingSchema = z.object({
   qualificationTraining: z.string().min(1).optional(),
   qualificationExperience: z.string().min(1).optional(),
   qualificationEligibility: z.string().min(1).optional(),
+  requiredEligibilityTypes: z.array(eligibilityTypeSchema).optional(),
   duties: z.string().min(1).optional(),
   status: z.enum(["OPEN", "CLOSED"]).optional(),
 });

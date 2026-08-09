@@ -2,7 +2,7 @@ import type { JobPosting, JobPostingStatus } from "@prisma/client";
 import { ConflictError, NotFoundError } from "@/shared/errors/AppError";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
-import type { JobPostingsRepository } from "./job-postings.repository";
+import type { JobPostingsRepository, JobPostingWithEligibility } from "./job-postings.repository";
 import type { CreateJobPostingDto, UpdateJobPostingDto } from "./job-postings.dto";
 
 const APPLICATION_WINDOW_DAYS = 10;
@@ -13,7 +13,7 @@ export class JobPostingsService {
     private readonly auditLogsRepository: AuditLogsRepository,
   ) {}
 
-  async create(createdByUserId: string, dto: CreateJobPostingDto): Promise<JobPosting> {
+  async create(createdByUserId: string, dto: CreateJobPostingDto): Promise<JobPostingWithEligibility> {
     const postedAt = new Date();
     const closingAt = JobPostingsService.computeClosingAt(postedAt);
     const posting = await this.jobPostingsRepository.create({ ...dto, postedAt, closingAt, createdByUserId });
@@ -29,7 +29,7 @@ export class JobPostingsService {
     return posting;
   }
 
-  async findById(id: string): Promise<JobPosting> {
+  async findById(id: string): Promise<JobPostingWithEligibility> {
     const posting = await this.jobPostingsRepository.findById(id);
     if (!posting) {
       throw new NotFoundError("Job posting");
@@ -37,11 +37,11 @@ export class JobPostingsService {
     return posting;
   }
 
-  list(status?: JobPostingStatus): Promise<JobPosting[]> {
+  list(status?: JobPostingStatus): Promise<JobPostingWithEligibility[]> {
     return this.jobPostingsRepository.findMany(status);
   }
 
-  async update(actorUserId: string, id: string, dto: UpdateJobPostingDto): Promise<JobPosting> {
+  async update(actorUserId: string, id: string, dto: UpdateJobPostingDto): Promise<JobPostingWithEligibility> {
     const existing = await this.findById(id);
     const updated = await this.jobPostingsRepository.update(id, dto);
 
