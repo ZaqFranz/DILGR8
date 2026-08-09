@@ -151,6 +151,14 @@ export function RegistrationPage() {
     ldEntriesMissingProof.length > 0 ||
     awardsMissingProof.length > 0;
 
+  // Claiming an L&D entry or an award means proof of that specific claim is
+  // required - block moving past that step (not just the final "Finish
+  // registration") the moment an entry with no proof exists, same rule
+  // completeRegistration() already enforces server-side.
+  const nextBlockedOnCurrentStep =
+    (step === "learning" && ldEntriesMissingProof.length > 0) ||
+    (step === "awards" && awardsMissingProof.length > 0);
+
   async function handleFinish() {
     if (missingRequiredDocuments) {
       setError("Upload all required documents in the Documents section before finishing registration.");
@@ -291,6 +299,28 @@ export function RegistrationPage() {
 
           {profile && step === "documents" && <DocumentsSection items={documents} onChange={setDocuments} />}
 
+          {profile && step === "learning" && ldEntriesMissingProof.length > 0 && (
+            <div className="field-warning">
+              <p>Upload proof for the following entries before continuing:</p>
+              <ul>
+                {ldEntriesMissingProof.map((entry) => (
+                  <li key={entry.id}>"{entry.title}"</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {profile && step === "awards" && awardsMissingProof.length > 0 && (
+            <div className="field-warning">
+              <p>Upload proof for the following awards before continuing:</p>
+              <ul>
+                {awardsMissingProof.map((award) => (
+                  <li key={award.id}>"{award.title}"</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {profile && isLastStep && missingRequiredDocuments && (
             <div className="field-warning">
               <p>Upload the following required document(s) before finishing registration:</p>
@@ -332,6 +362,7 @@ export function RegistrationPage() {
               ) : (
                 <button
                   type="button"
+                  disabled={nextBlockedOnCurrentStep}
                   onClick={() =>
                     setStep(visibleSteps[Math.min(visibleSteps.length - 1, visibleSteps.findIndex((s) => s.id === step) + 1)]!.id)
                   }

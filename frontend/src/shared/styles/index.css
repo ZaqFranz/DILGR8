@@ -175,6 +175,93 @@ a {
   font-size: 0.85rem;
 }
 
+.user-menu {
+  position: relative;
+}
+
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  padding: 0.3rem 0.1rem;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+/* Beats the global `button:hover` rule (background fill) on specificity -
+   hovering the trigger should only recolor the text/caret, matching every
+   other header nav item's hover treatment, not fill in a solid button. */
+.user-menu-trigger:hover {
+  background: none;
+}
+
+.user-menu-trigger:hover .user-email,
+.user-menu-trigger:hover .user-menu-caret {
+  color: var(--color-primary);
+}
+
+.user-menu-trigger .user-email {
+  padding: 0;
+}
+
+.user-menu-caret {
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  transition: color 0.15s ease;
+}
+
+.user-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  z-index: 20;
+}
+
+/* `.app-header` prefix is needed on every rule below to out-specificity
+   `.app-header nav a`/`.app-header nav a.active-link` (defined above) -
+   without it, the dropdown's "Change Password" link (an `<a>`, unlike
+   "Log out") silently kept that rule's `padding: 0.25rem 0` instead of
+   this one, since both live inside `.app-header nav` and `.app-header nav a`
+   is more specific than a plain `.user-menu-dropdown a` - the two links
+   ended up with different left insets, looking unaligned. */
+.app-header .user-menu-dropdown a,
+.app-header .user-menu-dropdown button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  margin: 0;
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.app-header .user-menu-dropdown a:hover,
+.app-header .user-menu-dropdown button:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-primary);
+}
+
+.app-header .user-menu-dropdown a.active-link {
+  color: var(--color-primary);
+  border-bottom-color: transparent;
+}
+
 .app-main {
   flex: 1;
   width: 100%;

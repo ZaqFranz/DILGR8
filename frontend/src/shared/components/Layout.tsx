@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/shared/auth/AuthContext";
 
@@ -15,7 +15,35 @@ export function Layout({ children }: { children: ReactNode }) {
   // authenticated, keeps the normal header.
   const hideHeader = location.pathname === "/login" || (location.pathname === "/register" && !isAuthenticated);
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
+  // Collapse the menu on every navigation (e.g. clicking "Change Password")
+  // rather than leaving it open over the newly-loaded page.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
   function handleLogout() {
+    setMenuOpen(false);
     logout();
     navigate("/login");
   }
@@ -52,15 +80,35 @@ export function Layout({ children }: { children: ReactNode }) {
               </NavLink>
             )}
             {isAuthenticated ? (
-              <>
-                <NavLink to="/account/password" className={({ isActive }) => (isActive ? "active-link" : "")}>
-                  Change Password
-                </NavLink>
-                <span className="user-email">{user?.email}</span>
-                <button type="button" onClick={handleLogout}>
-                  Log out
+              <div className="user-menu" ref={menuRef}>
+                <button
+                  type="button"
+                  className="user-menu-trigger"
+                  aria-haspopup="true"
+                  aria-expanded={menuOpen}
+                  onClick={() => setMenuOpen((open) => !open)}
+                >
+                  <span className="user-email">{user?.email}</span>
+                  <span className="user-menu-caret" aria-hidden="true">
+                    ▾
+                  </span>
                 </button>
-              </>
+                {menuOpen && (
+                  <div className="user-menu-dropdown" role="menu">
+                    <NavLink
+                      to="/account/password"
+                      role="menuitem"
+                      className={({ isActive }) => (isActive ? "active-link" : "")}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Change Password
+                    </NavLink>
+                    <button type="button" role="menuitem" onClick={handleLogout}>
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <Link to="/login">Log in</Link>
