@@ -117,6 +117,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
           {application.applicant.firstName} {application.applicant.lastName}
         </td>
         <td>{application.applicant.user.email}</td>
+        <td>{application.jobPosting.title}</td>
         <td>{new Date(application.submittedAt).toLocaleDateString()}</td>
         <td>
           <span className={`badge ${application.status.toLowerCase()}`}>{application.status}</span>
@@ -139,7 +140,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8}>
+          <td colSpan={9}>
             <ErrorBanner message={error} />
             {!isSiftable && application.siftedAt !== null && (
               <div className="card-inset">

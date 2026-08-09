@@ -3,6 +3,7 @@ import { Layout } from "@/shared/components/Layout";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
+import { ChangePasswordPage } from "@/features/auth/pages/ChangePasswordPage";
 import { JobPostingsListPage } from "@/features/job-postings/pages/JobPostingsListPage";
 import { RegistrationPage } from "@/features/applicant-registration/pages/RegistrationPage";
 import { MyApplicationsPage } from "@/features/applicant-registration/pages/MyApplicationsPage";
@@ -42,6 +43,16 @@ export default function App() {
             so it isn't wrapped in ProtectedRoute; it manages its own
             authenticated/unauthenticated rendering. */}
         <Route path="/register" element={<RegistrationPage />} />
+
+        {/* Any authenticated role - self-service password change */}
+        <Route
+          path="/account/password"
+          element={
+            <ProtectedRoute>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Applicant-only */}
         <Route

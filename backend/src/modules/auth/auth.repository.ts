@@ -12,7 +12,15 @@ export class AuthRepository {
     return this.db.user.findUnique({ where: { email } });
   }
 
+  findById(id: string): Promise<User | null> {
+    return this.db.user.findUnique({ where: { id } });
+  }
+
   create(email: string, passwordHash: string): Promise<User> {
     return this.db.user.create({ data: { email, passwordHash } });
+  }
+
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    await this.db.user.update({ where: { id }, data: { passwordHash } });
   }
 }

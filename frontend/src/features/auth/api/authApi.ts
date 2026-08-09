@@ -8,3 +8,7 @@ export function register(credentials: Credentials): Promise<AuthResponse> {
 export function login(credentials: Credentials): Promise<AuthResponse> {
   return apiRequest<AuthResponse>("/auth/login", { method: "POST", body: credentials });
 }
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  return apiRequest<void>("/auth/me/password", { method: "PATCH", body: { currentPassword, newPassword } });
+}

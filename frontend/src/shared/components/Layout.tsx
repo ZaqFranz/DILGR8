@@ -53,6 +53,9 @@ export function Layout({ children }: { children: ReactNode }) {
             )}
             {isAuthenticated ? (
               <>
+                <NavLink to="/account/password" className={({ isActive }) => (isActive ? "active-link" : "")}>
+                  Change Password
+                </NavLink>
                 <span className="user-email">{user?.email}</span>
                 <button type="button" onClick={handleLogout}>
                   Log out

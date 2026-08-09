@@ -18,6 +18,7 @@ Three roles exist: `APPLICANT` (self-registers via `/auth/register`), `ADMIN`, a
 |---|---|---|---|---|
 | POST | `/register` | none | `{ email, password }` | Creates a `User` with role `APPLICANT`. Returns `{ accessToken, user }`. |
 | POST | `/login` | none | `{ email, password }` | Returns `{ accessToken, user }`. |
+| PATCH | `/me/password` | any authenticated role | `{ currentPassword, newPassword }` | Self-service password change - works identically for `APPLICANT`/`ADMIN`/`PANEL` since it acts on the caller's own `User` row (`req.user.id`), not a role-specific one. 400 with a `currentPassword` field error if `currentPassword` doesn't match; `newPassword` must be ≥8 characters (same rule as registration). 204 on success. Does **not** invalidate other active tokens for the same user - see [decisions.md](./decisions.md). |
 
 ## Applicants — `/api/applicants` (all require auth)
 

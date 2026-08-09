@@ -1,9 +1,9 @@
 import type { Role } from "@prisma/client";
-import { ConflictError, UnauthorizedError } from "@/shared/errors/AppError";
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from "@/shared/errors/AppError";
 import { hashPassword, verifyPassword } from "@/shared/utils/password";
 import { signAccessToken } from "@/shared/utils/jwt";
 import type { AuthRepository } from "./auth.repository";
-import type { AuthResponseDto, LoginDto, RegisterDto } from "./auth.dto";
+import type { AuthResponseDto, ChangePasswordDto, LoginDto, RegisterDto } from "./auth.dto";
 
 export class AuthService {
   constructor(private readonly authRepository: AuthRepository) {}
@@ -32,6 +32,23 @@ export class AuthService {
     }
 
     return this.buildAuthResponse(user.id, user.email, user.role);
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.authRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("User");
+    }
+
+    const valid = await verifyPassword(dto.currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new ValidationError("Current password is incorrect", {
+        fieldErrors: { currentPassword: ["Current password is incorrect"] },
+      });
+    }
+
+    const passwordHash = await hashPassword(dto.newPassword);
+    await this.authRepository.updatePassword(userId, passwordHash);
   }
 
   private buildAuthResponse(id: string, email: string, role: Role): AuthResponseDto {

@@ -1,7 +1,8 @@
-import { useEffect, useState, type SVGProps } from "react";
+import { useCallback, useEffect, useState, type SVGProps } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
+import { Spinner } from "@/shared/components/Spinner";
 import { formatAuditAction } from "@/shared/utils/formatAuditAction";
 import { AdminShell } from "../components/AdminShell";
 import { getDashboardSummary } from "../api/dashboardApi";
@@ -104,14 +105,46 @@ function BarChart({ rows, emptyLabel }: { rows: BarRow[]; emptyLabel: string }) 
 export function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    getDashboardSummary()
+  const loadSummary = useCallback((options?: { silent?: boolean }) => {
+    if (options?.silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError(null);
+    return getDashboardSummary()
       .then(setSummary)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load dashboard"))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   }, []);
+
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  // The counts here (e.g. after deleting a user in Users Management) can go
+  // stale if this page was left open the whole time - normal SPA navigation
+  // away and back already remounts and refetches, but a still-mounted tab
+  // regaining focus/visibility, or a browser back/forward-cache restore,
+  // wouldn't otherwise trigger a refetch on its own.
+  useEffect(() => {
+    function handleFocusOrVisible() {
+      if (document.visibilityState === "hidden") return;
+      loadSummary({ silent: true });
+    }
+    window.addEventListener("focus", handleFocusOrVisible);
+    document.addEventListener("visibilitychange", handleFocusOrVisible);
+    return () => {
+      window.removeEventListener("focus", handleFocusOrVisible);
+      document.removeEventListener("visibilitychange", handleFocusOrVisible);
+    };
+  }, [loadSummary]);
 
   return (
     <AdminShell>
@@ -120,6 +153,15 @@ export function DashboardPage() {
           <h1>Dashboard</h1>
           <p>Overview of applicants, job postings, and applications across the RSP pipeline.</p>
         </div>
+        <button
+          type="button"
+          className="secondary"
+          disabled={loading || refreshing}
+          onClick={() => loadSummary({ silent: true })}
+        >
+          {refreshing && <Spinner size="sm" />}
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
       <ErrorBanner message={error} />
 
