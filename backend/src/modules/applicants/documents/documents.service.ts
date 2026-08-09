@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import type { PrismaClient, Document } from "@prisma/client";
+import type { PrismaClient, Document, DocumentType } from "@prisma/client";
 import { NotFoundError, ValidationError } from "@/shared/errors/AppError";
 import type { ApplicantsRepository } from "../applicants.repository";
 import type { CreateDocumentInput, DocumentsRepository } from "./documents.repository";
@@ -11,6 +11,23 @@ export interface UploadedFileInfo {
   mimetype: string;
   size: number;
 }
+
+// These represent one current document per applicant - re-uploading
+// replaces whatever was there before rather than accumulating duplicates
+// with no way to tell which is authoritative. LD_PROOF/AWARD_PROOF aren't
+// here since their "one slot" is scoped per LdIntervention/Award entry
+// instead of per applicant - handled separately below - and OTHER is a
+// genuine multi-file miscellaneous catch-all, exempt entirely.
+const SINGLE_INSTANCE_TYPES = new Set<DocumentType>([
+  "APPLICATION_LETTER",
+  "PDS",
+  "IPCR",
+  "ELIGIBILITY_PROOF",
+  "TRANSCRIPT_OF_RECORDS",
+  "DIPLOMA",
+  "PQE_NOTICE",
+  "DESIGNATION_ORDER",
+]);
 
 export class DocumentsService {
   constructor(
@@ -43,6 +60,31 @@ export class DocumentsService {
       }
     }
 
+    if (fields.awardId) {
+      const award = await this.db.award.findUnique({ where: { id: fields.awardId } });
+      if (!award || award.applicantId !== applicant.id) {
+        throw new NotFoundError("Award");
+      }
+    }
+
+    // One current file per "slot" - an applicant-level slot for
+    // SINGLE_INSTANCE_TYPES, or a per-entry slot (this specific
+    // LdIntervention/Award) for LD_PROOF/AWARD_PROOF - so re-uploading
+    // always replaces rather than accumulating duplicates with no way to
+    // tell which one is authoritative.
+    const existingDocs = await this.documentsRepository.findByApplicant(applicant.id);
+    const duplicate = SINGLE_INSTANCE_TYPES.has(fields.type)
+      ? existingDocs.find((doc) => doc.type === fields.type)
+      : fields.type === "LD_PROOF" && fields.ldInterventionId
+        ? existingDocs.find((doc) => doc.type === "LD_PROOF" && doc.ldInterventionId === fields.ldInterventionId)
+        : fields.type === "AWARD_PROOF" && fields.awardId
+          ? existingDocs.find((doc) => doc.type === "AWARD_PROOF" && doc.awardId === fields.awardId)
+          : undefined;
+    if (duplicate) {
+      await this.documentsRepository.delete(duplicate.id);
+      await fs.unlink(duplicate.filePath).catch(() => undefined);
+    }
+
     const input: CreateDocumentInput = {
       applicantId: applicant.id,
       type: fields.type,
@@ -52,6 +94,7 @@ export class DocumentsService {
       fileSizeBytes: file.size,
       ...(fields.applicationId ? { applicationId: fields.applicationId } : {}),
       ...(fields.ldInterventionId ? { ldInterventionId: fields.ldInterventionId } : {}),
+      ...(fields.awardId ? { awardId: fields.awardId } : {}),
     };
 
     return this.documentsRepository.create(input);

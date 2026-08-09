@@ -52,12 +52,34 @@ export class ApplicantsService {
       return applicant;
     }
 
-    if (applicant.hasEligibility) {
-      const documents = await this.documentsRepository.findByApplicant(applicant.id);
-      const hasEligibilityProof = documents.some((doc) => doc.type === "ELIGIBILITY_PROOF");
-      if (!hasEligibilityProof) {
-        throw new ValidationError("Upload proof of eligibility before completing registration");
-      }
+    const documents = await this.documentsRepository.findByApplicant(applicant.id);
+
+    if (!documents.some((doc) => doc.type === "APPLICATION_LETTER")) {
+      throw new ValidationError("Upload your Application Letter before completing registration");
+    }
+    if (!documents.some((doc) => doc.type === "PDS")) {
+      throw new ValidationError("Upload your Personal Data Sheet (PDS) before completing registration");
+    }
+    if (applicant.hasEligibility && !documents.some((doc) => doc.type === "ELIGIBILITY_PROOF")) {
+      throw new ValidationError("Upload proof of eligibility before completing registration");
+    }
+
+    // Same rule as eligibility: claiming something (an L&D intervention, an
+    // award) means proof of that specific claim is required, not optional.
+    const ldMissingProof = applicant.ldInterventions.find(
+      (entry) => !documents.some((doc) => doc.type === "LD_PROOF" && doc.ldInterventionId === entry.id),
+    );
+    if (ldMissingProof) {
+      throw new ValidationError(
+        `Upload proof for the Learning & Development entry "${ldMissingProof.title}" before completing registration`,
+      );
+    }
+
+    const awardMissingProof = applicant.awards.find(
+      (award) => !documents.some((doc) => doc.type === "AWARD_PROOF" && doc.awardId === award.id),
+    );
+    if (awardMissingProof) {
+      throw new ValidationError(`Upload proof for the award "${awardMissingProof.title}" before completing registration`);
     }
 
     return this.applicantsRepository.markRegistrationComplete(applicant.id);

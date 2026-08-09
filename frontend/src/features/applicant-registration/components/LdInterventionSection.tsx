@@ -131,7 +131,10 @@ export function LdInterventionSection({ items, onChange, documents, onDocumentsC
   return (
     <div className="card">
       <h2>Learning &amp; Development Interventions Attended</h2>
-      <p>Upload proof of each claim (e.g. certificate of attendance) as a PDF, JPEG, or PNG, max 5MB.</p>
+      <p>
+        Upload proof of each claim (e.g. certificate of attendance) as a PDF, JPEG, or PNG, max 5MB. One file per
+        entry - remove the current file to upload a different one.
+      </p>
       <ErrorBanner message={error} />
       {items.length > 0 && (
         <div className="table-wrap">
@@ -157,22 +160,24 @@ export function LdInterventionSection({ items, onChange, documents, onDocumentsC
                     <td>{item.sponsoringAgency}</td>
                     <td>
                       {proofs.map((doc) => (
-                        <div key={doc.id} className="ld-proof-item">
+                        <div key={doc.id} className="proof-item">
                           <span>{doc.fileName}</span>
                           <button type="button" className="danger" onClick={() => setPendingRemoveProofId(doc.id)}>
                             Remove
                           </button>
                         </div>
                       ))}
-                      <input
-                        ref={(el) => {
-                          fileInputRefs.current[item.id] = el;
-                        }}
-                        type="file"
-                        accept="application/pdf,image/jpeg,image/png"
-                        disabled={uploadingForId === item.id}
-                        onChange={(e) => handleAttachProof(item.id, e.target.files?.[0])}
-                      />
+                      {proofs.length === 0 && (
+                        <input
+                          ref={(el) => {
+                            fileInputRefs.current[item.id] = el;
+                          }}
+                          type="file"
+                          accept="application/pdf,image/jpeg,image/png"
+                          disabled={uploadingForId === item.id}
+                          onChange={(e) => handleAttachProof(item.id, e.target.files?.[0])}
+                        />
+                      )}
                       {uploadingForId === item.id && <Spinner size="sm" />}
                     </td>
                     <td>

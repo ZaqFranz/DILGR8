@@ -194,7 +194,23 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
             <input
               type="checkbox"
               checked={form.hasEligibility}
-              onChange={(e) => update("hasEligibility", e.target.checked)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                // The <select> below never renders a "NONE" option (only real
+                // eligibility types), so leaving eligibilityType at its "NONE"
+                // default would make the browser visually show the first real
+                // option as selected while React's state stays "NONE" - the
+                // form would then reject a save that looks, on screen, like a
+                // type is already chosen. Default to a real option the moment
+                // the checkbox is checked so state and the visible selection
+                // never disagree.
+                setForm((prev) => ({
+                  ...prev,
+                  hasEligibility: checked,
+                  eligibilityType:
+                    checked && prev.eligibilityType === "NONE" ? ELIGIBILITY_OPTIONS[0]!.value : prev.eligibilityType,
+                }));
+              }}
               style={{ width: "auto", marginRight: "0.5rem" }}
             />
             I have a civil service eligibility

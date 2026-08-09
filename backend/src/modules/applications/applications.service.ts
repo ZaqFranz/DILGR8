@@ -24,8 +24,8 @@ const WITHDRAWABLE_STATUSES = ["SUBMITTED", "UNDER_SIFTING", "QUALIFIED", "FOR_I
 
 const ELIGIBILITY_LABELS: Record<string, string> = {
   RA1080: "RA 1080",
-  CSC_PROFESSIONAL: "CSC Professional",
-  CSC_SUBPROFESSIONAL: "CSC Sub-Professional",
+  CSC_PROFESSIONAL: "Second-Level Eligibility (Professional)",
+  CSC_SUBPROFESSIONAL: "First-Level Eligibility (Subprofessional)",
   BARANGAY: "Barangay Eligibility",
 };
 
@@ -97,17 +97,6 @@ export class ApplicationsService {
     const existing = await this.applicationsRepository.findByApplicantAndPosting(applicant.id, jobPostingId);
     if (existing) {
       throw new ConflictError("You have already applied to this job posting");
-    }
-
-    if (posting.positionLevel === "PROMOTIONAL") {
-      const documents = await this.documentsRepository.findByApplicant(applicant.id);
-      const hasIpcr = documents.some((doc) => doc.type === "IPCR");
-      const hasDesignation = documents.some((doc) => doc.type === "DESIGNATION_ORDER");
-      if (!hasIpcr || !hasDesignation) {
-        throw new ValidationError(
-          "Promotional applications require an uploaded IPCR and Designation to a Higher Position document",
-        );
-      }
     }
 
     if (posting.requiredEligibilityTypes.length > 0) {

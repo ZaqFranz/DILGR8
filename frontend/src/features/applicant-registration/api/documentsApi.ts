@@ -10,6 +10,7 @@ export function uploadDocument(
   type: DocumentType,
   applicationId?: string,
   ldInterventionId?: string,
+  awardId?: string,
 ): Promise<ApplicantDocument> {
   const formData = new FormData();
   formData.append("file", file);
@@ -19,6 +20,9 @@ export function uploadDocument(
   }
   if (ldInterventionId) {
     formData.append("ldInterventionId", ldInterventionId);
+  }
+  if (awardId) {
+    formData.append("awardId", awardId);
   }
   return apiRequest<ApplicantDocument>("/applicants/me/documents", {
     method: "POST",

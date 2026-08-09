@@ -131,13 +131,29 @@ export function RegistrationPage() {
     }
   }
 
+  const missingApplicationLetter = !documents.some((doc) => doc.type === "APPLICATION_LETTER");
+  const missingPds = !documents.some((doc) => doc.type === "PDS");
   const missingEligibilityProof = Boolean(
     profile?.hasEligibility && !documents.some((doc) => doc.type === "ELIGIBILITY_PROOF"),
   );
+  // Same rule as eligibility: claiming an L&D intervention or an award means
+  // proof of that specific claim is required, not optional.
+  const ldEntriesMissingProof = (profile?.ldInterventions ?? []).filter(
+    (entry) => !documents.some((doc) => doc.type === "LD_PROOF" && doc.ldInterventionId === entry.id),
+  );
+  const awardsMissingProof = (profile?.awards ?? []).filter(
+    (award) => !documents.some((doc) => doc.type === "AWARD_PROOF" && doc.awardId === award.id),
+  );
+  const missingRequiredDocuments =
+    missingApplicationLetter ||
+    missingPds ||
+    missingEligibilityProof ||
+    ldEntriesMissingProof.length > 0 ||
+    awardsMissingProof.length > 0;
 
   async function handleFinish() {
-    if (missingEligibilityProof) {
-      setError("Upload proof of eligibility in the Documents section before finishing registration.");
+    if (missingRequiredDocuments) {
+      setError("Upload all required documents in the Documents section before finishing registration.");
       return;
     }
     setError(null);
@@ -265,16 +281,33 @@ export function RegistrationPage() {
           )}
 
           {profile && step === "awards" && (
-            <AwardsSection items={profile.awards} onChange={(awards) => setProfile({ ...profile, awards })} />
+            <AwardsSection
+              items={profile.awards}
+              onChange={(awards) => setProfile({ ...profile, awards })}
+              documents={documents}
+              onDocumentsChange={setDocuments}
+            />
           )}
 
           {profile && step === "documents" && <DocumentsSection items={documents} onChange={setDocuments} />}
 
-          {profile && isLastStep && missingEligibilityProof && (
-            <p className="field-warning">
-              You indicated you have a civil service eligibility — upload proof of it above before finishing
-              registration.
-            </p>
+          {profile && isLastStep && missingRequiredDocuments && (
+            <div className="field-warning">
+              <p>Upload the following required document(s) before finishing registration:</p>
+              <ul>
+                {missingApplicationLetter && <li>Application Letter</li>}
+                {missingPds && <li>Personal Data Sheet (PDS)</li>}
+                {missingEligibilityProof && (
+                  <li>Certificate of Eligibility / Rating / License (you indicated you have a civil service eligibility)</li>
+                )}
+                {ldEntriesMissingProof.map((entry) => (
+                  <li key={entry.id}>Proof for Learning & Development entry "{entry.title}" (in Learning & Development)</li>
+                ))}
+                {awardsMissingProof.map((award) => (
+                  <li key={award.id}>Proof for award "{award.title}" (in Awards)</li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {profile && (
@@ -288,7 +321,7 @@ export function RegistrationPage() {
                 Back
               </button>
               {isLastStep ? (
-                <button type="button" onClick={handleFinish} disabled={finishSubmitting || missingEligibilityProof}>
+                <button type="button" onClick={handleFinish} disabled={finishSubmitting || missingRequiredDocuments}>
                   {finishSubmitting && <Spinner size="sm" onDark />}
                   {finishSubmitting
                     ? "Finishing..."

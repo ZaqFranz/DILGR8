@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
@@ -7,22 +7,29 @@ import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { addAward, removeAward } from "../api/applicantsApi";
-import type { Award } from "../types";
+import { removeDocument, uploadDocument } from "../api/documentsApi";
+import type { ApplicantDocument, Award } from "../types";
 
 interface Props {
   items: Award[];
   onChange: (items: Award[]) => void;
+  documents: ApplicantDocument[];
+  onDocumentsChange: (documents: ApplicantDocument[]) => void;
 }
 
 const emptyForm = { title: "", dateAwarded: "", issuingBody: "" };
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 
-export function AwardsSection({ items, onChange }: Props) {
+export function AwardsSection({ items, onChange, documents, onDocumentsChange }: Props) {
   const toast = useToast();
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [pendingRemoveProofId, setPendingRemoveProofId] = useState<string | null>(null);
+  const [uploadingForId, setUploadingForId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function validate(): Record<string, string> {
     const errors: Record<string, string> = {};
@@ -76,9 +83,48 @@ export function AwardsSection({ items, onChange }: Props) {
     }
   }
 
+  async function handleAttachProof(awardId: string, file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      setError("File is too large — the maximum size is 5MB.");
+      return;
+    }
+    setUploadingForId(awardId);
+    try {
+      const uploaded = await uploadDocument(file, "AWARD_PROOF", undefined, undefined, awardId);
+      onDocumentsChange([uploaded, ...documents]);
+      toast.success("Proof uploaded.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to upload proof");
+    } finally {
+      setUploadingForId(null);
+      const input = fileInputRefs.current[awardId];
+      if (input) input.value = "";
+    }
+  }
+
+  async function handleRemoveProof() {
+    if (!pendingRemoveProofId) return;
+    setError(null);
+    try {
+      await removeDocument(pendingRemoveProofId);
+      onDocumentsChange(documents.filter((doc) => doc.id !== pendingRemoveProofId));
+      toast.success("Proof removed.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to remove proof");
+    } finally {
+      setPendingRemoveProofId(null);
+    }
+  }
+
   return (
     <div className="card">
       <h2>Awards / Commendations</h2>
+      <p>
+        Upload proof of each claim (e.g. certificate or citation) as a PDF, JPEG, or PNG, max 5MB. One file per
+        award - remove the current file to upload a different one.
+      </p>
       <ErrorBanner message={error} />
       {items.length > 0 && (
         <div className="table-wrap">
@@ -88,22 +134,48 @@ export function AwardsSection({ items, onChange }: Props) {
                 <th>Title</th>
                 <th>Date awarded</th>
                 <th>Issuing body</th>
+                <th>Proof</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.title}</td>
-                  <td>{item.dateAwarded.slice(0, 10)}</td>
-                  <td>{item.issuingBody}</td>
-                  <td>
-                    <button type="button" className="danger" onClick={() => setPendingRemoveId(item.id)}>
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {items.map((item) => {
+                const proofs = documents.filter((doc) => doc.awardId === item.id);
+                return (
+                  <tr key={item.id}>
+                    <td>{item.title}</td>
+                    <td>{item.dateAwarded.slice(0, 10)}</td>
+                    <td>{item.issuingBody}</td>
+                    <td>
+                      {proofs.map((doc) => (
+                        <div key={doc.id} className="proof-item">
+                          <span>{doc.fileName}</span>
+                          <button type="button" className="danger" onClick={() => setPendingRemoveProofId(doc.id)}>
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      {proofs.length === 0 && (
+                        <input
+                          ref={(el) => {
+                            fileInputRefs.current[item.id] = el;
+                          }}
+                          type="file"
+                          accept="application/pdf,image/jpeg,image/png"
+                          disabled={uploadingForId === item.id}
+                          onChange={(e) => handleAttachProof(item.id, e.target.files?.[0])}
+                        />
+                      )}
+                      {uploadingForId === item.id && <Spinner size="sm" />}
+                    </td>
+                    <td>
+                      <button type="button" className="danger" onClick={() => setPendingRemoveId(item.id)}>
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -162,6 +234,15 @@ export function AwardsSection({ items, onChange }: Props) {
         confirmLabel="Remove"
         onConfirm={handleRemove}
         onCancel={() => setPendingRemoveId(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingRemoveProofId !== null}
+        title="Remove this proof file?"
+        description="This file will be permanently deleted."
+        confirmLabel="Remove"
+        onConfirm={handleRemoveProof}
+        onCancel={() => setPendingRemoveProofId(null)}
       />
     </div>
   );

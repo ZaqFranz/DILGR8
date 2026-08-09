@@ -1266,7 +1266,7 @@ tbody tr:last-child td {
   margin-bottom: 0.3rem;
 }
 
-.ld-proof-item {
+.proof-item {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1274,7 +1274,7 @@ tbody tr:last-child td {
   margin-bottom: 0.35rem;
 }
 
-.ld-proof-item span {
+.proof-item span {
   overflow-wrap: anywhere;
 }
 

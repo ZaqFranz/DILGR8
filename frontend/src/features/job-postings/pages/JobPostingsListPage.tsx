@@ -167,14 +167,6 @@ export function JobPostingsListPage() {
                   <li key={index}>{duty}</li>
                 ))}
             </ol>
-            {detailsPosting.positionLevel === "PROMOTIONAL" && (
-              <p>
-                <em>
-                  Promotional applications require an uploaded IPCR and Designation to a Higher Position document
-                  on your profile before you apply.
-                </em>
-              </p>
-            )}
           </>
         )}
       </Modal>

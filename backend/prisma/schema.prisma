@@ -31,11 +31,20 @@ enum EligibilityType {
   NONE
 }
 
+// Order mirrors the official application-documents checklist (a-j):
+// letter, PDS, performance rating, eligibility proof, L&D proof,
+// transcript, diploma, PQE notice, designation proof, award proof.
 enum DocumentType {
-  ELIGIBILITY_PROOF
+  APPLICATION_LETTER
+  PDS
   IPCR
-  DESIGNATION_ORDER
+  ELIGIBILITY_PROOF
   LD_PROOF
+  TRANSCRIPT_OF_RECORDS
+  DIPLOMA
+  PQE_NOTICE
+  DESIGNATION_ORDER
+  AWARD_PROOF
   OTHER
 }
 
@@ -157,21 +166,27 @@ model Award {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  applicant Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicant Applicant  @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  documents Document[]
 
   @@index([applicantId])
   @@map("awards")
 }
 
-/// Uploaded proof documents. Eligibility proof is applicant-level
-/// (applicationId null); IPCR / Designation-to-Higher-Position uploads are
-/// tied to the specific promotional Application they support; LD_PROOF
-/// uploads are tied to the specific LdIntervention entry they back up.
+/// Uploaded proof documents. Every applicant-level document type
+/// (APPLICATION_LETTER, PDS, IPCR, ELIGIBILITY_PROOF, TRANSCRIPT_OF_RECORDS,
+/// DIPLOMA, PQE_NOTICE, DESIGNATION_ORDER, OTHER) is uploaded against the
+/// applicant during registration (applicationId null) - none of them are
+/// gated to, or require, a specific Application. LD_PROOF and AWARD_PROOF
+/// are the exceptions, each tied to the specific LdIntervention/Award entry
+/// it backs up - required per entry (see ApplicantsService.completeRegistration()),
+/// same as Eligibility Proof is required when hasEligibility is declared.
 model Document {
   id               String          @id @default(uuid())
   applicantId      String
   applicationId    String?
   ldInterventionId String?
+  awardId          String?
   type             DocumentType
   fileName         String
   filePath         String
@@ -182,10 +197,12 @@ model Document {
   applicant      Applicant       @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   application    Application?    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   ldIntervention LdIntervention? @relation(fields: [ldInterventionId], references: [id], onDelete: Cascade)
+  award          Award?          @relation(fields: [awardId], references: [id], onDelete: Cascade)
 
   @@index([applicantId])
   @@index([applicationId])
   @@index([ldInterventionId])
+  @@index([awardId])
   @@map("documents")
 }
 

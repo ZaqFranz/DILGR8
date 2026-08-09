@@ -4,6 +4,7 @@ export interface CreateDocumentInput {
   applicantId: string;
   applicationId?: string;
   ldInterventionId?: string;
+  awardId?: string;
   type: DocumentType;
   fileName: string;
   filePath: string;
