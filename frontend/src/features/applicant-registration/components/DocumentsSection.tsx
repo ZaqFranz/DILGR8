@@ -20,7 +20,6 @@ interface Props {
 // "uploaded". Necessarily duplicated (no shared package between workspaces),
 // same as ELIGIBILITY_LABELS elsewhere in this app.
 const SINGLE_INSTANCE_TYPES = new Set<DocumentType>([
-  "APPLICATION_LETTER",
   "PDS",
   "PDS_EXCEL",
   "IPCR",
@@ -75,15 +74,17 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
 
 // The full application-documents checklist, shown to the applicant so they
 // know everything they may need to upload before submitting an application.
-// "required" only marks documents this app itself blocks on (Application
-// Letter and PDS at registration; Eligibility Proof only if hasEligibility
-// is declared; L&D/Award proof only for entries actually added - same rule
-// as eligibility, claiming something means proof of that claim is required)
-// - every other item is genuinely optional/conditional per the official
-// checklist ("if applicable"/"if any"), including Designation proof, which
-// is never required to apply even for promotional postings.
+// Application Letter isn't listed here - it's specific to a single job
+// posting (addressed per vacancy), so it's collected on the "Apply" action
+// itself (JobPostingsListPage) instead of once at registration.
+// "required" only marks documents this app itself blocks on (PDS at
+// registration; Eligibility Proof only if hasEligibility is declared; L&D/
+// Award proof only for entries actually added - same rule as eligibility,
+// claiming something means proof of that claim is required) - every other
+// item is genuinely optional/conditional per the official checklist ("if
+// applicable"/"if any"), including Designation proof, which is never
+// required to apply even for promotional postings.
 const DOCUMENT_CHECKLIST: { type: DocumentType; required: boolean; note?: string }[] = [
-  { type: "APPLICATION_LETTER", required: true },
   { type: "PDS", required: true },
   { type: "PDS_EXCEL", required: true },
   { type: "IPCR", required: false, note: "if applicable" },
@@ -98,11 +99,13 @@ const DOCUMENT_CHECKLIST: { type: DocumentType; required: boolean; note?: string
 
 // LD_PROOF and AWARD_PROOF are uploaded per-entry from the Learning &
 // Development / Awards sections (tied to a specific LdIntervention/Award via
-// ldInterventionId/awardId), not picked from this generic type dropdown -
-// they're still in the label map above so such documents still render
-// correctly if they show up in this flat list.
+// ldInterventionId/awardId); APPLICATION_LETTER is uploaded as part of the
+// "Apply" action on a specific job posting (tied via applicationId) - none
+// of the three are picked from this generic type dropdown. They're still in
+// the label map above so such documents still render correctly if they show
+// up in this flat list (e.g. an Application Letter from a prior application).
 const SELECTABLE_DOCUMENT_TYPES = (Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).filter(
-  (type) => type !== "LD_PROOF" && type !== "AWARD_PROOF",
+  (type) => type !== "LD_PROOF" && type !== "AWARD_PROOF" && type !== "APPLICATION_LETTER",
 );
 
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
@@ -192,7 +195,8 @@ export function DocumentsSection({ items, onChange }: Props) {
       <p>
         Please prepare and upload the following documents. Items marked "Required" must be uploaded before you can
         finish registration. Uploading a new file for a document type that already has one on file replaces it -
-        each of these represents a single current document, not a growing list.
+        each of these represents a single current document, not a growing list. Your Application Letter isn't
+        uploaded here - since it's addressed to a specific vacancy, you'll attach it when you apply to a job posting.
       </p>
 
       <div className="card-inset" style={{ marginBottom: "1rem" }}>
@@ -204,18 +208,6 @@ export function DocumentsSection({ items, onChange }: Props) {
                 <span className="badge pending">Required</span>
               ) : (
                 <span className="badge">Optional{entry.note ? ` — ${entry.note}` : ""}</span>
-              )}
-              {entry.type === "APPLICATION_LETTER" && (
-                <p className="field-hint" style={{ marginTop: "0.4rem", whiteSpace: "pre-line" }}>
-                  Addressed to:{"\n"}
-                  ARNEL M. AGABE, CESO III{"\n"}
-                  Regional Director{"\n"}
-                  DILG Regional Office 8{"\n"}
-                  Kanhuraw Hill, Tacloban City{"\n\n"}
-                  Thru:{"\n"}
-                  JANE A. VILLANUEVA{"\n"}
-                  LGOO V / Head, Human Resource Section
-                </p>
               )}
             </li>
           ))}

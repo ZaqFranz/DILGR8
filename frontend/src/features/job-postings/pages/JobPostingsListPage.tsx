@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { FieldError } from "@/shared/components/FieldError";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { Modal } from "@/shared/components/Modal";
 import { Spinner } from "@/shared/components/Spinner";
@@ -8,9 +9,12 @@ import { useToast } from "@/shared/components/ToastProvider";
 import { ELIGIBILITY_LABELS } from "@/shared/constants/eligibility";
 import { listJobPostings } from "../api/jobPostingsApi";
 import type { JobPosting } from "../types";
-import { submitApplication } from "@/features/applicant-registration/api/applicationsApi";
+import { listMyApplications, submitApplication } from "@/features/applicant-registration/api/applicationsApi";
 import { getMyProfile } from "@/features/applicant-registration/api/applicantsApi";
 import type { ApplicantProfile } from "@/features/applicant-registration/types";
+
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+const APPLICATION_LETTER_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 function isAcceptingApplications(posting: JobPosting): boolean {
   return posting.status === "OPEN" && new Date(posting.closingAt).getTime() >= Date.now();
@@ -30,31 +34,77 @@ export function JobPostingsListPage() {
   const toast = useToast();
   const [postings, setPostings] = useState<JobPosting[]>([]);
   const [profile, setProfile] = useState<ApplicantProfile | null>(null);
+  const [appliedJobPostingIds, setAppliedJobPostingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [applyingId, setApplyingId] = useState<string | null>(null);
   const [detailsPosting, setDetailsPosting] = useState<JobPosting | null>(null);
 
+  // The Application Letter is addressed to a specific vacancy, so it's
+  // attached here as part of applying rather than once at registration -
+  // applying is now a small form (pick a file, confirm) instead of a single
+  // click, hence its own modal state separate from detailsPosting above.
+  const [applyPosting, setApplyPosting] = useState<JobPosting | null>(null);
+  const [applyFile, setApplyFile] = useState<File | null>(null);
+  const [applyFileError, setApplyFileError] = useState<string | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applySubmitting, setApplySubmitting] = useState(false);
+  const applyFileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    Promise.all([listJobPostings(), getMyProfile()])
-      .then(([fetchedPostings, fetchedProfile]) => {
+    Promise.all([listJobPostings(), getMyProfile(), listMyApplications()])
+      .then(([fetchedPostings, fetchedProfile, fetchedApplications]) => {
         setPostings(fetchedPostings);
         setProfile(fetchedProfile);
+        setAppliedJobPostingIds(new Set(fetchedApplications.map((application) => application.jobPosting.id)));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load job postings"))
       .finally(() => setLoading(false));
   }, []);
 
-  async function handleApply(posting: JobPosting) {
+  function openApplyModal(posting: JobPosting) {
     setError(null);
-    setApplyingId(posting.id);
+    setApplyFile(null);
+    setApplyFileError(null);
+    setApplyError(null);
+    setApplyPosting(posting);
+  }
+
+  function closeApplyModal() {
+    if (applySubmitting) return;
+    setApplyPosting(null);
+    setApplyFile(null);
+    setApplyFileError(null);
+    setApplyError(null);
+  }
+
+  async function handleApplySubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!applyPosting) return;
+    setApplyError(null);
+    setApplyFileError(null);
+    if (!applyFile) {
+      setApplyFileError("Choose your Application Letter to apply.");
+      return;
+    }
+    if (applyFile.size > MAX_UPLOAD_SIZE_BYTES) {
+      setApplyFileError("File is too large — the maximum size is 5MB.");
+      return;
+    }
+    if (!APPLICATION_LETTER_MIME_TYPES.has(applyFile.type)) {
+      setApplyFileError("This file must be a PDF, JPEG, or PNG.");
+      return;
+    }
+    setApplySubmitting(true);
     try {
-      await submitApplication(posting.id);
-      toast.success(`Application submitted for "${posting.title}".`);
+      await submitApplication(applyPosting.id, applyFile);
+      toast.success(`Application submitted for "${applyPosting.title}".`);
+      setAppliedJobPostingIds((prev) => new Set(prev).add(applyPosting.id));
+      setApplyPosting(null);
+      setApplyFile(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to submit application");
+      setApplyError(err instanceof ApiError ? err.message : "Failed to submit application");
     } finally {
-      setApplyingId(null);
+      setApplySubmitting(false);
     }
   }
 
@@ -68,7 +118,8 @@ export function JobPostingsListPage() {
       {postings.map((posting) => {
         const acceptingApplications = isAcceptingApplications(posting);
         const eligible = meetsEligibility(posting, profile);
-        const canApply = acceptingApplications && eligible;
+        const alreadyApplied = appliedJobPostingIds.has(posting.id);
+        const canApply = acceptingApplications && eligible && !alreadyApplied;
         return (
           <div className="card" key={posting.id}>
             <h2>
@@ -93,14 +144,9 @@ export function JobPostingsListPage() {
               <button type="button" className="secondary" onClick={() => setDetailsPosting(posting)}>
                 View Details
               </button>
-              <button
-                type="button"
-                disabled={!canApply || applyingId === posting.id}
-                onClick={() => handleApply(posting)}
-              >
-                {applyingId === posting.id && <Spinner size="sm" onDark />}
-                {applyingId === posting.id
-                  ? "Submitting..."
+              <button type="button" disabled={!canApply} onClick={() => openApplyModal(posting)}>
+                {alreadyApplied
+                  ? "Already Applied"
                   : !acceptingApplications
                     ? "Applications closed"
                     : !eligible
@@ -169,6 +215,56 @@ export function JobPostingsListPage() {
             </ol>
           </>
         )}
+      </Modal>
+
+      <Modal
+        open={applyPosting !== null}
+        title={`Apply: ${applyPosting?.title ?? ""}`}
+        onClose={closeApplyModal}
+        footer={
+          <>
+            <button type="button" className="secondary" disabled={applySubmitting} onClick={closeApplyModal}>
+              Cancel
+            </button>
+            <button type="submit" form="apply-form" disabled={applySubmitting}>
+              {applySubmitting && <Spinner size="sm" onDark />}
+              {applySubmitting ? "Submitting..." : "Submit application"}
+            </button>
+          </>
+        }
+      >
+        <p>
+          Upload your Application Letter for this position (PDF, JPEG, or PNG, max 5MB), addressed as follows:
+        </p>
+        <p className="field-hint" style={{ whiteSpace: "pre-line" }}>
+          Addressed to:{"\n"}
+          ARNEL M. AGABE, CESO III{"\n"}
+          Regional Director{"\n"}
+          DILG Regional Office 8{"\n"}
+          Kanhuraw Hill, Tacloban City{"\n\n"}
+          Thru:{"\n"}
+          JANE A. VILLANUEVA{"\n"}
+          LGOO V / Head, Human Resource Section
+        </p>
+        <ErrorBanner message={applyError} />
+        <form id="apply-form" onSubmit={handleApplySubmit} noValidate>
+          <div className={applyFileError ? "field has-error" : "field"}>
+            <label htmlFor="apply-file" className="required">
+              Application Letter
+            </label>
+            <input
+              id="apply-file"
+              ref={applyFileInputRef}
+              type="file"
+              accept="application/pdf,image/jpeg,image/png"
+              onChange={(e) => {
+                setApplyFile(e.target.files?.[0] ?? null);
+                setApplyFileError(null);
+              }}
+            />
+            <FieldError message={applyFileError} />
+          </div>
+        </form>
       </Modal>
     </div>
   );

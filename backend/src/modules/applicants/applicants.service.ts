@@ -44,7 +44,9 @@ export class ApplicantsService {
    * applicant-side data (profile, work experience, L&D, awards, documents)
    * must be captured here, before this flag is set - nothing about the
    * applicant's own record should be collected after they start using the
-   * rest of the app.
+   * rest of the app. The one exception is the Application Letter: it's
+   * specific to a single job posting (addressed per vacancy), so it's
+   * collected at apply time instead - see ApplicationsService.submit().
    */
   async completeRegistration(userId: string): Promise<ApplicantWithRelations> {
     const applicant = await this.getMyProfile(userId);
@@ -54,9 +56,6 @@ export class ApplicantsService {
 
     const documents = await this.documentsRepository.findByApplicant(applicant.id);
 
-    if (!documents.some((doc) => doc.type === "APPLICATION_LETTER")) {
-      throw new ValidationError("Upload your Application Letter before completing registration");
-    }
     if (!documents.some((doc) => doc.type === "PDS")) {
       throw new ValidationError("Upload your Personal Data Sheet (PDS) as a PDF before completing registration");
     }

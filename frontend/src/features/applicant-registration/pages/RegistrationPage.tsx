@@ -131,7 +131,6 @@ export function RegistrationPage() {
     }
   }
 
-  const missingApplicationLetter = !documents.some((doc) => doc.type === "APPLICATION_LETTER");
   const missingPds = !documents.some((doc) => doc.type === "PDS");
   const missingPdsExcel = !documents.some((doc) => doc.type === "PDS_EXCEL");
   const missingEligibilityProof = Boolean(
@@ -146,7 +145,6 @@ export function RegistrationPage() {
     (award) => !documents.some((doc) => doc.type === "AWARD_PROOF" && doc.awardId === award.id),
   );
   const missingRequiredDocuments =
-    missingApplicationLetter ||
     missingPds ||
     missingPdsExcel ||
     missingEligibilityProof ||
@@ -297,7 +295,6 @@ export function RegistrationPage() {
             <div className="field-warning">
               <p>Upload the following required document(s) before finishing registration:</p>
               <ul>
-                {missingApplicationLetter && <li>Application Letter</li>}
                 {missingPds && <li>Personal Data Sheet (PDS) — PDF copy</li>}
                 {missingPdsExcel && <li>Personal Data Sheet (PDS) — Excel (CS Form 212) copy</li>}
                 {missingEligibilityProof && (

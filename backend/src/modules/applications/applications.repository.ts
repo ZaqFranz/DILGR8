@@ -43,15 +43,48 @@ export interface ScheduleInterviewInput {
   notes?: string;
 }
 
+export interface ApplicationLetterFileInput {
+  fileName: string;
+  filePath: string;
+  mimeType: string;
+  fileSizeBytes: number;
+}
+
 export class ApplicationsRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  create(applicantId: string, jobPostingId: string): Promise<ApplicationWithPosting> {
-    return this.db.application.create({
-      // Applications move straight to UNDER_SIFTING on submission - sifting
-      // starts automatically, there's no separate manual "start sifting" step.
-      data: { applicantId, jobPostingId, status: "UNDER_SIFTING" },
-      include: applicationWithPostingInclude,
+  /**
+   * The Application Letter is addressed to a specific vacancy, so it's
+   * collected at apply time rather than once at registration - created in
+   * the same transaction as the Application itself so an application can
+   * never exist without its required letter (or vice versa).
+   */
+  createWithApplicationLetter(
+    applicantId: string,
+    jobPostingId: string,
+    file: ApplicationLetterFileInput,
+  ): Promise<ApplicationWithPosting> {
+    return this.db.$transaction(async (tx) => {
+      const application = await tx.application.create({
+        // Applications move straight to UNDER_SIFTING on submission - sifting
+        // starts automatically, there's no separate manual "start sifting" step.
+        data: { applicantId, jobPostingId, status: "UNDER_SIFTING" },
+      });
+      await tx.document.create({
+        data: {
+          applicantId,
+          applicationId: application.id,
+          type: "APPLICATION_LETTER",
+          fileName: file.fileName,
+          filePath: file.filePath,
+          mimeType: file.mimeType,
+          fileSizeBytes: file.fileSizeBytes,
+        },
+      });
+      return tx.application.findUniqueOrThrow({
+        where: { id: application.id },
+        include: applicationWithPostingInclude,
+      });
     }) as Promise<ApplicationWithPosting>;
   }
 

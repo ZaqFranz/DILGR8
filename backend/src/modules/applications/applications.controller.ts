@@ -2,12 +2,8 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { ValidationError } from "@/shared/errors/AppError";
 import type { ApplicationsService } from "./applications.service";
-import type {
-  CreateApplicationDto,
-  ListApplicationsQueryDto,
-  ScheduleInterviewDto,
-  SiftApplicationDto,
-} from "./applications.dto";
+import { createApplicationSchema } from "./applications.dto";
+import type { ListApplicationsQueryDto, ScheduleInterviewDto, SiftApplicationDto } from "./applications.dto";
 
 const importExamScoresFieldsSchema = z.object({
   jobPostingId: z.string().uuid(),
@@ -16,9 +12,24 @@ const importExamScoresFieldsSchema = z.object({
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
+  // Manual parse rather than the validate() middleware: this route now
+  // carries the Application Letter as multipart/form-data (like
+  // importExamScores below), and validate() runs before multer has parsed
+  // the body into req.body.
   submit = async (req: Request, res: Response): Promise<void> => {
-    const { jobPostingId } = req.body as CreateApplicationDto;
-    const application = await this.applicationsService.submit(req.user!.id, jobPostingId, req.user!.email);
+    const parsed = createApplicationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new ValidationError("Invalid application fields", parsed.error.flatten());
+    }
+    if (!req.file) {
+      throw new ValidationError("An Application Letter is required to submit an application");
+    }
+    const application = await this.applicationsService.submit(
+      req.user!.id,
+      parsed.data.jobPostingId,
+      req.user!.email,
+      req.file,
+    );
     res.status(201).json(application);
   };
 

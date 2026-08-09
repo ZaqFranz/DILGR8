@@ -1,6 +1,7 @@
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
 import type { ApplicantsRepository } from "@/modules/applicants/applicants.repository";
 import type { DocumentsRepository } from "@/modules/applicants/documents/documents.repository";
+import type { UploadedFileInfo } from "@/modules/applicants/documents/documents.service";
 import type { JobPostingsRepository } from "@/modules/job-postings/job-postings.repository";
 import { JobPostingsService } from "@/modules/job-postings/job-postings.service";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
@@ -80,7 +81,12 @@ export class ApplicationsService {
     private readonly emailService: EmailService,
   ) {}
 
-  async submit(userId: string, jobPostingId: string, applicantEmail: string): Promise<ApplicationWithPosting> {
+  async submit(
+    userId: string,
+    jobPostingId: string,
+    applicantEmail: string,
+    file?: UploadedFileInfo,
+  ): Promise<ApplicationWithPosting> {
     const applicant = await this.applicantsRepository.findByUserId(userId);
     if (!applicant) {
       throw new NotFoundError("Applicant profile");
@@ -119,7 +125,16 @@ export class ApplicationsService {
       }
     }
 
-    const created = await this.applicationsRepository.create(applicant.id, jobPostingId);
+    if (!file) {
+      throw new ValidationError("An Application Letter is required to submit an application");
+    }
+
+    const created = await this.applicationsRepository.createWithApplicationLetter(applicant.id, jobPostingId, {
+      fileName: file.originalname,
+      filePath: file.path,
+      mimeType: file.mimetype,
+      fileSizeBytes: file.size,
+    });
 
     const { subject, html } = submittedEmail(`${applicant.firstName} ${applicant.lastName}`, posting.title);
     await this.emailService.send({ to: applicantEmail, subject, html });

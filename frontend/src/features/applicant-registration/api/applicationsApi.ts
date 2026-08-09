@@ -13,8 +13,11 @@ export interface Application {
   jobPosting: JobPosting;
 }
 
-export function submitApplication(jobPostingId: string): Promise<Application> {
-  return apiRequest<Application>("/applications", { method: "POST", body: { jobPostingId } });
+export function submitApplication(jobPostingId: string, applicationLetter: File): Promise<Application> {
+  const formData = new FormData();
+  formData.append("jobPostingId", jobPostingId);
+  formData.append("file", applicationLetter);
+  return apiRequest<Application>("/applications", { method: "POST", body: formData, isFormData: true });
 }
 
 export function listMyApplications(): Promise<Application[]> {

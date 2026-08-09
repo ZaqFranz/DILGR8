@@ -19,7 +19,6 @@ export interface UploadedFileInfo {
 // instead of per applicant - handled separately below - and OTHER is a
 // genuine multi-file miscellaneous catch-all, exempt entirely.
 const SINGLE_INSTANCE_TYPES = new Set<DocumentType>([
-  "APPLICATION_LETTER",
   "PDS",
   "PDS_EXCEL",
   "IPCR",

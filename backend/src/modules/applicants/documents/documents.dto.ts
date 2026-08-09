@@ -2,7 +2,6 @@ import { z } from "zod";
 
 export const uploadDocumentFieldsSchema = z.object({
   type: z.enum([
-    "APPLICATION_LETTER",
     "PDS",
     "PDS_EXCEL",
     "IPCR",

@@ -4,19 +4,15 @@ import { authenticate, requireRole } from "@/shared/middleware/authenticate";
 import { validate } from "@/shared/validation/validate";
 import { idParamSchema } from "@/modules/applicants/applicants.dto";
 import type { ApplicationsController } from "./applications.controller";
-import {
-  createApplicationSchema,
-  listApplicationsQuerySchema,
-  scheduleInterviewSchema,
-  siftApplicationSchema,
-} from "./applications.dto";
+import { listApplicationsQuerySchema, scheduleInterviewSchema, siftApplicationSchema } from "./applications.dto";
 import { uploadExamScoreFile } from "./examScoreImport.upload";
+import { uploadApplicationLetter } from "./applicationLetter.upload";
 
 export function createApplicationsRouter(controller: ApplicationsController): Router {
   const router = Router();
   router.use(authenticate);
 
-  router.post("/", validate({ body: createApplicationSchema }), asyncHandler(controller.submit));
+  router.post("/", uploadApplicationLetter, asyncHandler(controller.submit));
   router.get("/me", asyncHandler(controller.listMine));
   router.patch("/:id/withdraw", validate({ params: idParamSchema }), asyncHandler(controller.withdraw));
 
