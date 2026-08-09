@@ -133,6 +133,7 @@ export function RegistrationPage() {
 
   const missingApplicationLetter = !documents.some((doc) => doc.type === "APPLICATION_LETTER");
   const missingPds = !documents.some((doc) => doc.type === "PDS");
+  const missingPdsExcel = !documents.some((doc) => doc.type === "PDS_EXCEL");
   const missingEligibilityProof = Boolean(
     profile?.hasEligibility && !documents.some((doc) => doc.type === "ELIGIBILITY_PROOF"),
   );
@@ -147,6 +148,7 @@ export function RegistrationPage() {
   const missingRequiredDocuments =
     missingApplicationLetter ||
     missingPds ||
+    missingPdsExcel ||
     missingEligibilityProof ||
     ldEntriesMissingProof.length > 0 ||
     awardsMissingProof.length > 0;
@@ -296,7 +298,8 @@ export function RegistrationPage() {
               <p>Upload the following required document(s) before finishing registration:</p>
               <ul>
                 {missingApplicationLetter && <li>Application Letter</li>}
-                {missingPds && <li>Personal Data Sheet (PDS)</li>}
+                {missingPds && <li>Personal Data Sheet (PDS) — PDF copy</li>}
+                {missingPdsExcel && <li>Personal Data Sheet (PDS) — Excel (CS Form 212) copy</li>}
                 {missingEligibilityProof && (
                   <li>Certificate of Eligibility / Rating / License (you indicated you have a civil service eligibility)</li>
                 )}

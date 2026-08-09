@@ -37,6 +37,7 @@ enum EligibilityType {
 enum DocumentType {
   APPLICATION_LETTER
   PDS
+  PDS_EXCEL
   IPCR
   ELIGIBILITY_PROOF
   LD_PROOF

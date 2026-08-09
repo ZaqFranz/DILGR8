@@ -58,7 +58,10 @@ export class ApplicantsService {
       throw new ValidationError("Upload your Application Letter before completing registration");
     }
     if (!documents.some((doc) => doc.type === "PDS")) {
-      throw new ValidationError("Upload your Personal Data Sheet (PDS) before completing registration");
+      throw new ValidationError("Upload your Personal Data Sheet (PDS) as a PDF before completing registration");
+    }
+    if (!documents.some((doc) => doc.type === "PDS_EXCEL")) {
+      throw new ValidationError("Upload your Personal Data Sheet (PDS) as an Excel file before completing registration");
     }
     if (applicant.hasEligibility && !documents.some((doc) => doc.type === "ELIGIBILITY_PROOF")) {
       throw new ValidationError("Upload proof of eligibility before completing registration");

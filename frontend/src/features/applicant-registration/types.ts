@@ -2,6 +2,7 @@ export type EligibilityType = "RA1080" | "CSC_PROFESSIONAL" | "CSC_SUBPROFESSION
 export type DocumentType =
   | "APPLICATION_LETTER"
   | "PDS"
+  | "PDS_EXCEL"
   | "IPCR"
   | "ELIGIBILITY_PROOF"
   | "LD_PROOF"

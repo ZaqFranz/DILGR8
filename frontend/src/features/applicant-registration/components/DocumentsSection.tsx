@@ -22,6 +22,7 @@ interface Props {
 const SINGLE_INSTANCE_TYPES = new Set<DocumentType>([
   "APPLICATION_LETTER",
   "PDS",
+  "PDS_EXCEL",
   "IPCR",
   "ELIGIBILITY_PROOF",
   "TRANSCRIPT_OF_RECORDS",
@@ -30,9 +31,37 @@ const SINGLE_INSTANCE_TYPES = new Set<DocumentType>([
   "DESIGNATION_ORDER",
 ]);
 
+// Mirrors the backend's ALLOWED_MIME_TYPES_BY_DOCUMENT_TYPE
+// (documents.service.ts) - every type accepts a PDF/JPEG/PNG scan by
+// default, except PDS_EXCEL, which is the raw CS Form 212 workbook and must
+// be an actual spreadsheet. Kept as accept-attribute strings here (rather
+// than importing the backend's mimetype sets) since that's what the file
+// input needs to filter the OS picker, and the file object's own `.type`
+// needs the same list to give an inline error before the network round trip.
+const PDF_OR_IMAGE_ACCEPT = "application/pdf,image/jpeg,image/png";
+const EXCEL_ACCEPT =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,.xlsx,.xls";
+const EXCEL_MIME_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+]);
+const PDF_OR_IMAGE_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+
+function acceptFor(type: DocumentType): string {
+  return type === "PDS_EXCEL" ? EXCEL_ACCEPT : PDF_OR_IMAGE_ACCEPT;
+}
+
+function validateFileType(type: DocumentType, file: File): string | null {
+  if (type === "PDS_EXCEL") {
+    return EXCEL_MIME_TYPES.has(file.type) ? null : "This file must be an XLSX or XLS spreadsheet.";
+  }
+  return PDF_OR_IMAGE_MIME_TYPES.has(file.type) ? null : "This file must be a PDF, JPEG, or PNG.";
+}
+
 const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   APPLICATION_LETTER: "Application Letter",
-  PDS: "Personal Data Sheet (PDS)",
+  PDS: "Personal Data Sheet (PDS) — PDF copy",
+  PDS_EXCEL: "Personal Data Sheet (PDS) — Excel (CS Form 212) copy",
   IPCR: "Performance Rating (Last Rating Period)",
   ELIGIBILITY_PROOF: "Certificate of Eligibility / Rating / License",
   LD_PROOF: "Learning & Development Proof",
@@ -56,6 +85,7 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
 const DOCUMENT_CHECKLIST: { type: DocumentType; required: boolean; note?: string }[] = [
   { type: "APPLICATION_LETTER", required: true },
   { type: "PDS", required: true },
+  { type: "PDS_EXCEL", required: true },
   { type: "IPCR", required: false, note: "if applicable" },
   { type: "ELIGIBILITY_PROOF", required: false, note: "required only if you indicated a civil service eligibility above" },
   { type: "LD_PROOF", required: false, note: "required for any entry you add - uploaded per entry in Learning & Development" },
@@ -109,6 +139,11 @@ export function DocumentsSection({ items, onChange }: Props) {
     }
     if (file.size > MAX_UPLOAD_SIZE_BYTES) {
       setFileError("File is too large — the maximum size is 5MB.");
+      return;
+    }
+    const typeError = validateFileType(type, file);
+    if (typeError) {
+      setFileError(typeError);
       return;
     }
     setSubmitting(true);
@@ -222,7 +257,20 @@ export function DocumentsSection({ items, onChange }: Props) {
           <label htmlFor="doc-type" className="required">
             Document type
           </label>
-          <select id="doc-type" value={type} onChange={(e) => setType(e.target.value as DocumentType)}>
+          <select
+            id="doc-type"
+            value={type}
+            onChange={(e) => {
+              setType(e.target.value as DocumentType);
+              // A file already chosen for the previous type may not be valid
+              // for the new one (e.g. switching from the PDF copy to the
+              // Excel copy of the PDS) - clear it rather than silently
+              // carrying over a mismatched selection.
+              setFile(null);
+              setFileError(null);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+          >
             {computeAvailableTypes(items).map((value) => (
               <option key={value} value={value}>
                 {DOCUMENT_TYPE_LABELS[value]}
@@ -235,13 +283,13 @@ export function DocumentsSection({ items, onChange }: Props) {
         </div>
         <div className={fileError ? "field has-error" : "field"}>
           <label htmlFor="doc-file" className="required">
-            File (PDF, JPEG, or PNG, max 5MB)
+            File ({type === "PDS_EXCEL" ? "XLSX or XLS" : "PDF, JPEG, or PNG"}, max 5MB)
           </label>
           <input
             id="doc-file"
             ref={fileInputRef}
             type="file"
-            accept="application/pdf,image/jpeg,image/png"
+            accept={acceptFor(type)}
             onChange={(e) => {
               setFile(e.target.files?.[0] ?? null);
               setFileError(null);

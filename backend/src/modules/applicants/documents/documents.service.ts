@@ -21,6 +21,7 @@ export interface UploadedFileInfo {
 const SINGLE_INSTANCE_TYPES = new Set<DocumentType>([
   "APPLICATION_LETTER",
   "PDS",
+  "PDS_EXCEL",
   "IPCR",
   "ELIGIBILITY_PROOF",
   "TRANSCRIPT_OF_RECORDS",
@@ -28,6 +29,29 @@ const SINGLE_INSTANCE_TYPES = new Set<DocumentType>([
   "PQE_NOTICE",
   "DESIGNATION_ORDER",
 ]);
+
+const PDF_OR_IMAGE_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const EXCEL_MIME_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+]);
+
+// Every document type accepts a scanned/printed PDF (or a photo of a paper
+// copy, JPEG/PNG) by default. PDS is the one exception with two distinct
+// required files - the CS Form 212 workbook itself (PDS_EXCEL) alongside the
+// signed printed/scanned copy (PDS) - so it needs its own stricter,
+// spreadsheet-only slot rather than sharing the PDF/image default.
+const ALLOWED_MIME_TYPES_BY_DOCUMENT_TYPE: Partial<Record<DocumentType, Set<string>>> = {
+  PDS_EXCEL: EXCEL_MIME_TYPES,
+};
+
+function assertMimeTypeAllowed(type: DocumentType, mimetype: string): void {
+  const allowed = ALLOWED_MIME_TYPES_BY_DOCUMENT_TYPE[type] ?? PDF_OR_IMAGE_MIME_TYPES;
+  if (!allowed.has(mimetype)) {
+    const expected = allowed === EXCEL_MIME_TYPES ? "an XLSX or XLS file" : "a PDF, JPEG, or PNG file";
+    throw new ValidationError(`This document must be uploaded as ${expected}`);
+  }
+}
 
 export class DocumentsService {
   constructor(
@@ -40,6 +64,7 @@ export class DocumentsService {
     if (!file) {
       throw new ValidationError("A file is required");
     }
+    assertMimeTypeAllowed(fields.type, file.mimetype);
 
     const applicant = await this.applicantsRepository.findByUserId(userId);
     if (!applicant) {
