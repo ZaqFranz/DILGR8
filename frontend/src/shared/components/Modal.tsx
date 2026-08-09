@@ -7,10 +7,12 @@ interface Props {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** Wider max-width for content-heavy modals (e.g. a data table) instead of the default form-sized 440px. */
+  wide?: boolean;
 }
 
 /** Generic accessible dialog: Escape-to-close, click-outside-to-close, rendered via portal so it always sits above page content. */
-export function Modal({ open, title, onClose, children, footer }: Props) {
+export function Modal({ open, title, onClose, children, footer, wide = false }: Props) {
   useEffect(() => {
     if (!open) return;
     function handleKeyDown(event: KeyboardEvent) {
@@ -28,7 +30,7 @@ export function Modal({ open, title, onClose, children, footer }: Props) {
 
   return createPortal(
     <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div className={`modal${wide ? " modal--wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div className="modal-header">
           <h2 id="modal-title">{title}</h2>
           <button type="button" className="modal-close" aria-label="Close dialog" onClick={onClose}>

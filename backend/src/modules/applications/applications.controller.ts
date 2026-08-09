@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ValidationError } from "@/shared/errors/AppError";
 import type { ApplicationsService } from "./applications.service";
 import { createApplicationSchema } from "./applications.dto";
-import type { ListApplicationsQueryDto, ScheduleInterviewDto, SiftApplicationDto } from "./applications.dto";
+import type { ListApplicationsQueryDto, ScheduleInterviewDto, SetExamScoreDto, SiftApplicationDto } from "./applications.dto";
 
 const importExamScoresFieldsSchema = z.object({
   jobPostingId: z.string().uuid(),
@@ -72,6 +72,15 @@ export class ApplicationsController {
       req.file.buffer,
     );
     res.status(200).json(result);
+  };
+
+  setExamScore = async (req: Request, res: Response): Promise<void> => {
+    const application = await this.applicationsService.setExaminationScore(
+      req.params.id as string,
+      req.user!.id,
+      req.body as SetExamScoreDto,
+    );
+    res.status(200).json(application);
   };
 
   scheduleInterview = async (req: Request, res: Response): Promise<void> => {

@@ -23,7 +23,7 @@ export class JobPostingsService {
       action: AuditAction.JOB_POSTING_CREATED,
       entityType: AuditEntityType.JOB_POSTING,
       entityId: posting.id,
-      details: `Posted "${posting.title}" (${posting.positionLevel})`,
+      details: `Posted "${posting.title}"`,
     });
 
     return posting;
@@ -73,7 +73,7 @@ export class JobPostingsService {
       action: AuditAction.JOB_POSTING_DELETED,
       entityType: AuditEntityType.JOB_POSTING,
       entityId: id,
-      details: `Deleted "${existing.title}" (${existing.positionLevel})`,
+      details: `Deleted "${existing.title}"`,
     });
   }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type SVGProps } from "react";
 import { ApiError } from "@/shared/api/apiClient";
+import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { Spinner } from "@/shared/components/Spinner";
@@ -8,13 +9,16 @@ import { AdminShell } from "../components/AdminShell";
 import { getDashboardSummary } from "../api/dashboardApi";
 import type { ApplicationStatus, DashboardSummary } from "../types";
 
+// Label text is the single shared APPLICATION_STATUS_LABELS source (kept in
+// sync with the admin Evaluate Applicants table and the applicant-facing My
+// Applications page) - only the per-status bar color is specific to this chart.
 const APPLICATION_STATUS_META: Record<ApplicationStatus, { label: string; color: string }> = {
-  SUBMITTED: { label: "Submitted", color: "var(--color-info)" },
-  UNDER_SIFTING: { label: "Under Sifting", color: "var(--color-warning)" },
-  FOR_INTERVIEW: { label: "For Interview", color: "var(--color-accent-hover)" },
-  QUALIFIED: { label: "Qualified", color: "var(--color-success)" },
-  NOT_QUALIFIED: { label: "Not Qualified", color: "var(--color-danger)" },
-  WITHDRAWN: { label: "Withdrawn", color: "var(--color-muted)" },
+  SUBMITTED: { label: APPLICATION_STATUS_LABELS.SUBMITTED, color: "var(--color-info)" },
+  UNDER_SIFTING: { label: APPLICATION_STATUS_LABELS.UNDER_SIFTING, color: "var(--color-warning)" },
+  FOR_INTERVIEW: { label: APPLICATION_STATUS_LABELS.FOR_INTERVIEW, color: "var(--color-accent-hover)" },
+  QUALIFIED: { label: APPLICATION_STATUS_LABELS.QUALIFIED, color: "var(--color-success)" },
+  NOT_QUALIFIED: { label: APPLICATION_STATUS_LABELS.NOT_QUALIFIED, color: "var(--color-danger)" },
+  WITHDRAWN: { label: APPLICATION_STATUS_LABELS.WITHDRAWN, color: "var(--color-muted)" },
 };
 const APPLICATION_STATUS_ORDER: ApplicationStatus[] = [
   "SUBMITTED",

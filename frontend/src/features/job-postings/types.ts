@@ -1,15 +1,17 @@
 import type { EligibilityType } from "@/features/applicant-registration/types";
 
-export type PositionLevel = "ENTRY" | "PROMOTIONAL";
 export type JobPostingStatus = "OPEN" | "CLOSED";
 
 export interface JobPosting {
   id: string;
   title: string;
   description: string;
+  numberOfVacantPositions: string;
+  plantillaNumbers: string;
+  salaryGrade: string;
   monthlySalary: string;
   placeOfAssignment: string;
-  positionLevel: PositionLevel;
+  positionNextInRank: string;
   qualificationEducation: string;
   qualificationTraining: string;
   qualificationExperience: string;
@@ -24,9 +26,12 @@ export interface JobPosting {
 export interface CreateJobPostingInput {
   title: string;
   description: string;
+  numberOfVacantPositions: string;
+  plantillaNumbers: string;
+  salaryGrade: string;
   monthlySalary: string;
   placeOfAssignment: string;
-  positionLevel: PositionLevel;
+  positionNextInRank: string;
   qualificationEducation: string;
   qualificationTraining: string;
   qualificationExperience: string;
@@ -38,9 +43,12 @@ export interface CreateJobPostingInput {
 export interface UpdateJobPostingInput {
   title?: string;
   description?: string;
+  numberOfVacantPositions?: string;
+  plantillaNumbers?: string;
+  salaryGrade?: string;
   monthlySalary?: string;
   placeOfAssignment?: string;
-  positionLevel?: PositionLevel;
+  positionNextInRank?: string;
   qualificationEducation?: string;
   qualificationTraining?: string;
   qualificationExperience?: string;

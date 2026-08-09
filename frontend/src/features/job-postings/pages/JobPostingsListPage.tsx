@@ -127,8 +127,8 @@ export function JobPostingsListPage() {
               <span className={`badge ${posting.status === "OPEN" ? "open" : "closed"}`}>{posting.status}</span>
             </h2>
             <dl className="posting-meta">
-              <dt>Level</dt>
-              <dd>{posting.positionLevel === "PROMOTIONAL" ? "Promotional" : "Entry level"}</dd>
+              <dt>Salary grade</dt>
+              <dd>{posting.salaryGrade}</dd>
               <dt>Monthly salary</dt>
               <dd>{posting.monthlySalary}</dd>
               <dt>Applications close</dt>
@@ -175,12 +175,18 @@ export function JobPostingsListPage() {
             </span>
             <p style={{ marginTop: "0.75rem", whiteSpace: "pre-wrap" }}>{detailsPosting.description}</p>
             <dl className="posting-meta">
-              <dt>Level</dt>
-              <dd>{detailsPosting.positionLevel === "PROMOTIONAL" ? "Promotional" : "Entry level"}</dd>
+              <dt>No. of vacant position/s</dt>
+              <dd>{detailsPosting.numberOfVacantPositions}</dd>
+              <dt>Plantilla number/s</dt>
+              <dd style={{ whiteSpace: "pre-wrap" }}>{detailsPosting.plantillaNumbers}</dd>
+              <dt>Salary grade</dt>
+              <dd>{detailsPosting.salaryGrade}</dd>
               <dt>Monthly salary</dt>
               <dd>{detailsPosting.monthlySalary}</dd>
               <dt>Place of assignment</dt>
               <dd>{detailsPosting.placeOfAssignment}</dd>
+              <dt>Position next in rank</dt>
+              <dd>{detailsPosting.positionNextInRank}</dd>
               <dt>Education</dt>
               <dd>{detailsPosting.qualificationEducation}</dd>
               <dt>Training</dt>

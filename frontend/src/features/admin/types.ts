@@ -1,4 +1,5 @@
 import type { JobPosting } from "@/features/job-postings/types";
+import type { DocumentType } from "@/features/applicant-registration/types";
 
 export type ApplicationStatus =
   | "SUBMITTED"
@@ -28,6 +29,17 @@ export interface AdminApplication {
     lastName: string;
     user: { email: string };
   };
+}
+
+export interface AdminDocument {
+  id: string;
+  type: DocumentType;
+  fileName: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  uploadedAt: string;
+  ldInterventionId: string | null;
+  awardId: string | null;
 }
 
 export interface SiftApplicationInput {

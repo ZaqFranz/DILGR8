@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { FieldError } from "@/shared/components/FieldError";
+import { PasswordInput } from "@/shared/components/PasswordInput";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
@@ -61,18 +62,17 @@ export function ChangePasswordPage() {
   }
 
   return (
-    <div>
+    <div className="centered-page">
       <h1>Change Password</h1>
-      <div className="card" style={{ maxWidth: 420 }}>
+      <div className="card" style={{ maxWidth: 420, width: "100%" }}>
         <ErrorBanner message={error} />
         <form onSubmit={handleSubmit} noValidate>
           <div className={fieldClass("currentPassword")}>
             <label htmlFor="currentPassword" className="required">
               Current password
             </label>
-            <input
+            <PasswordInput
               id="currentPassword"
-              type="password"
               required
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
@@ -83,9 +83,8 @@ export function ChangePasswordPage() {
             <label htmlFor="newPassword" className="required">
               New password
             </label>
-            <input
+            <PasswordInput
               id="newPassword"
-              type="password"
               required
               minLength={8}
               value={newPassword}
@@ -98,9 +97,8 @@ export function ChangePasswordPage() {
             <label htmlFor="confirmPassword" className="required">
               Confirm new password
             </label>
-            <input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

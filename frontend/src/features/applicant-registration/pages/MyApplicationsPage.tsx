@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
+import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
@@ -50,7 +51,8 @@ export function MyApplicationsPage() {
       {applications.map((application) => (
         <div className="card" key={application.id}>
           <h2>
-            {application.jobPosting.title} <span className={statusBadgeClass(application.status)}>{application.status}</span>
+            {application.jobPosting.title}{" "}
+            <span className={statusBadgeClass(application.status)}>{APPLICATION_STATUS_LABELS[application.status]}</span>
           </h2>
           <p>
             <strong>Submitted:</strong> {new Date(application.submittedAt).toLocaleString()}

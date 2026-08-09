@@ -5,7 +5,9 @@ import { FieldError } from "@/shared/components/FieldError";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
-import { scheduleInterview, siftApplication } from "../api/adminApplicationsApi";
+import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
+import { scheduleInterview, setExaminationScore, siftApplication } from "../api/adminApplicationsApi";
+import { ApplicantDocumentsModal } from "./ApplicantDocumentsModal";
 import type { AdminApplication, EvaluationDecision, TabulationRow } from "../types";
 
 interface Props {
@@ -28,13 +30,20 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
   const [decision, setDecision] = useState<EvaluationDecision>("QUALIFIED");
   const [remarks, setRemarks] = useState("");
   const [scheduleForm, setScheduleForm] = useState(emptyScheduleForm);
+  const [examScore, setExamScore] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [settingScore, setSettingScore] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
 
   const isSiftable = application.status === "UNDER_SIFTING";
   const isSchedulable = canScheduleInterview(application);
+  // Manual, single-application alternative to the "Import PQE Scores" Excel
+  // upload above the table - same underlying score, just for admins who'd
+  // rather key in one number than build a spreadsheet for it.
+  const canEnterExamScore = application.status === "QUALIFIED" && application.examinationScore === null;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -95,10 +104,44 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     }
   }
 
+  async function handleSetScoreSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setFieldErrors({});
+    const parsedScore = Number(examScore);
+    if (examScore.trim() === "" || !Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > 100) {
+      setFieldErrors({ score: "Enter a whole number from 0 to 100." });
+      return;
+    }
+    setSettingScore(true);
+    try {
+      const updated = await setExaminationScore(application.id, parsedScore);
+      // onSifted is really just "replace this row's application in the
+      // parent's list" - identical to onScheduled below, reused here rather
+      // than adding a third prop that would do the exact same thing.
+      onSifted(updated);
+      toast.success(
+        `PQE score of ${parsedScore} recorded for ${application.applicant.firstName} ${application.applicant.lastName}.`,
+      );
+      setExamScore("");
+      setExpanded(false);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setFieldErrors(getFieldErrors(err));
+      } else {
+        setError("Failed to record PQE score");
+      }
+    } finally {
+      setSettingScore(false);
+    }
+  }
+
   const incompleteScoring = tabulation !== null && tabulation.panelistsSubmitted < tabulation.panelistsAssigned;
   const hasDetails =
     isSiftable ||
     isSchedulable ||
+    canEnterExamScore ||
     application.siftedAt !== null ||
     application.interviewScheduledAt !== null ||
     (tabulation !== null && tabulation.panelistsAssigned > 0);
@@ -106,6 +149,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
   function toggleLabel(): string {
     if (expanded) return "Cancel";
     if (isSiftable) return "Sift";
+    if (canEnterExamScore) return "Enter PQE Score";
     if (isSchedulable) return "Schedule Interview";
     return "Details";
   }
@@ -120,16 +164,18 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
         <td>{application.jobPosting.title}</td>
         <td>{new Date(application.submittedAt).toLocaleDateString()}</td>
         <td>
-          <span className={`badge ${application.status.toLowerCase()}`}>{application.status}</span>
+          <span className={`badge ${application.status.toLowerCase()}`}>
+            {APPLICATION_STATUS_LABELS[application.status]}
+          </span>
         </td>
         <td>{application.examinationScore ?? "-"}</td>
         <td>{tabulation?.average !== undefined && tabulation.average !== null ? tabulation.average.toFixed(1) : "-"}</td>
         <td>{tabulation?.rank ?? "-"}</td>
         <td>
-          <div className="data-table-actions">
-            {application.status === "QUALIFIED" && application.examinationScore === null && (
-              <span className="field-hint">Awaiting PQE score</span>
-            )}
+          <div className="data-table-actions data-table-actions--uniform">
+            <button type="button" className="secondary" onClick={() => setShowDocuments(true)}>
+              View Documents
+            </button>
             {hasDetails && (
               <button type="button" className="secondary" onClick={() => setExpanded((prev) => !prev)}>
                 {toggleLabel()}
@@ -222,6 +268,32 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                 </div>
               </form>
             )}
+            {canEnterExamScore && (
+              <form onSubmit={handleSetScoreSubmit} className="field-grid" noValidate>
+                <div className={fieldErrors.score ? "field has-error" : "field"}>
+                  <label htmlFor={`exam-score-${application.id}`} className="required">
+                    PQE score
+                  </label>
+                  <input
+                    id={`exam-score-${application.id}`}
+                    type="number"
+                    min={0}
+                    max={100}
+                    required
+                    placeholder="0–100"
+                    value={examScore}
+                    onChange={(e) => setExamScore(e.target.value)}
+                  />
+                  <FieldError message={fieldErrors.score} />
+                </div>
+                <div className="field" style={{ alignSelf: "end" }}>
+                  <button type="submit" disabled={settingScore}>
+                    {settingScore && <Spinner size="sm" onDark />}
+                    {settingScore ? "Saving..." : "Save PQE score"}
+                  </button>
+                </div>
+              </form>
+            )}
             {isSchedulable && (
               <form onSubmit={handleScheduleSubmit} className="field-grid" noValidate>
                 <div className={fieldErrors.scheduledAt ? "field has-error" : "field"}>
@@ -278,6 +350,13 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
             )}
           </td>
         </tr>
+      )}
+      {showDocuments && (
+        <ApplicantDocumentsModal
+          applicantId={application.applicant.id}
+          applicantName={`${application.applicant.firstName} ${application.applicant.lastName}`}
+          onClose={() => setShowDocuments(false)}
+        />
       )}
     </>
   );

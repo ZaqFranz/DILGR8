@@ -65,3 +65,26 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   return data as T;
 }
+
+/**
+ * For endpoints that return raw file bytes (e.g. viewing an uploaded
+ * document) rather than JSON - same auth header and error-unwrapping as
+ * `apiRequest`, but resolves to a `Blob` instead of parsing the body as
+ * JSON on success.
+ */
+export async function apiRequestBlob(path: string): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const response = await fetch(`${API_URL}${path}`, { headers });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => undefined);
+    const errorPayload = data?.error ?? { code: "UNKNOWN", message: "Request failed" };
+    throw new ApiError(errorPayload.message, response.status, errorPayload.code, errorPayload.details);
+  }
+
+  return response.blob();
+}

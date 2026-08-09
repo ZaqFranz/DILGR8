@@ -24,3 +24,7 @@ export function importExamScores(jobPostingId: string, file: File): Promise<Exam
 export function scheduleInterview(id: string, input: ScheduleInterviewInput): Promise<AdminApplication> {
   return apiRequest<AdminApplication>(`/applications/${id}/schedule-interview`, { method: "PATCH", body: input });
 }
+
+export function setExaminationScore(id: string, score: number): Promise<AdminApplication> {
+  return apiRequest<AdminApplication>(`/applications/${id}/exam-score`, { method: "PATCH", body: { score } });
+}

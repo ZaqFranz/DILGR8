@@ -22,8 +22,8 @@ function XIcon(props: SVGProps<SVGSVGElement>) {
 const STAGE_ORDER: { key: string; label: string }[] = [
   { key: "SUBMITTED", label: "Submitted" },
   { key: "UNDER_SIFTING", label: "Sifting" },
-  { key: "EXAMINATION", label: "Examination" },
-  { key: "FOR_INTERVIEW", label: "Interview" },
+  { key: "EXAMINATION", label: "Pre-Qualifying Examination" },
+  { key: "FOR_INTERVIEW", label: "Evaluation of Applicants" },
 ];
 
 // QUALIFIED/NOT_QUALIFIED is the Sifting phase's pass/fail result (against

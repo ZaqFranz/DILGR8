@@ -18,11 +18,6 @@ enum Role {
   PANEL
 }
 
-enum PositionLevel {
-  ENTRY
-  PROMOTIONAL
-}
-
 enum EligibilityType {
   RA1080
   CSC_PROFESSIONAL
@@ -210,12 +205,15 @@ model Document {
 /// A vacancy applicants can apply to. closingAt is computed server-side at
 /// creation time as postedAt + 10 days, 23:59:59 (see JobPostingsService).
 model JobPosting {
-  id                String        @id @default(uuid())
-  title             String
-  description       String        @db.Text
-  monthlySalary     String
-  placeOfAssignment String        @db.Text
-  positionLevel PositionLevel
+  id                       String @id @default(uuid())
+  title                    String
+  description              String @db.Text
+  numberOfVacantPositions  String
+  plantillaNumbers         String @db.Text
+  salaryGrade              String
+  monthlySalary            String
+  placeOfAssignment        String @db.Text
+  positionNextInRank       String @db.Text
   qualificationEducation   String @db.Text
   qualificationTraining    String @db.Text
   qualificationExperience  String @db.Text

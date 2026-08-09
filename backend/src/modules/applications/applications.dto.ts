@@ -29,3 +29,11 @@ export const scheduleInterviewSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 export type ScheduleInterviewDto = z.infer<typeof scheduleInterviewSchema>;
+
+// Manual alternative to the bulk Excel import (POST /import-exam-scores) -
+// same underlying field, just set one application at a time instead of
+// requiring a spreadsheet for every score.
+export const setExamScoreSchema = z.object({
+  score: z.number().int().min(0).max(100),
+});
+export type SetExamScoreDto = z.infer<typeof setExamScoreSchema>;

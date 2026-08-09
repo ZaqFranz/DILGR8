@@ -22,12 +22,15 @@ async function main() {
   await prisma.jobPosting.createMany({
     data: [
       {
-        title: "Local Government Operations Officer I (Entry Level)",
+        title: "Local Government Operations Officer I",
         description:
           "Assists in the implementation of local government programs, monitors compliance of LGUs with national policies, and provides technical assistance on local governance matters.",
+        numberOfVacantPositions: "One (1)",
+        plantillaNumbers: "OSEC-DILGB-LGOO1-53-1998",
+        salaryGrade: "11",
         monthlySalary: "₱27,000.00",
         placeOfAssignment: "DILG Regional Office No. VIII, Government Center, Candahug, Palo, Leyte",
-        positionLevel: "ENTRY",
+        positionNextInRank: "Local Government Operations Officer II",
         qualificationEducation: "Bachelor's degree relevant to the job",
         qualificationTraining: "4 hours of relevant training",
         qualificationExperience: "1 year of relevant experience",
@@ -39,12 +42,15 @@ async function main() {
         createdByUserId: admin.id,
       },
       {
-        title: "Local Government Operations Officer III (Promotional)",
+        title: "Local Government Operations Officer III",
         description:
           "Supervises a team of LGOOs, reviews technical assistance reports, and represents the office in coordination meetings with local government units.",
+        numberOfVacantPositions: "One (1)",
+        plantillaNumbers: "OSEC-DILGB-LGOO3-51-1998",
+        salaryGrade: "22",
         monthlySalary: "₱38,700.00",
         placeOfAssignment: "DILG Regional Office No. VIII, Government Center, Candahug, Palo, Leyte",
-        positionLevel: "PROMOTIONAL",
+        positionNextInRank: "None required",
         qualificationEducation: "Bachelor's degree relevant to the job",
         qualificationTraining: "16 hours of supervisory/management training",
         qualificationExperience: "3 years of supervisory/management experience",

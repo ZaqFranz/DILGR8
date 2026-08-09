@@ -51,9 +51,18 @@
 /* .auth-page's full-bleed breakout uses 100vw, which (unlike 100%) counts
    the vertical scrollbar's own width, producing a few px of horizontal
    overflow. html is the actual scroll root in most browsers, so both need
-   the clip. */
+   the clip. Uses `clip`, not the more familiar `hidden`: per the CSS
+   Overflow spec, setting only overflow-x to a non-visible value forces the
+   *computed* overflow-y to `auto` too (the "overflow-x/y must both be a
+   scroll mechanism or neither" pairing rule) - so `overflow-x: hidden` here
+   was silently turning html/body into their own independent scroll
+   containers, which breaks `position: sticky` for any descendant (like
+   `.app-header`) that expects to stick relative to the real viewport
+   scroll. `clip` avoids that pairing rule entirely (it clips without
+   establishing a scrollable region), so it hides the same few px of
+   horizontal overflow without the side effect. */
 html {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -63,7 +72,7 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 h1,
@@ -270,6 +279,19 @@ a {
   padding: 2rem 1.5rem;
 }
 
+/* A page that's just one focused card (e.g. Change Password) rather than a
+   list/table filling the width - centers the heading and the card itself
+   horizontally within .app-main's column, instead of both sitting flush left. */
+.centered-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.centered-page h1 {
+  text-align: center;
+}
+
 .app-main--full {
   max-width: none;
   margin: 0;
@@ -395,6 +417,60 @@ textarea::placeholder {
   box-shadow: 0 0 0 3px var(--color-danger-bg);
 }
 
+.password-input {
+  position: relative;
+}
+
+.password-input input {
+  padding-right: 2.5rem;
+}
+
+/* Class selectors throughout (not just `button`) so these reliably beat the
+   global `button`/`button:hover`/`button:focus-visible`/`button:active`
+   rules on specificity - a plain-element override here would lose. Without
+   `:active` specifically, clicking the toggle replaced its centering
+   `translateY(-50%)` with the global button's `translateY(1px)` "pressed"
+   effect (same property, so one replaces the other rather than combining),
+   making the icon visibly jump down on every click instead of staying
+   vertically centered (same class of bug fixed for the header's user-menu
+   trigger earlier this session). */
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.password-toggle svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.password-toggle:hover {
+  background: none;
+  color: var(--color-primary);
+}
+
+.password-toggle:active {
+  transform: translateY(-50%);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
 .field-error {
   margin: 0.3rem 0 0;
   color: var(--color-danger);
@@ -499,6 +575,23 @@ button:disabled:hover {
 
 button.secondary:disabled:hover {
   background: transparent;
+}
+
+/* Admin account only: every action button (regardless of variant - primary,
+   secondary, danger, accent) turns the same blue with white text on hover,
+   for cross-button consistency. Scoped off a class on <body> (toggled by
+   AdminShell) rather than .admin-shell, since Modal/ConfirmDialog render via
+   a portal to document.body and land outside .admin-shell in the DOM.
+   Icon/utility controls with their own established hover treatment (modal's
+   close "x", the header user-menu trigger, the password show/hide toggle)
+   are deliberately excluded - "action buttons" means Save/Add/Edit/Delete/
+   View Documents/etc., not those. Disabled buttons are excluded so a
+   disabled button still reads as inert on hover, matching every other
+   button variant's existing disabled behavior above. */
+body.admin-account button:not(:disabled):not(.modal-close):not(.user-menu-trigger):not(.password-toggle):hover {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
 }
 
 /* ---------- Feedback: banners, badges ---------- */
@@ -796,13 +889,35 @@ tbody tr:last-child td {
 
 /* ---------- Loading ---------- */
 
+/* A fixed full-viewport overlay rather than an inline row - every page that
+   gates its content on `loading` (`{loading && <LoadingBlock />}` or an
+   early `if (loading) return <LoadingBlock ... />`) gets the same centered
+   spinner over a blurred backdrop, instead of a small left-aligned row that
+   pushed into whatever content happened to already be on screen. Sits above
+   the header (z-index 10) so the backdrop blur covers it too, but below
+   modals (--z-modal: 1000) and toasts, in case either is ever open while a
+   background refetch is in flight. */
 .loading-block {
+  position: fixed;
+  inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.6rem;
-  color: var(--color-muted);
-  padding: 1.25rem 0;
+  justify-content: center;
+  gap: 0.85rem;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
+  font-weight: 600;
+  z-index: 500;
+}
+
+.loading-block .spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-width: 3px;
 }
 
 .spinner {
@@ -1139,6 +1254,14 @@ tbody tr:last-child td {
   font-size: 0.8rem;
 }
 
+/* Evaluate Applicants: the toggle button's label varies (Sift / Enter PQE
+   Score / Schedule Interview / Details / Cancel) - fix both buttons to the
+   same width so the row's action column doesn't jump around per-applicant. */
+.data-table-actions--uniform button {
+  min-width: 9.5rem;
+  justify-content: center;
+}
+
 /* ---------- Toasts ---------- */
 
 .toast-viewport {
@@ -1269,6 +1392,10 @@ tbody tr:last-child td {
   max-height: calc(100vh - 3rem);
   overflow-y: auto;
   animation: modal-in 0.18s ease-out;
+}
+
+.modal--wide {
+  max-width: 720px;
 }
 
 @keyframes modal-in {

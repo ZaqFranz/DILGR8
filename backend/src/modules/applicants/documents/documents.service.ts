@@ -132,6 +132,35 @@ export class DocumentsService {
     return this.documentsRepository.findByApplicant(applicant.id);
   }
 
+  /** Admin-only: list a specific applicant's documents, for the Evaluate Applicants "View Documents" modal. */
+  async listForApplicant(applicantId: string): Promise<Document[]> {
+    const applicant = await this.applicantsRepository.findById(applicantId);
+    if (!applicant) {
+      throw new NotFoundError("Applicant profile");
+    }
+    return this.documentsRepository.findByApplicant(applicantId);
+  }
+
+  /**
+   * Admin-only: resolves a document to its file on disk for viewing/download.
+   * Checked separately from the DB lookup (not just trusted from
+   * `Document.filePath`) so a document whose underlying file is missing
+   * fails with a clear 404 instead of a raw filesystem error reaching the
+   * client.
+   */
+  async getFileForAdmin(documentId: string): Promise<{ filePath: string; mimeType: string; fileName: string }> {
+    const document = await this.documentsRepository.findById(documentId);
+    if (!document) {
+      throw new NotFoundError("Document");
+    }
+    try {
+      await fs.access(document.filePath);
+    } catch {
+      throw new NotFoundError("Document file");
+    }
+    return { filePath: document.filePath, mimeType: document.mimeType, fileName: document.fileName };
+  }
+
   async remove(userId: string, documentId: string): Promise<void> {
     const applicant = await this.applicantsRepository.findByUserId(userId);
     if (!applicant) {

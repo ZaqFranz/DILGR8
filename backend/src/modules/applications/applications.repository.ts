@@ -152,6 +152,15 @@ export class ApplicationsRepository {
     }) as Promise<ApplicationWithApplicant>;
   }
 
+  /** Manual, single-application counterpart to bulkSetExaminationScores below (the Excel import path) - same fields, one row at a time. */
+  setExaminationScore(id: string, score: number): Promise<ApplicationWithApplicant> {
+    return this.db.application.update({
+      where: { id },
+      data: { examinationScore: score, examinationScoredAt: new Date() },
+      include: applicationWithApplicantInclude,
+    }) as Promise<ApplicationWithApplicant>;
+  }
+
   async bulkSetExaminationScores(updates: ExaminationScoreUpdate[]): Promise<void> {
     if (updates.length === 0) return;
     const now = new Date();

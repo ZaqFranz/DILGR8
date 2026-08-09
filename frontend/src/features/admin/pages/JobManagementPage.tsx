@@ -17,14 +17,17 @@ import {
   listJobPostings,
   updateJobPosting,
 } from "@/features/job-postings/api/jobPostingsApi";
-import type { CreateJobPostingInput, JobPosting, JobPostingStatus, PositionLevel } from "@/features/job-postings/types";
+import type { CreateJobPostingInput, JobPosting, JobPostingStatus } from "@/features/job-postings/types";
 
 const emptyForm: CreateJobPostingInput = {
   title: "",
   description: "",
+  numberOfVacantPositions: "",
+  plantillaNumbers: "",
+  salaryGrade: "",
   monthlySalary: "",
   placeOfAssignment: "",
-  positionLevel: "ENTRY",
+  positionNextInRank: "",
   qualificationEducation: "",
   qualificationTraining: "",
   qualificationExperience: "",
@@ -46,7 +49,6 @@ export function JobManagementPage() {
   const [pendingDelete, setPendingDelete] = useState<JobPosting | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [levelFilter, setLevelFilter] = useState<PositionLevel | "">("");
 
   useEffect(() => {
     listJobPostings()
@@ -55,11 +57,9 @@ export function JobManagementPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filteredPostings = postings.filter((posting) => {
-    const matchesSearch = posting.title.toLowerCase().includes(search.trim().toLowerCase());
-    const matchesLevel = levelFilter === "" || posting.positionLevel === levelFilter;
-    return matchesSearch && matchesLevel;
-  });
+  const filteredPostings = postings.filter((posting) =>
+    posting.title.toLowerCase().includes(search.trim().toLowerCase()),
+  );
 
   function update<K extends keyof CreateJobPostingInput>(key: K, value: CreateJobPostingInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -88,9 +88,12 @@ export function JobManagementPage() {
     setForm({
       title: posting.title,
       description: posting.description,
+      numberOfVacantPositions: posting.numberOfVacantPositions,
+      plantillaNumbers: posting.plantillaNumbers,
+      salaryGrade: posting.salaryGrade,
       monthlySalary: posting.monthlySalary,
       placeOfAssignment: posting.placeOfAssignment,
-      positionLevel: posting.positionLevel,
+      positionNextInRank: posting.positionNextInRank,
       qualificationEducation: posting.qualificationEducation,
       qualificationTraining: posting.qualificationTraining,
       qualificationExperience: posting.qualificationExperience,
@@ -176,18 +179,6 @@ export function JobManagementPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="field">
-            <label htmlFor="job-level-filter">Level</label>
-            <select
-              id="job-level-filter"
-              value={levelFilter}
-              onChange={(e) => setLevelFilter(e.target.value as PositionLevel | "")}
-            >
-              <option value="">All levels</option>
-              <option value="ENTRY">Entry level</option>
-              <option value="PROMOTIONAL">Promotional</option>
-            </select>
-          </div>
         </div>
       )}
 
@@ -198,7 +189,6 @@ export function JobManagementPage() {
             <thead>
               <tr>
                 <th>Title</th>
-                <th>Level</th>
                 <th>Salary</th>
                 <th>Status</th>
                 <th>Closes</th>
@@ -208,22 +198,21 @@ export function JobManagementPage() {
             <tbody>
               {postings.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="table-empty">
+                  <td colSpan={5} className="table-empty">
                     No job postings yet.
                   </td>
                 </tr>
               )}
               {postings.length > 0 && filteredPostings.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="table-empty">
-                    No job postings match your search/filter.
+                  <td colSpan={5} className="table-empty">
+                    No job postings match your search.
                   </td>
                 </tr>
               )}
               {filteredPostings.map((posting) => (
                 <tr key={posting.id}>
                   <td>{posting.title}</td>
-                  <td>{posting.positionLevel === "PROMOTIONAL" ? "Promotional" : "Entry level"}</td>
                   <td>{posting.monthlySalary}</td>
                   <td>
                     <span className={`badge ${posting.status === "OPEN" ? "open" : "closed"}`}>{posting.status}</span>
@@ -284,6 +273,32 @@ export function JobManagementPage() {
             <FieldError message={fieldErrors.description} />
           </div>
           <div className="field-grid">
+            <div className={fieldErrors.numberOfVacantPositions ? "field has-error" : "field"}>
+              <label htmlFor="numberOfVacantPositions" className="required">
+                No. of vacant position/s
+              </label>
+              <input
+                id="numberOfVacantPositions"
+                required
+                placeholder="e.g. One (1)"
+                value={form.numberOfVacantPositions}
+                onChange={(e) => update("numberOfVacantPositions", e.target.value)}
+              />
+              <FieldError message={fieldErrors.numberOfVacantPositions} />
+            </div>
+            <div className={fieldErrors.salaryGrade ? "field has-error" : "field"}>
+              <label htmlFor="salaryGrade" className="required">
+                Salary grade
+              </label>
+              <input
+                id="salaryGrade"
+                required
+                placeholder="e.g. 18"
+                value={form.salaryGrade}
+                onChange={(e) => update("salaryGrade", e.target.value)}
+              />
+              <FieldError message={fieldErrors.salaryGrade} />
+            </div>
             <div className={fieldErrors.monthlySalary ? "field has-error" : "field"}>
               <label htmlFor="monthlySalary" className="required">
                 Monthly salary
@@ -297,17 +312,6 @@ export function JobManagementPage() {
               />
               <FieldError message={fieldErrors.monthlySalary} />
             </div>
-            <div className="field">
-              <label htmlFor="positionLevel">Position level</label>
-              <select
-                id="positionLevel"
-                value={form.positionLevel}
-                onChange={(e) => update("positionLevel", e.target.value as PositionLevel)}
-              >
-                <option value="ENTRY">Entry level</option>
-                <option value="PROMOTIONAL">Promotional</option>
-              </select>
-            </div>
             {editingId && (
               <div className="field">
                 <label htmlFor="status">Status</label>
@@ -317,6 +321,32 @@ export function JobManagementPage() {
                 </select>
               </div>
             )}
+          </div>
+          <div className={fieldErrors.plantillaNumbers ? "field has-error" : "field"}>
+            <label htmlFor="plantillaNumbers" className="required">
+              Plantilla number/s
+            </label>
+            <textarea
+              id="plantillaNumbers"
+              required
+              placeholder="e.g. OSEC-DILGB-LGOO4-52-1998"
+              value={form.plantillaNumbers}
+              onChange={(e) => update("plantillaNumbers", e.target.value)}
+            />
+            <FieldError message={fieldErrors.plantillaNumbers} />
+          </div>
+          <div className={fieldErrors.positionNextInRank ? "field has-error" : "field"}>
+            <label htmlFor="positionNextInRank" className="required">
+              Position next in rank
+            </label>
+            <input
+              id="positionNextInRank"
+              required
+              placeholder="e.g. None required"
+              value={form.positionNextInRank}
+              onChange={(e) => update("positionNextInRank", e.target.value)}
+            />
+            <FieldError message={fieldErrors.positionNextInRank} />
           </div>
           <div className={fieldErrors.qualificationEducation ? "field has-error" : "field"}>
             <label htmlFor="qualificationEducation" className="required">

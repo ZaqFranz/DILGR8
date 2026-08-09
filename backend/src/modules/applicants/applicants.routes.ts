@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "@/shared/middleware/asyncHandler";
-import { authenticate } from "@/shared/middleware/authenticate";
+import { authenticate, requireRole } from "@/shared/middleware/authenticate";
 import { validate } from "@/shared/validation/validate";
 import type { ApplicantsController } from "./applicants.controller";
 import {
@@ -51,6 +51,23 @@ export function createApplicantsRouter(controller: ApplicantsController, documen
   router.post("/me/documents", uploadSingleDocument, asyncHandler(documentsController.upload));
   router.get("/me/documents", asyncHandler(documentsController.listMine));
   router.delete("/me/documents/:id", validate({ params: idParamSchema }), asyncHandler(documentsController.remove));
+
+  // Admin-only: viewing a specific applicant's uploaded documents (Evaluate
+  // Applicants' "View Documents" modal). Registered after /me/documents
+  // above so a literal "/me/documents" request is never swallowed by the
+  // wildcard ":id" here.
+  router.get(
+    "/:id/documents",
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema }),
+    asyncHandler(documentsController.listForApplicant),
+  );
+  router.get(
+    "/documents/:id/file",
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema }),
+    asyncHandler(documentsController.viewFile),
+  );
 
   return router;
 }

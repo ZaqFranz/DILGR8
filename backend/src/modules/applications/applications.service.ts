@@ -15,7 +15,7 @@ import {
   withdrawnEmail,
 } from "@/shared/email/applicationEmailTemplates";
 import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
-import type { ScheduleInterviewDto, SiftApplicationDto } from "./applications.dto";
+import type { ScheduleInterviewDto, SetExamScoreDto, SiftApplicationDto } from "./applications.dto";
 import { parseExamScoreWorkbook } from "./examScoreParser";
 
 // An application can be withdrawn any time before its outcome is already
@@ -274,6 +274,44 @@ export class ApplicationsService {
     }
 
     return { matched, unmatched };
+  }
+
+  /**
+   * Manual, single-application alternative to importExaminationScores above
+   * - same underlying update and notification, for admins who'd rather key
+   * in one score than build a whole spreadsheet for it.
+   */
+  async setExaminationScore(
+    applicationId: string,
+    actorUserId: string,
+    dto: SetExamScoreDto,
+  ): Promise<ApplicationWithApplicant> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+    if (application.status !== "QUALIFIED") {
+      throw new ValidationError("Cannot record a PQE score unless the application is Qualified (sifting must pass first)");
+    }
+
+    const updated = await this.applicationsRepository.setExaminationScore(applicationId, dto.score);
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_EXAM_SCORE_SET,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Set PQE score for ${application.applicant.firstName} ${application.applicant.lastName} ("${application.jobPosting.title}"): ${dto.score}`,
+    });
+
+    const { subject, html } = examScoreEmail(
+      `${application.applicant.firstName} ${application.applicant.lastName}`,
+      application.jobPosting.title,
+      dto.score,
+    );
+    await this.emailService.send({ to: application.applicant.user.email, subject, html });
+
+    return updated;
   }
 
   async scheduleInterview(
