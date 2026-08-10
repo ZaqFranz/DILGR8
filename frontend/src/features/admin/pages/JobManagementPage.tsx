@@ -5,9 +5,11 @@ import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { FieldError } from "@/shared/components/FieldError";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { Modal } from "@/shared/components/Modal";
+import { Pagination } from "@/shared/components/Pagination";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
+import { usePagination } from "@/shared/utils/usePagination";
 import { ELIGIBILITY_OPTIONS } from "@/shared/constants/eligibility";
 import type { EligibilityType } from "@/features/applicant-registration/types";
 import { AdminShell } from "../components/AdminShell";
@@ -60,6 +62,7 @@ export function JobManagementPage() {
   const filteredPostings = postings.filter((posting) =>
     posting.title.toLowerCase().includes(search.trim().toLowerCase()),
   );
+  const pagination = usePagination(filteredPostings, 10);
 
   function update<K extends keyof CreateJobPostingInput>(key: K, value: CreateJobPostingInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -176,7 +179,10 @@ export function JobManagementPage() {
               type="search"
               placeholder="Search by title..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                pagination.setPage(1);
+              }}
             />
           </div>
         </div>
@@ -210,7 +216,7 @@ export function JobManagementPage() {
                   </td>
                 </tr>
               )}
-              {filteredPostings.map((posting) => (
+              {pagination.pageItems.map((posting) => (
                 <tr key={posting.id}>
                   <td>{posting.title}</td>
                   <td>{posting.monthlySalary}</td>
@@ -232,6 +238,13 @@ export function JobManagementPage() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={10}
+            onPageChange={pagination.setPage}
+          />
         </div>
       )}
 

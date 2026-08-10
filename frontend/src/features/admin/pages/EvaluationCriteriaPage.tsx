@@ -5,9 +5,11 @@ import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { FieldError } from "@/shared/components/FieldError";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { Modal } from "@/shared/components/Modal";
+import { Pagination } from "@/shared/components/Pagination";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
+import { usePagination } from "@/shared/utils/usePagination";
 import { AdminShell } from "../components/AdminShell";
 import {
   createEvaluationCriterion,
@@ -31,6 +33,7 @@ export function EvaluationCriteriaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<EvaluationCriterion | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const pagination = usePagination(criteria, 10);
 
   useEffect(() => {
     listEvaluationCriteria()
@@ -141,7 +144,7 @@ export function EvaluationCriteriaPage() {
                   </td>
                 </tr>
               )}
-              {criteria.map((criterion) => (
+              {pagination.pageItems.map((criterion) => (
                 <tr key={criterion.id}>
                   <td>{criterion.name}</td>
                   <td>{criterion.maxScore}</td>
@@ -164,6 +167,13 @@ export function EvaluationCriteriaPage() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={10}
+            onPageChange={pagination.setPage}
+          />
         </div>
       )}
 

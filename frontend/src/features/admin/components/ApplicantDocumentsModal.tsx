@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { Modal } from "@/shared/components/Modal";
+import { Pagination } from "@/shared/components/Pagination";
 import { Spinner } from "@/shared/components/Spinner";
+import { usePagination } from "@/shared/utils/usePagination";
 import { fetchDocumentFileUrl, listApplicantDocuments } from "../api/adminDocumentsApi";
 import type { AdminDocument } from "../types";
 import type { DocumentType } from "@/features/applicant-registration/types";
@@ -47,6 +49,7 @@ export function ApplicantDocumentsModal({ applicantId, applicantName, onClose }:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const pagination = usePagination(documents, 10);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,7 +127,7 @@ export function ApplicantDocumentsModal({ applicantId, applicantName, onClose }:
               </tr>
             </thead>
             <tbody>
-              {documents.map((doc) => (
+              {pagination.pageItems.map((doc) => (
                 <tr key={doc.id}>
                   <td>{DOCUMENT_TYPE_LABELS[doc.type]}</td>
                   <td>{doc.fileName}</td>
@@ -149,6 +152,13 @@ export function ApplicantDocumentsModal({ applicantId, applicantName, onClose }:
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={10}
+            onPageChange={pagination.setPage}
+          />
         </div>
       )}
     </Modal>

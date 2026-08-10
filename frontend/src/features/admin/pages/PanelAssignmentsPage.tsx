@@ -3,7 +3,9 @@ import { ApiError } from "@/shared/api/apiClient";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
+import { Pagination } from "@/shared/components/Pagination";
 import { useToast } from "@/shared/components/ToastProvider";
+import { usePagination } from "@/shared/utils/usePagination";
 import { listJobPostings } from "@/features/job-postings/api/jobPostingsApi";
 import type { JobPosting } from "@/features/job-postings/types";
 import { listUsers } from "../api/adminUsersApi";
@@ -22,6 +24,7 @@ export function PanelAssignmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingUnassign, setPendingUnassign] = useState<PanelAssignment | null>(null);
   const [busyPanelUserId, setBusyPanelUserId] = useState<string | null>(null);
+  const pagination = usePagination(panelUsers, 10);
 
   useEffect(() => {
     Promise.all([listJobPostings(), listUsers({ role: "PANEL" })])
@@ -94,7 +97,14 @@ export function PanelAssignmentsPage() {
       {postings.length > 0 && (
         <div className="field" style={{ maxWidth: 420 }}>
           <label htmlFor="posting-select">Job posting</label>
-          <select id="posting-select" value={selectedPostingId} onChange={(e) => setSelectedPostingId(e.target.value)}>
+          <select
+            id="posting-select"
+            value={selectedPostingId}
+            onChange={(e) => {
+              setSelectedPostingId(e.target.value);
+              pagination.setPage(1);
+            }}
+          >
             {postings.map((posting) => (
               <option key={posting.id} value={posting.id}>
                 {posting.title} ({posting.status})
@@ -121,7 +131,7 @@ export function PanelAssignmentsPage() {
               </tr>
             </thead>
             <tbody>
-              {panelUsers.map((panelUser) => {
+              {pagination.pageItems.map((panelUser) => {
                 const assignment = assignments.find((a) => a.panelUserId === panelUser.id);
                 return (
                   <tr key={panelUser.id}>
@@ -154,6 +164,13 @@ export function PanelAssignmentsPage() {
               })}
             </tbody>
           </table>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={10}
+            onPageChange={pagination.setPage}
+          />
         </div>
       )}
 

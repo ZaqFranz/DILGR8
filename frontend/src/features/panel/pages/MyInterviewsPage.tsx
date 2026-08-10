@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
+import { Pagination } from "@/shared/components/Pagination";
+import { usePagination } from "@/shared/utils/usePagination";
 import { listEvaluationCriteria } from "@/features/admin/api/evaluationCriteriaApi";
 import type { EvaluationCriterion, InterviewQueueApplication, PanelEvaluation } from "@/features/admin/types";
 import { getMyQueue } from "../api/panelEvaluationsApi";
@@ -12,6 +14,7 @@ export function MyInterviewsPage() {
   const [queue, setQueue] = useState<InterviewQueueApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pagination = usePagination(queue, 10);
 
   useEffect(() => {
     Promise.all([listEvaluationCriteria(), getMyQueue()])
@@ -56,7 +59,7 @@ export function MyInterviewsPage() {
               </tr>
             </thead>
             <tbody>
-              {queue.map((application) => (
+              {pagination.pageItems.map((application) => (
                 <InterviewRow
                   key={application.id}
                   application={application}
@@ -66,6 +69,13 @@ export function MyInterviewsPage() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={10}
+            onPageChange={pagination.setPage}
+          />
         </div>
       )}
     </div>

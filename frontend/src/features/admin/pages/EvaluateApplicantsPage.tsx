@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
+import { Pagination } from "@/shared/components/Pagination";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
+import { usePagination } from "@/shared/utils/usePagination";
 import { listJobPostings } from "@/features/job-postings/api/jobPostingsApi";
 import type { JobPosting } from "@/features/job-postings/types";
 import { importExamScores, listApplicationsForAdmin } from "../api/adminApplicationsApi";
@@ -84,6 +86,7 @@ export function EvaluateApplicantsPage() {
   const filteredApplications = applications.filter(
     (app) => (jobTitleFilter === "" || app.jobPosting.id === jobTitleFilter) && matchesSearch(app, search),
   );
+  const pagination = usePagination(filteredApplications, 10);
 
   if (loading) {
     return (
@@ -110,12 +113,22 @@ export function EvaluateApplicantsPage() {
                 type="search"
                 placeholder="Search by applicant name or email..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  pagination.setPage(1);
+                }}
               />
             </div>
             <div className="field">
               <label htmlFor="job-title-filter">Job title</label>
-              <select id="job-title-filter" value={jobTitleFilter} onChange={(e) => setJobTitleFilter(e.target.value)}>
+              <select
+                id="job-title-filter"
+                value={jobTitleFilter}
+                onChange={(e) => {
+                  setJobTitleFilter(e.target.value);
+                  pagination.setPage(1);
+                }}
+              >
                 <option value="">All job postings</option>
                 {postings.map((posting) => (
                   <option key={posting.id} value={posting.id}>
@@ -188,7 +201,7 @@ export function EvaluateApplicantsPage() {
                     </td>
                   </tr>
                 )}
-                {filteredApplications.map((application) => (
+                {pagination.pageItems.map((application) => (
                   <EvaluationRow
                     key={application.id}
                     application={application}
@@ -204,6 +217,13 @@ export function EvaluateApplicantsPage() {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={10}
+              onPageChange={pagination.setPage}
+            />
           </div>
         </>
       )}

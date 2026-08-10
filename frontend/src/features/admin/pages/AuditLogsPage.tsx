@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
+import { Pagination } from "@/shared/components/Pagination";
 import { formatAuditAction } from "@/shared/utils/formatAuditAction";
+import { usePagination } from "@/shared/utils/usePagination";
 import { AdminShell } from "../components/AdminShell";
 import { listAuditLogs } from "../api/auditLogsApi";
 import type { AuditLogEntry } from "../types";
@@ -19,6 +21,7 @@ export function AuditLogsPage() {
   const [entityType, setEntityType] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pagination = usePagination(logs, 10);
 
   useEffect(() => {
     setLoading(true);
@@ -36,7 +39,14 @@ export function AuditLogsPage() {
 
       <div className="field" style={{ maxWidth: 260 }}>
         <label htmlFor="entity-type">Filter by type</label>
-        <select id="entity-type" value={entityType} onChange={(e) => setEntityType(e.target.value)}>
+        <select
+          id="entity-type"
+          value={entityType}
+          onChange={(e) => {
+            setEntityType(e.target.value);
+            pagination.setPage(1);
+          }}
+        >
           {ENTITY_TYPE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
@@ -59,7 +69,7 @@ export function AuditLogsPage() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((log) => (
+              {pagination.pageItems.map((log) => (
                 <tr key={log.id}>
                   <td>{new Date(log.createdAt).toLocaleString()}</td>
                   <td>{log.actor?.email ?? "(deleted user)"}</td>
@@ -69,6 +79,13 @@ export function AuditLogsPage() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            pageSize={10}
+            onPageChange={pagination.setPage}
+          />
         </div>
       )}
     </AdminShell>
