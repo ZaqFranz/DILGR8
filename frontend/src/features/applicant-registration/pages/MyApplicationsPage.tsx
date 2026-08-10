@@ -63,11 +63,22 @@ export function MyApplicationsPage() {
           )}
           {application.interviewScheduledAt !== null && (
             <div className="card-inset">
-              <p className="field-hint">Interview details:</p>
+              <p className="field-hint">Evaluation of Applicants details:</p>
               <ul>
-                <li>
-                  <strong>When:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
-                </li>
+                {application.interviewScheduledEndAt !== null ? (
+                  <>
+                    <li>
+                      <strong>Day 1:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
+                    </li>
+                    <li>
+                      <strong>Day 2:</strong> {new Date(application.interviewScheduledEndAt).toLocaleString()}
+                    </li>
+                  </>
+                ) : (
+                  <li>
+                    <strong>When:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
+                  </li>
+                )}
                 <li>
                   <strong>Where:</strong> {application.interviewVenue}
                 </li>

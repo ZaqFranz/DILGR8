@@ -671,6 +671,11 @@ body.admin-account button:not(:disabled):not(.modal-close):not(.user-menu-trigge
 .badge.for_interview {
   background: #fdf3d0;
   color: var(--color-accent-hover);
+  /* "Evaluation of Applicants" is longer than the other status labels and
+     wraps to two lines in the table's badge column - shrink it slightly and
+     center each line so it doesn't look left-aligned/lopsided when wrapped. */
+  font-size: 0.62rem;
+  text-align: center;
 }
 
 .badge.withdrawn {

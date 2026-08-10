@@ -280,10 +280,15 @@ model Application {
   // interviewVenue is required once scheduled (a date with no place isn't
   // useful); attire/notes are optional free text for anything else the
   // applicant needs to know ("what to wear", parking, documents to bring).
-  interviewScheduledAt DateTime?
-  interviewVenue       String?   @db.Text
-  interviewAttire      String?   @db.Text
-  interviewNotes       String?   @db.Text
+  // interviewScheduledEndAt is optional - per docs/rsp-domain-spec.md, the
+  // Evaluation of Applicants phase is scheduled for up to 2 days (shortlisting
+  // after day 1 only if applicants exceed the 1:5 ratio), so a single day is
+  // still valid and this stays null in that case.
+  interviewScheduledAt    DateTime?
+  interviewScheduledEndAt DateTime?
+  interviewVenue          String?   @db.Text
+  interviewAttire         String?   @db.Text
+  interviewNotes          String?   @db.Text
 
   // Set by ApplicationsService.withdraw() - applicant-initiated, on their own
   // application only (no admin equivalent, so unlike siftedByUserId there's

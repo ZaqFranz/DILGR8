@@ -22,12 +22,21 @@ export type SiftApplicationDto = z.infer<typeof siftApplicationSchema>;
 // Admin fills these in when moving an application to FOR_INTERVIEW, so the
 // notification email can actually tell the applicant when/where to show up
 // and what to wear, instead of a vague "the panel will be in touch."
-export const scheduleInterviewSchema = z.object({
-  scheduledAt: z.coerce.date(),
-  venue: z.string().min(1).max(2000),
-  attire: z.string().max(500).optional(),
-  notes: z.string().max(2000).optional(),
-});
+// scheduledEndAt is optional - the Evaluation of Applicants phase runs up to
+// 2 days (docs/rsp-domain-spec.md), but a single-day evaluation is also
+// valid, so only day 2 needs an explicit end date/time.
+export const scheduleInterviewSchema = z
+  .object({
+    scheduledAt: z.coerce.date(),
+    scheduledEndAt: z.coerce.date().optional(),
+    venue: z.string().min(1).max(2000),
+    attire: z.string().max(500).optional(),
+    notes: z.string().max(2000).optional(),
+  })
+  .refine((data) => !data.scheduledEndAt || data.scheduledEndAt.getTime() >= data.scheduledAt.getTime(), {
+    message: "Day 2 date/time can't be earlier than day 1",
+    path: ["scheduledEndAt"],
+  });
 export type ScheduleInterviewDto = z.infer<typeof scheduleInterviewSchema>;
 
 // Manual alternative to the bulk Excel import (POST /import-exam-scores) -

@@ -7,6 +7,7 @@ export interface Application {
   submittedAt: string;
   examinationScore: number | null;
   interviewScheduledAt: string | null;
+  interviewScheduledEndAt: string | null;
   interviewVenue: string | null;
   interviewAttire: string | null;
   interviewNotes: string | null;

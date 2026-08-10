@@ -38,6 +38,7 @@ export interface ExaminationScoreUpdate {
 
 export interface ScheduleInterviewInput {
   scheduledAt: Date;
+  scheduledEndAt?: Date;
   venue: string;
   attire?: string;
   notes?: string;
@@ -144,6 +145,7 @@ export class ApplicationsRepository {
       data: {
         status: "FOR_INTERVIEW",
         interviewScheduledAt: input.scheduledAt,
+        interviewScheduledEndAt: input.scheduledEndAt,
         interviewVenue: input.venue,
         interviewAttire: input.attire,
         interviewNotes: input.notes,

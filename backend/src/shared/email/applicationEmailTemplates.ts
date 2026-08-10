@@ -26,18 +26,22 @@ export function forInterviewEmail(
   venue: string,
   attire?: string,
   notes?: string,
+  scheduledEndAt?: Date,
 ): EmailContent {
-  const formattedDate = new Intl.DateTimeFormat("en-PH", INTERVIEW_DATE_FORMAT).format(scheduledAt);
+  const formattedStart = new Intl.DateTimeFormat("en-PH", INTERVIEW_DATE_FORMAT).format(scheduledAt);
+  const whenDetail = scheduledEndAt
+    ? `Day 1: ${formattedStart}; Day 2: ${new Intl.DateTimeFormat("en-PH", INTERVIEW_DATE_FORMAT).format(scheduledEndAt)}`
+    : formattedStart;
   const details = [
-    `<li><strong>When:</strong> ${formattedDate}</li>`,
+    `<li><strong>When:</strong> ${whenDetail}</li>`,
     `<li><strong>Where:</strong> ${venue}</li>`,
     attire ? `<li><strong>What to wear:</strong> ${attire}</li>` : "",
     notes ? `<li><strong>Additional instructions:</strong> ${notes}</li>` : "",
   ].join("");
 
   return {
-    subject: `You've been scheduled for interview - ${jobTitle}`,
-    html: `<p>Hi ${applicantName},</p><p>Your application for <strong>${jobTitle}</strong> has moved to the interview stage. Details:</p><ul>${details}</ul>${FOOTER}`,
+    subject: `You've been scheduled for evaluation - ${jobTitle}`,
+    html: `<p>Hi ${applicantName},</p><p>Your application for <strong>${jobTitle}</strong> has moved to the Evaluation of Applicants stage. Details:</p><ul>${details}</ul>${FOOTER}`,
   };
 }
 

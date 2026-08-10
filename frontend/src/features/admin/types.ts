@@ -19,6 +19,7 @@ export interface AdminApplication {
   examinationScore: number | null;
   examinationScoredAt: string | null;
   interviewScheduledAt: string | null;
+  interviewScheduledEndAt: string | null;
   interviewVenue: string | null;
   interviewAttire: string | null;
   interviewNotes: string | null;
@@ -49,6 +50,7 @@ export interface SiftApplicationInput {
 
 export interface ScheduleInterviewInput {
   scheduledAt: string;
+  scheduledEndAt?: string;
   venue: string;
   attire?: string;
   notes?: string;

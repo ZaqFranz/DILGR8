@@ -22,7 +22,7 @@ function canScheduleInterview(application: AdminApplication): boolean {
   return application.status === "QUALIFIED" && application.examinationScore !== null;
 }
 
-const emptyScheduleForm = { scheduledAt: "", venue: "", attire: "", notes: "" };
+const emptyScheduleForm = { scheduledAt: "", scheduledEndAt: "", venue: "", attire: "", notes: "" };
 
 export function EvaluationRow({ application, onSifted, onScheduled, tabulation, panelists }: Props) {
   const toast = useToast();
@@ -73,7 +73,11 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     setError(null);
     setFieldErrors({});
     if (!scheduleForm.scheduledAt) {
-      setFieldErrors({ scheduledAt: "Interview date/time is required." });
+      setFieldErrors({ scheduledAt: "Evaluation date/time (Day 1) is required." });
+      return;
+    }
+    if (scheduleForm.scheduledEndAt && scheduleForm.scheduledEndAt < scheduleForm.scheduledAt) {
+      setFieldErrors({ scheduledEndAt: "Day 2 date/time can't be earlier than Day 1." });
       return;
     }
     if (!scheduleForm.venue.trim()) {
@@ -84,12 +88,13 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     try {
       const updated = await scheduleInterview(application.id, {
         scheduledAt: scheduleForm.scheduledAt,
+        ...(scheduleForm.scheduledEndAt ? { scheduledEndAt: scheduleForm.scheduledEndAt } : {}),
         venue: scheduleForm.venue,
         ...(scheduleForm.attire ? { attire: scheduleForm.attire } : {}),
         ...(scheduleForm.notes ? { notes: scheduleForm.notes } : {}),
       });
       onScheduled(updated);
-      toast.success(`${application.applicant.firstName} ${application.applicant.lastName} was scheduled for interview.`);
+      toast.success(`${application.applicant.firstName} ${application.applicant.lastName} was scheduled for evaluation.`);
       setScheduleForm(emptyScheduleForm);
       setExpanded(false);
     } catch (err) {
@@ -97,7 +102,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
         setError(err.message);
         setFieldErrors(getFieldErrors(err));
       } else {
-        setError("Failed to schedule interview");
+        setError("Failed to schedule evaluation");
       }
     } finally {
       setScheduling(false);
@@ -150,7 +155,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     if (expanded) return "Cancel";
     if (isSiftable) return "Sift";
     if (canEnterExamScore) return "Enter PQE Score";
-    if (isSchedulable) return "Schedule Interview";
+    if (isSchedulable) return "Evaluate Applicant";
     return "Details";
   }
 
@@ -198,11 +203,22 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
             )}
             {application.interviewScheduledAt !== null && (
               <div className="card-inset">
-                <p className="field-hint">Interview scheduled:</p>
+                <p className="field-hint">Evaluation scheduled:</p>
                 <ul>
-                  <li>
-                    <strong>When:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
-                  </li>
+                  {application.interviewScheduledEndAt !== null ? (
+                    <>
+                      <li>
+                        <strong>Day 1:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
+                      </li>
+                      <li>
+                        <strong>Day 2:</strong> {new Date(application.interviewScheduledEndAt).toLocaleString()}
+                      </li>
+                    </>
+                  ) : (
+                    <li>
+                      <strong>When:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
+                    </li>
+                  )}
                   <li>
                     <strong>Where:</strong> {application.interviewVenue}
                   </li>
@@ -298,7 +314,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
               <form onSubmit={handleScheduleSubmit} className="field-grid" noValidate>
                 <div className={fieldErrors.scheduledAt ? "field has-error" : "field"}>
                   <label htmlFor={`scheduled-at-${application.id}`} className="required">
-                    Interview date &amp; time
+                    Evaluation date &amp; time — from (Day 1)
                   </label>
                   <input
                     id={`scheduled-at-${application.id}`}
@@ -308,6 +324,22 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                     onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledAt: e.target.value })}
                   />
                   <FieldError message={fieldErrors.scheduledAt} />
+                </div>
+                <div className={fieldErrors.scheduledEndAt ? "field has-error" : "field"}>
+                  <label htmlFor={`scheduled-end-at-${application.id}`}>
+                    Evaluation date &amp; time — to (Day 2, if needed)
+                  </label>
+                  <input
+                    id={`scheduled-end-at-${application.id}`}
+                    type="datetime-local"
+                    value={scheduleForm.scheduledEndAt}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledEndAt: e.target.value })}
+                  />
+                  <FieldError message={fieldErrors.scheduledEndAt} />
+                  <p className="field-hint">
+                    Leave blank if the evaluation finishes in a single day. Set this when shortlisting continues into
+                    Day 2 (over the 1:5 applicant-to-vacancy ratio).
+                  </p>
                 </div>
                 <div className={fieldErrors.venue ? "field has-error" : "field"}>
                   <label htmlFor={`venue-${application.id}`} className="required">
@@ -343,7 +375,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                 <div className="field" style={{ alignSelf: "end" }}>
                   <button type="submit" disabled={scheduling}>
                     {scheduling && <Spinner size="sm" onDark />}
-                    {scheduling ? "Scheduling..." : "Schedule interview"}
+                    {scheduling ? "Saving..." : "Save evaluation schedule"}
                   </button>
                 </div>
               </form>

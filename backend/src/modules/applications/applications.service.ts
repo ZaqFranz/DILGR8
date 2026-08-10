@@ -325,26 +325,30 @@ export class ApplicationsService {
     }
     if (application.status !== "QUALIFIED" || application.examinationScore === null) {
       throw new ValidationError(
-        "Cannot schedule an interview until the applicant has passed sifting and has a recorded PQE score",
+        "Cannot schedule an evaluation until the applicant has passed sifting and has a recorded PQE score",
       );
     }
     if (dto.scheduledAt.getTime() <= Date.now()) {
-      throw new ValidationError("Interview date/time must be in the future");
+      throw new ValidationError("Evaluation date/time must be in the future");
     }
 
     const updated = await this.applicationsRepository.scheduleInterview(applicationId, {
       scheduledAt: dto.scheduledAt,
+      ...(dto.scheduledEndAt ? { scheduledEndAt: dto.scheduledEndAt } : {}),
       venue: dto.venue,
       ...(dto.attire ? { attire: dto.attire } : {}),
       ...(dto.notes ? { notes: dto.notes } : {}),
     });
 
+    const dateRangeDetail = dto.scheduledEndAt
+      ? `from ${dto.scheduledAt.toISOString()} to ${dto.scheduledEndAt.toISOString()}`
+      : `on ${dto.scheduledAt.toISOString()}`;
     await this.auditLogsRepository.record({
       actorUserId,
       action: AuditAction.APPLICATION_SCHEDULED_INTERVIEW,
       entityType: AuditEntityType.APPLICATION,
       entityId: applicationId,
-      details: `Scheduled ${application.applicant.firstName} ${application.applicant.lastName} for interview - "${application.jobPosting.title}" on ${dto.scheduledAt.toISOString()} at ${dto.venue}`,
+      details: `Scheduled ${application.applicant.firstName} ${application.applicant.lastName} for evaluation - "${application.jobPosting.title}" ${dateRangeDetail} at ${dto.venue}`,
     });
 
     const { subject, html } = forInterviewEmail(
@@ -354,6 +358,7 @@ export class ApplicationsService {
       dto.venue,
       dto.attire,
       dto.notes,
+      dto.scheduledEndAt,
     );
     await this.emailService.send({ to: application.applicant.user.email, subject, html });
 
