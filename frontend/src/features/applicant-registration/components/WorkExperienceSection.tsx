@@ -134,7 +134,7 @@ export function WorkExperienceSection({ items, onChange }: Props) {
           <FieldError message={fieldErrors.inclusiveFrom} />
         </div>
         <div className={fieldErrors.inclusiveTo ? "field has-error" : "field"}>
-          <label htmlFor="we-to">Inclusive to (blank if present)</label>
+          <label htmlFor="we-to">Inclusive to (optional — blank if present)</label>
           <input
             id="we-to"
             type="date"

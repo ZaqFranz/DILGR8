@@ -5,6 +5,11 @@ export type JobPostingStatus = "OPEN" | "CLOSED";
 export interface JobPosting {
   id: string;
   title: string;
+  // The Position this posting was created from, if any - drives which
+  // panelists get auto-assigned to it at creation time.
+  positionId: string | null;
+  // Free text set by the admin (e.g. "ROS-1", "ROS-2") - not a fixed list.
+  publication: string;
   description: string;
   numberOfVacantPositions: string;
   plantillaNumbers: string;
@@ -25,6 +30,8 @@ export interface JobPosting {
 
 export interface CreateJobPostingInput {
   title: string;
+  positionId: string;
+  publication: string;
   description: string;
   numberOfVacantPositions: string;
   plantillaNumbers: string;
@@ -42,6 +49,8 @@ export interface CreateJobPostingInput {
 
 export interface UpdateJobPostingInput {
   title?: string;
+  positionId?: string;
+  publication?: string;
   description?: string;
   numberOfVacantPositions?: string;
   plantillaNumbers?: string;

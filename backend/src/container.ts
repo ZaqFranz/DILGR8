@@ -45,6 +45,10 @@ import { PanelEvaluationsRepository } from "@/modules/panel-evaluations/panel-ev
 import { PanelEvaluationsService } from "@/modules/panel-evaluations/panel-evaluations.service";
 import { PanelEvaluationsController } from "@/modules/panel-evaluations/panel-evaluations.controller";
 
+import { PositionsRepository } from "@/modules/positions/positions.repository";
+import { PositionsService } from "@/modules/positions/positions.service";
+import { PositionsController } from "@/modules/positions/positions.controller";
+
 /**
  * Composition root: the one place that wires concrete repositories into
  * services into controllers. Every class up the chain takes its
@@ -64,12 +68,18 @@ function buildContainer() {
   const evaluationCriteriaRepository = new EvaluationCriteriaRepository(prisma);
   const panelAssignmentsRepository = new PanelAssignmentsRepository(prisma);
   const panelEvaluationsRepository = new PanelEvaluationsRepository(prisma);
+  const positionsRepository = new PositionsRepository(prisma);
   const emailService = new EmailService();
 
   const authService = new AuthService(authRepository);
   const applicantsService = new ApplicantsService(applicantsRepository, documentsRepository);
   const documentsService = new DocumentsService(documentsRepository, applicantsRepository, prisma);
-  const jobPostingsService = new JobPostingsService(jobPostingsRepository, auditLogsRepository);
+  const jobPostingsService = new JobPostingsService(
+    jobPostingsRepository,
+    auditLogsRepository,
+    positionsRepository,
+    panelAssignmentsRepository,
+  );
   const applicationsService = new ApplicationsService(
     applicationsRepository,
     applicantsRepository,
@@ -94,6 +104,7 @@ function buildContainer() {
     evaluationCriteriaRepository,
     auditLogsRepository,
   );
+  const positionsService = new PositionsService(positionsRepository, auditLogsRepository);
 
   return {
     authController: new AuthController(authService),
@@ -107,6 +118,7 @@ function buildContainer() {
     evaluationCriteriaController: new EvaluationCriteriaController(evaluationCriteriaService),
     panelAssignmentsController: new PanelAssignmentsController(panelAssignmentsService),
     panelEvaluationsController: new PanelEvaluationsController(panelEvaluationsService),
+    positionsController: new PositionsController(positionsService),
   };
 }
 

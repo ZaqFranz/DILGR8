@@ -18,6 +18,9 @@ export const AuditAction = {
   PANEL_ASSIGNED: "PANEL_ASSIGNED",
   PANEL_UNASSIGNED: "PANEL_UNASSIGNED",
   PANEL_EVALUATION_SUBMITTED: "PANEL_EVALUATION_SUBMITTED",
+  POSITION_CREATED: "POSITION_CREATED",
+  POSITION_UPDATED: "POSITION_UPDATED",
+  POSITION_DELETED: "POSITION_DELETED",
 } as const;
 
 export const AuditEntityType = {
@@ -27,4 +30,5 @@ export const AuditEntityType = {
   EVALUATION_CRITERION: "EvaluationCriterion",
   PANEL_ASSIGNMENT: "PanelAssignment",
   PANEL_EVALUATION: "PanelEvaluation",
+  POSITION: "Position",
 } as const;

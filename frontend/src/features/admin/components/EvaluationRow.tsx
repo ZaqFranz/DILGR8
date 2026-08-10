@@ -73,11 +73,11 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     setError(null);
     setFieldErrors({});
     if (!scheduleForm.scheduledAt) {
-      setFieldErrors({ scheduledAt: "Evaluation date/time (Day 1) is required." });
+      setFieldErrors({ scheduledAt: "From date/time is required." });
       return;
     }
     if (scheduleForm.scheduledEndAt && scheduleForm.scheduledEndAt < scheduleForm.scheduledAt) {
-      setFieldErrors({ scheduledEndAt: "Day 2 date/time can't be earlier than Day 1." });
+      setFieldErrors({ scheduledEndAt: "To date/time can't be earlier than From." });
       return;
     }
     if (!scheduleForm.venue.trim()) {
@@ -269,7 +269,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor={`remarks-${application.id}`}>Remarks</label>
+                  <label htmlFor={`remarks-${application.id}`}>Remarks (optional)</label>
                   <textarea
                     id={`remarks-${application.id}`}
                     value={remarks}
@@ -314,7 +314,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
               <form onSubmit={handleScheduleSubmit} className="field-grid" noValidate>
                 <div className={fieldErrors.scheduledAt ? "field has-error" : "field"}>
                   <label htmlFor={`scheduled-at-${application.id}`} className="required">
-                    Evaluation date &amp; time — from (Day 1)
+                    From
                   </label>
                   <input
                     id={`scheduled-at-${application.id}`}
@@ -326,9 +326,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                   <FieldError message={fieldErrors.scheduledAt} />
                 </div>
                 <div className={fieldErrors.scheduledEndAt ? "field has-error" : "field"}>
-                  <label htmlFor={`scheduled-end-at-${application.id}`}>
-                    Evaluation date &amp; time — to (Day 2, if needed)
-                  </label>
+                  <label htmlFor={`scheduled-end-at-${application.id}`}>To (optional)</label>
                   <input
                     id={`scheduled-end-at-${application.id}`}
                     type="datetime-local"
@@ -336,10 +334,6 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                     onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledEndAt: e.target.value })}
                   />
                   <FieldError message={fieldErrors.scheduledEndAt} />
-                  <p className="field-hint">
-                    Leave blank if the evaluation finishes in a single day. Set this when shortlisting continues into
-                    Day 2 (over the 1:5 applicant-to-vacancy ratio).
-                  </p>
                 </div>
                 <div className={fieldErrors.venue ? "field has-error" : "field"}>
                   <label htmlFor={`venue-${application.id}`} className="required">
@@ -355,7 +349,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                   <FieldError message={fieldErrors.venue} />
                 </div>
                 <div className="field">
-                  <label htmlFor={`attire-${application.id}`}>What to wear</label>
+                  <label htmlFor={`attire-${application.id}`}>What to wear (optional)</label>
                   <input
                     id={`attire-${application.id}`}
                     placeholder="e.g. Business attire"
@@ -364,7 +358,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor={`notes-${application.id}`}>Additional instructions</label>
+                  <label htmlFor={`notes-${application.id}`}>Additional instructions (optional)</label>
                   <textarea
                     id={`notes-${application.id}`}
                     placeholder="e.g. Bring a valid ID and your original documents"

@@ -1,9 +1,15 @@
 import { z } from "zod";
 
 const eligibilityTypeSchema = z.enum(["RA1080", "CSC_PROFESSIONAL", "CSC_SUBPROFESSIONAL", "BARANGAY"]);
+// Free text set by the admin (e.g. "ROS-1", "ROS-2") - not a fixed list.
+const publicationSchema = z.string().min(1).max(191);
 
 export const createJobPostingSchema = z.object({
   title: z.string().min(1).max(200),
+  // The Position this posting is created from - drives auto-assignment of
+  // that position's default panel members (see JobPostingsService.create).
+  positionId: z.string().uuid(),
+  publication: publicationSchema,
   description: z.string().min(1),
   numberOfVacantPositions: z.string().min(1).max(191),
   plantillaNumbers: z.string().min(1),
@@ -22,6 +28,8 @@ export type CreateJobPostingDto = z.infer<typeof createJobPostingSchema>;
 
 export const updateJobPostingSchema = z.object({
   title: z.string().min(1).max(200).optional(),
+  positionId: z.string().uuid().optional(),
+  publication: publicationSchema.optional(),
   description: z.string().min(1).optional(),
   numberOfVacantPositions: z.string().min(1).max(191).optional(),
   plantillaNumbers: z.string().min(1).optional(),

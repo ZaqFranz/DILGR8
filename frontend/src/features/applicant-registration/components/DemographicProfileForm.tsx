@@ -117,7 +117,7 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
             <FieldError message={fieldErrors.firstName} />
           </div>
           <div className={fieldClass("middleName")}>
-            <label htmlFor="middleName">Middle name</label>
+            <label htmlFor="middleName">Middle name (optional)</label>
             <input id="middleName" value={form.middleName} onChange={(e) => update("middleName", e.target.value)} />
             <FieldError message={fieldErrors.middleName} />
           </div>
@@ -129,7 +129,7 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
             <FieldError message={fieldErrors.lastName} />
           </div>
           <div className={fieldClass("suffix")}>
-            <label htmlFor="suffix">Suffix</label>
+            <label htmlFor="suffix">Suffix (optional)</label>
             <input id="suffix" value={form.suffix} onChange={(e) => update("suffix", e.target.value)} />
             <FieldError message={fieldErrors.suffix} />
           </div>

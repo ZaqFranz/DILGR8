@@ -6,13 +6,16 @@ import { Pagination } from "@/shared/components/Pagination";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { usePagination } from "@/shared/utils/usePagination";
+import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
 import { listJobPostings } from "@/features/job-postings/api/jobPostingsApi";
 import type { JobPosting } from "@/features/job-postings/types";
 import { exportPendingPqeScores, importExamScores, listApplicationsForAdmin } from "../api/adminApplicationsApi";
 import { getTabulation } from "../api/panelEvaluationsApi";
 import { EvaluationRow } from "../components/EvaluationRow";
 import { AdminShell } from "../components/AdminShell";
-import type { AdminApplication, ExamScoreImportResult, TabulationResult } from "../types";
+import type { AdminApplication, ApplicationStatus, ExamScoreImportResult, TabulationResult } from "../types";
+
+const STATUS_FILTER_OPTIONS = Object.entries(APPLICATION_STATUS_LABELS) as [ApplicationStatus, string][];
 
 function matchesSearch(application: AdminApplication, search: string): boolean {
   const term = search.trim().toLowerCase();
@@ -33,6 +36,8 @@ export function EvaluateApplicantsPage() {
   const [exportingPending, setExportingPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobTitleFilter, setJobTitleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "">("");
+  const [publicationFilter, setPublicationFilter] = useState("");
   const [search, setSearch] = useState("");
 
   const loadAll = useCallback(async () => {
@@ -106,8 +111,16 @@ export function EvaluateApplicantsPage() {
     }
   }
 
+  // Admin-typed free text, not a fixed list - offer whatever values are
+  // actually in use right now as filter choices instead of a hardcoded set.
+  const publicationOptions = [...new Set(postings.map((posting) => posting.publication))].sort();
+
   const filteredApplications = applications.filter(
-    (app) => (jobTitleFilter === "" || app.jobPosting.id === jobTitleFilter) && matchesSearch(app, search),
+    (app) =>
+      (jobTitleFilter === "" || app.jobPosting.id === jobTitleFilter) &&
+      (statusFilter === "" || app.status === statusFilter) &&
+      (publicationFilter === "" || app.jobPosting.publication === publicationFilter) &&
+      matchesSearch(app, search),
   );
   const pagination = usePagination(filteredApplications, 10);
 
@@ -156,6 +169,42 @@ export function EvaluateApplicantsPage() {
                 {postings.map((posting) => (
                   <option key={posting.id} value={posting.id}>
                     {posting.title} ({posting.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="status-filter">Status</label>
+              <select
+                id="status-filter"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as ApplicationStatus | "");
+                  pagination.setPage(1);
+                }}
+              >
+                <option value="">All statuses</option>
+                {STATUS_FILTER_OPTIONS.map(([status, label]) => (
+                  <option key={status} value={status}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="publication-filter">Publication</label>
+              <select
+                id="publication-filter"
+                value={publicationFilter}
+                onChange={(e) => {
+                  setPublicationFilter(e.target.value);
+                  pagination.setPage(1);
+                }}
+              >
+                <option value="">All publications</option>
+                {publicationOptions.map((publication) => (
+                  <option key={publication} value={publication}>
+                    {publication}
                   </option>
                 ))}
               </select>

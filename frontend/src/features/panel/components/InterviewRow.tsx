@@ -101,6 +101,13 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
                   <label htmlFor={`score-${application.id}-${criterion.id}`} className="required">
                     {criterion.name} (0-{criterion.maxScore})
                   </label>
+                  {criterion.questions.length > 0 && (
+                    <ul className="field-hint">
+                      {criterion.questions.map((question) => (
+                        <li key={question.id}>{question.text}</li>
+                      ))}
+                    </ul>
+                  )}
                   <input
                     id={`score-${application.id}-${criterion.id}`}
                     type="number"
@@ -114,7 +121,7 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
                 </div>
               ))}
               <div className="field">
-                <label htmlFor={`remarks-${application.id}`}>Remarks</label>
+                <label htmlFor={`remarks-${application.id}`}>Remarks (optional)</label>
                 <textarea
                   id={`remarks-${application.id}`}
                   value={remarks}

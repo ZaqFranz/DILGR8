@@ -361,6 +361,12 @@ a {
   flex: 1 1 260px;
 }
 
+/* Every filter after the search box gets a fixed width so dropdowns line up
+   with each other instead of each sizing to its own longest option text. */
+.filters-row .field:not(:first-child) {
+  flex: 0 0 220px;
+}
+
 label {
   display: block;
   font-size: 0.83rem;
@@ -1427,6 +1433,10 @@ tbody tr:last-child td {
 
 .modal--wide {
   max-width: 720px;
+}
+
+.modal--xwide {
+  max-width: 880px;
 }
 
 @keyframes modal-in {

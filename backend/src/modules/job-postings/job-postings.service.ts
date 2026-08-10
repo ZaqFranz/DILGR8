@@ -2,6 +2,8 @@ import type { JobPosting, JobPostingStatus } from "@prisma/client";
 import { ConflictError, NotFoundError } from "@/shared/errors/AppError";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
+import type { PanelAssignmentsRepository } from "@/modules/panel-assignments/panel-assignments.repository";
+import type { PositionsRepository } from "@/modules/positions/positions.repository";
 import type { JobPostingsRepository, JobPostingWithEligibility } from "./job-postings.repository";
 import type { CreateJobPostingDto, UpdateJobPostingDto } from "./job-postings.dto";
 
@@ -11,6 +13,8 @@ export class JobPostingsService {
   constructor(
     private readonly jobPostingsRepository: JobPostingsRepository,
     private readonly auditLogsRepository: AuditLogsRepository,
+    private readonly positionsRepository: PositionsRepository,
+    private readonly panelAssignmentsRepository: PanelAssignmentsRepository,
   ) {}
 
   async create(createdByUserId: string, dto: CreateJobPostingDto): Promise<JobPostingWithEligibility> {
@@ -26,7 +30,37 @@ export class JobPostingsService {
       details: `Posted "${posting.title}"`,
     });
 
+    if (dto.positionId) {
+      await this.autoAssignPanelFromPosition(createdByUserId, posting, dto.positionId);
+    }
+
     return posting;
+  }
+
+  /**
+   * A Position carries a pre-made group of default Panel members - picking
+   * it when posting a job auto-assigns that group to the new posting's
+   * interview board, instead of the admin re-assigning the same panelists
+   * by hand every time this position is posted.
+   */
+  private async autoAssignPanelFromPosition(
+    actorUserId: string,
+    posting: JobPostingWithEligibility,
+    positionId: string,
+  ): Promise<void> {
+    const position = await this.positionsRepository.findById(positionId);
+    if (!position) return;
+
+    for (const member of position.panelMembers) {
+      const assignment = await this.panelAssignmentsRepository.create(posting.id, member.panelUserId);
+      await this.auditLogsRepository.record({
+        actorUserId,
+        action: AuditAction.PANEL_ASSIGNED,
+        entityType: AuditEntityType.PANEL_ASSIGNMENT,
+        entityId: assignment.id,
+        details: `Auto-assigned ${assignment.panelUser.email} to interview panel for "${posting.title}" (from position "${position.title}")`,
+      });
+    }
   }
 
   async findById(id: string): Promise<JobPostingWithEligibility> {

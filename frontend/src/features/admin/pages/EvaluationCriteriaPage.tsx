@@ -26,6 +26,7 @@ export function EvaluationCriteriaPage() {
   const [criteria, setCriteria] = useState<EvaluationCriterion[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<CreateEvaluationCriterionInput>(emptyForm);
+  const [questionInputs, setQuestionInputs] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingActive, setEditingActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export function EvaluationCriteriaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<EvaluationCriterion | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [viewingQuestionsFor, setViewingQuestionsFor] = useState<EvaluationCriterion | null>(null);
   const pagination = usePagination(criteria, 10);
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export function EvaluationCriteriaPage() {
   function openAddModal() {
     setEditingId(null);
     setForm(emptyForm);
+    setQuestionInputs([]);
     setError(null);
     setFieldErrors({});
     setModalOpen(true);
@@ -54,6 +57,7 @@ export function EvaluationCriteriaPage() {
     setEditingId(criterion.id);
     setEditingActive(criterion.isActive);
     setForm({ name: criterion.name, maxScore: criterion.maxScore, sortOrder: criterion.sortOrder });
+    setQuestionInputs(criterion.questions.map((q) => q.text));
     setError(null);
     setFieldErrors({});
     setModalOpen(true);
@@ -64,7 +68,20 @@ export function EvaluationCriteriaPage() {
     setModalOpen(false);
     setEditingId(null);
     setForm(emptyForm);
+    setQuestionInputs([]);
     setFieldErrors({});
+  }
+
+  function addQuestionInput() {
+    setQuestionInputs((prev) => [...prev, ""]);
+  }
+
+  function updateQuestionInput(index: number, value: string) {
+    setQuestionInputs((prev) => prev.map((q, i) => (i === index ? value : q)));
+  }
+
+  function removeQuestionInput(index: number) {
+    setQuestionInputs((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -73,18 +90,21 @@ export function EvaluationCriteriaPage() {
     setFieldErrors({});
     setSubmitting(true);
     try {
+      const questions = questionInputs.map((q) => q.trim()).filter((q) => q.length > 0);
+      const payload = { ...form, questions };
       if (editingId) {
-        const updated = await updateEvaluationCriterion(editingId, { ...form, isActive: editingActive });
+        const updated = await updateEvaluationCriterion(editingId, { ...payload, isActive: editingActive });
         setCriteria((prev) => prev.map((c) => (c.id === editingId ? updated : c)));
         toast.success(`"${updated.name}" was updated.`);
       } else {
-        const created = await createEvaluationCriterion(form);
+        const created = await createEvaluationCriterion(payload);
         setCriteria((prev) => [...prev, created]);
         toast.success(`"${created.name}" was added to the interview rubric.`);
       }
       setModalOpen(false);
       setEditingId(null);
       setForm(emptyForm);
+      setQuestionInputs([]);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -155,6 +175,9 @@ export function EvaluationCriteriaPage() {
                   </td>
                   <td>
                     <div className="data-table-actions">
+                      <button type="button" className="secondary" onClick={() => setViewingQuestionsFor(criterion)}>
+                        View Questions
+                      </button>
                       <button type="button" className="secondary" onClick={() => startEdit(criterion)}>
                         Edit
                       </button>
@@ -206,6 +229,28 @@ export function EvaluationCriteriaPage() {
             />
             <FieldError message={fieldErrors.name} />
           </div>
+          <div className={fieldErrors.questions ? "field has-error" : "field"}>
+            <label>Questions (optional)</label>
+            <p className="field-hint">Shown to panel members alongside this criterion's score box when they evaluate an applicant.</p>
+            {questionInputs.map((question, index) => (
+              <div key={index} className="data-table-actions" style={{ marginBottom: "0.5rem" }}>
+                <input
+                  aria-label={`Question ${index + 1}`}
+                  placeholder="e.g. Ask the applicant to describe a challenging situation they've handled at work"
+                  value={question}
+                  onChange={(e) => updateQuestionInput(index, e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button type="button" className="danger" onClick={() => removeQuestionInput(index)}>
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button type="button" className="secondary" onClick={addQuestionInput}>
+              Add Question
+            </button>
+            <FieldError message={fieldErrors.questions} />
+          </div>
           <div className={fieldErrors.maxScore ? "field has-error" : "field"}>
             <label htmlFor="maxScore" className="required">
               Max score
@@ -234,6 +279,30 @@ export function EvaluationCriteriaPage() {
             </div>
           )}
         </form>
+      </Modal>
+
+      <Modal
+        open={viewingQuestionsFor !== null}
+        title={`Questions — ${viewingQuestionsFor?.name ?? ""}`}
+        onClose={() => setViewingQuestionsFor(null)}
+        footer={
+          <button type="button" className="secondary" onClick={() => setViewingQuestionsFor(null)}>
+            Close
+          </button>
+        }
+      >
+        {viewingQuestionsFor && viewingQuestionsFor.questions.length === 0 && (
+          <p>No questions have been added for this criterion yet.</p>
+        )}
+        {viewingQuestionsFor && viewingQuestionsFor.questions.length > 0 && (
+          <ol>
+            {viewingQuestionsFor.questions.map((question) => (
+              <li key={question.id} style={{ marginBottom: "0.5rem" }}>
+                {question.text}
+              </li>
+            ))}
+          </ol>
+        )}
       </Modal>
 
       <ConfirmDialog

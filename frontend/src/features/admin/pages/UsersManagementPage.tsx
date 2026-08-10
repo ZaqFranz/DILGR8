@@ -15,7 +15,9 @@ import { AdminShell } from "../components/AdminShell";
 import { createUser, deleteUser, listUsers, updateUser } from "../api/adminUsersApi";
 import type { AdminUser, CreateUserInput, UserRole } from "../types";
 
-const emptyForm = { email: "", password: "", role: "APPLICANT" as UserRole };
+// Applicants self-register via /register - this page only ever creates
+// ADMIN/PANEL accounts, so PANEL (not APPLICANT) is the sensible default.
+const emptyForm = { email: "", password: "", role: "PANEL" as UserRole, name: "" };
 
 export function UsersManagementPage() {
   const { user: currentUser } = useAuth();
@@ -29,7 +31,15 @@ export function UsersManagementPage() {
   const [submitting, setSubmitting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<AdminUser | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const pagination = usePagination(users, 10);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<UserRole | "">("");
+
+  const filteredUsers = users.filter(
+    (target) =>
+      (roleFilter === "" || target.role === roleFilter) &&
+      target.email.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  const pagination = usePagination(filteredUsers, 10);
 
   useEffect(() => {
     listUsers()
@@ -48,7 +58,7 @@ export function UsersManagementPage() {
 
   function startEdit(target: AdminUser) {
     setEditingId(target.id);
-    setForm({ email: target.email, password: "", role: target.role });
+    setForm({ email: target.email, password: "", role: target.role, name: target.name ?? "" });
     setError(null);
     setFieldErrors({});
     setModalOpen(true);
@@ -69,11 +79,17 @@ export function UsersManagementPage() {
     setSubmitting(true);
     try {
       if (editingId) {
-        const updated = await updateUser(editingId, { email: form.email, role: form.role });
+        const name = form.name.trim() ? form.name.trim() : undefined;
+        const updated = await updateUser(editingId, { email: form.email, role: form.role, name });
         setUsers((prev) => prev.map((u) => (u.id === editingId ? updated : u)));
         toast.success(`Updated ${updated.email}.`);
       } else {
-        const input: CreateUserInput = { email: form.email, password: form.password, role: form.role };
+        const input: CreateUserInput = {
+          email: form.email,
+          password: form.password,
+          role: form.role,
+          name: form.name.trim(),
+        };
         const created = await createUser(input);
         setUsers((prev) => [created, ...prev]);
         toast.success(`Created ${created.role.toLowerCase()} account for ${created.email}.`);
@@ -116,6 +132,40 @@ export function UsersManagementPage() {
       </div>
       <ErrorBanner message={error} />
 
+      {!loading && users.length > 0 && (
+        <div className="filters-row">
+          <div className="field">
+            <label htmlFor="user-search">Search</label>
+            <input
+              id="user-search"
+              type="search"
+              placeholder="Search by email..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                pagination.setPage(1);
+              }}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="role-filter">Role</label>
+            <select
+              id="role-filter"
+              value={roleFilter}
+              onChange={(e) => {
+                setRoleFilter(e.target.value as UserRole | "");
+                pagination.setPage(1);
+              }}
+            >
+              <option value="">All roles</option>
+              <option value="ADMIN">Admin</option>
+              <option value="PANEL">Panel</option>
+              <option value="APPLICANT">Applicant</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {loading && <LoadingBlock />}
       {!loading && (
         <div className="table-wrap">
@@ -123,6 +173,7 @@ export function UsersManagementPage() {
             <thead>
               <tr>
                 <th>Email</th>
+                <th>Name</th>
                 <th>Role</th>
                 <th>Created</th>
                 <th></th>
@@ -131,8 +182,15 @@ export function UsersManagementPage() {
             <tbody>
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="table-empty">
+                  <td colSpan={5} className="table-empty">
                     No users yet.
+                  </td>
+                </tr>
+              )}
+              {users.length > 0 && filteredUsers.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="table-empty">
+                    No users match your search/filter.
                   </td>
                 </tr>
               )}
@@ -141,6 +199,7 @@ export function UsersManagementPage() {
                 return (
                   <tr key={target.id}>
                     <td>{target.email}</td>
+                    <td>{target.name ?? <span className="muted">—</span>}</td>
                     <td>{target.role}</td>
                     <td>{new Date(target.createdAt).toLocaleDateString()}</td>
                     <td>
@@ -202,6 +261,19 @@ export function UsersManagementPage() {
             />
             <FieldError message={fieldErrors.email} />
           </div>
+          <div className={fieldErrors.name ? "field has-error" : "field"}>
+            <label htmlFor="name" className={editingId ? undefined : "required"}>
+              Full name{editingId ? " (optional)" : ""}
+            </label>
+            <input
+              id="name"
+              required={!editingId}
+              placeholder="e.g. Juan Dela Cruz"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+            <FieldError message={fieldErrors.name} />
+          </div>
           {!editingId && (
             <div className={fieldErrors.password ? "field has-error" : "field"}>
               <label htmlFor="password" className="required">
@@ -221,7 +293,11 @@ export function UsersManagementPage() {
           <div className="field">
             <label htmlFor="role">Role</label>
             <select id="role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}>
-              <option value="APPLICANT">Applicant</option>
+              {/* Applicants self-register via /register - Admin/Panel accounts are the
+                  only ones created here. Editing an existing Applicant account is still
+                  possible (email/name), so its current role stays selectable in that case
+                  rather than forcing a role change just to save unrelated edits. */}
+              {editingId && form.role === "APPLICANT" && <option value="APPLICANT">Applicant</option>}
               <option value="PANEL">Panel</option>
               <option value="ADMIN">Admin</option>
             </select>

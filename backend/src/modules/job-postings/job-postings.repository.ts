@@ -2,6 +2,8 @@ import type { EligibilityType, JobPosting, JobPostingStatus, PrismaClient } from
 
 export interface CreateJobPostingInput {
   title: string;
+  positionId: string;
+  publication: string;
   description: string;
   numberOfVacantPositions: string;
   plantillaNumbers: string;
@@ -22,6 +24,8 @@ export interface CreateJobPostingInput {
 
 export interface UpdateJobPostingInput {
   title?: string;
+  positionId?: string;
+  publication?: string;
   description?: string;
   numberOfVacantPositions?: string;
   plantillaNumbers?: string;

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { ApiError } from "@/shared/api/apiClient";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
@@ -13,6 +14,8 @@ import { usePagination } from "@/shared/utils/usePagination";
 import { ELIGIBILITY_OPTIONS } from "@/shared/constants/eligibility";
 import type { EligibilityType } from "@/features/applicant-registration/types";
 import { AdminShell } from "../components/AdminShell";
+import { listPositions } from "../api/positionsApi";
+import type { Position } from "../types";
 import {
   createJobPosting,
   deleteJobPosting,
@@ -23,6 +26,8 @@ import type { CreateJobPostingInput, JobPosting, JobPostingStatus } from "@/feat
 
 const emptyForm: CreateJobPostingInput = {
   title: "",
+  positionId: "",
+  publication: "",
   description: "",
   numberOfVacantPositions: "",
   plantillaNumbers: "",
@@ -41,6 +46,7 @@ const emptyForm: CreateJobPostingInput = {
 export function JobManagementPage() {
   const toast = useToast();
   const [postings, setPostings] = useState<JobPosting[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<CreateJobPostingInput>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -51,21 +57,36 @@ export function JobManagementPage() {
   const [pendingDelete, setPendingDelete] = useState<JobPosting | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [publicationFilter, setPublicationFilter] = useState("");
 
   useEffect(() => {
-    listJobPostings()
-      .then(setPostings)
+    Promise.all([listJobPostings(), listPositions()])
+      .then(([loadedPostings, loadedPositions]) => {
+        setPostings(loadedPostings);
+        setPositions(loadedPositions);
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load job postings"))
       .finally(() => setLoading(false));
   }, []);
 
-  const filteredPostings = postings.filter((posting) =>
-    posting.title.toLowerCase().includes(search.trim().toLowerCase()),
+  // Admin-typed free text, not a fixed list - offer whatever values are
+  // actually in use right now as filter choices instead of a hardcoded set.
+  const publicationOptions = [...new Set(postings.map((posting) => posting.publication))].sort();
+
+  const filteredPostings = postings.filter(
+    (posting) =>
+      posting.title.toLowerCase().includes(search.trim().toLowerCase()) &&
+      (publicationFilter === "" || posting.publication === publicationFilter),
   );
   const pagination = usePagination(filteredPostings, 10);
 
   function update<K extends keyof CreateJobPostingInput>(key: K, value: CreateJobPostingInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handlePositionChange(positionId: string) {
+    const position = positions.find((p) => p.id === positionId);
+    setForm((prev) => ({ ...prev, positionId, title: position?.title ?? "" }));
   }
 
   function toggleRequiredEligibility(type: EligibilityType, checked: boolean) {
@@ -90,6 +111,8 @@ export function JobManagementPage() {
     setEditingStatus(posting.status);
     setForm({
       title: posting.title,
+      positionId: posting.positionId ?? "",
+      publication: posting.publication,
       description: posting.description,
       numberOfVacantPositions: posting.numberOfVacantPositions,
       plantillaNumbers: posting.plantillaNumbers,
@@ -164,11 +187,17 @@ export function JobManagementPage() {
     <AdminShell>
       <div className="page-header">
         <h1>Job Management</h1>
-        <button type="button" onClick={openAddModal}>
+        <button type="button" onClick={openAddModal} disabled={!loading && positions.length === 0}>
           Add Job
         </button>
       </div>
       <ErrorBanner message={error} />
+      {!loading && positions.length === 0 && (
+        <p className="field-hint">
+          No positions exist yet - add one in <Link to="/admin/positions">Positions</Link> first, then come back
+          here to post a job for it.
+        </p>
+      )}
 
       {!loading && postings.length > 0 && (
         <div className="filters-row">
@@ -185,6 +214,24 @@ export function JobManagementPage() {
               }}
             />
           </div>
+          <div className="field">
+            <label htmlFor="publication-filter">Publication</label>
+            <select
+              id="publication-filter"
+              value={publicationFilter}
+              onChange={(e) => {
+                setPublicationFilter(e.target.value);
+                pagination.setPage(1);
+              }}
+            >
+              <option value="">All publications</option>
+              {publicationOptions.map((publication) => (
+                <option key={publication} value={publication}>
+                  {publication}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -195,6 +242,7 @@ export function JobManagementPage() {
             <thead>
               <tr>
                 <th>Title</th>
+                <th>Publication</th>
                 <th>Salary</th>
                 <th>Status</th>
                 <th>Closes</th>
@@ -204,21 +252,22 @@ export function JobManagementPage() {
             <tbody>
               {postings.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="table-empty">
+                  <td colSpan={6} className="table-empty">
                     No job postings yet.
                   </td>
                 </tr>
               )}
               {postings.length > 0 && filteredPostings.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="table-empty">
-                    No job postings match your search.
+                  <td colSpan={6} className="table-empty">
+                    No job postings match your search/filter.
                   </td>
                 </tr>
               )}
               {pagination.pageItems.map((posting) => (
                 <tr key={posting.id}>
                   <td>{posting.title}</td>
+                  <td>{posting.publication}</td>
                   <td>{posting.monthlySalary}</td>
                   <td>
                     <span className={`badge ${posting.status === "OPEN" ? "open" : "closed"}`}>{posting.status}</span>
@@ -252,6 +301,7 @@ export function JobManagementPage() {
         open={modalOpen}
         title={editingId ? "Edit job posting" : "Add job posting"}
         onClose={closeModal}
+        extraWide
         footer={
           <>
             <button type="button" className="secondary" disabled={submitting} onClick={closeModal}>
@@ -266,12 +316,41 @@ export function JobManagementPage() {
       >
         {!editingId && <p>Applications automatically close 10 days after posting, at 11:59:59 PM.</p>}
         <form id="job-posting-form" onSubmit={handleSubmit} noValidate>
-          <div className={fieldErrors.title ? "field has-error" : "field"}>
-            <label htmlFor="title" className="required">
-              Title
+          <div className={fieldErrors.positionId || fieldErrors.title ? "field has-error" : "field"}>
+            <label htmlFor="positionId" className="required">
+              Position
             </label>
-            <input id="title" required value={form.title} onChange={(e) => update("title", e.target.value)} />
-            <FieldError message={fieldErrors.title} />
+            <select
+              id="positionId"
+              required
+              value={form.positionId}
+              onChange={(e) => handlePositionChange(e.target.value)}
+            >
+              <option value="">Select a position...</option>
+              {positions.map((position) => (
+                <option key={position.id} value={position.id}>
+                  {position.title}
+                </option>
+              ))}
+            </select>
+            <p className="field-hint">
+              Auto-assigns that position&apos;s default panel members to this posting&apos;s interview board. Manage
+              positions in <Link to="/admin/positions">Positions</Link>.
+            </p>
+            <FieldError message={fieldErrors.positionId || fieldErrors.title} />
+          </div>
+          <div className={fieldErrors.publication ? "field has-error" : "field"}>
+            <label htmlFor="publication" className="required">
+              Publication
+            </label>
+            <input
+              id="publication"
+              required
+              placeholder="e.g. ROS-1"
+              value={form.publication}
+              onChange={(e) => update("publication", e.target.value)}
+            />
+            <FieldError message={fieldErrors.publication} />
           </div>
           <div className={fieldErrors.description ? "field has-error" : "field"}>
             <label htmlFor="description" className="required">
@@ -410,7 +489,7 @@ export function JobManagementPage() {
             <FieldError message={fieldErrors.qualificationEligibility} />
           </div>
           <div className={fieldErrors.requiredEligibilityTypes ? "field has-error" : "field"}>
-            <label>Required eligibility (leave unchecked if none is required)</label>
+            <label>Required eligibility (optional — leave unchecked if none is required)</label>
             <div className="checkbox-group">
               {ELIGIBILITY_OPTIONS.map((option) => (
                 <label key={option.value} className="checkbox-option">
@@ -423,10 +502,6 @@ export function JobManagementPage() {
                 </label>
               ))}
             </div>
-            <p className="field-hint">
-              Applicants must hold at least one of the checked eligibilities to apply. This drives enforcement; the
-              qualification text above is shown to applicants for context only.
-            </p>
             <FieldError message={fieldErrors.requiredEligibilityTypes} />
           </div>
           <div className={fieldErrors.placeOfAssignment ? "field has-error" : "field"}>

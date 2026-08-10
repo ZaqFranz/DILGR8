@@ -61,17 +61,23 @@ enum ApplicationStatus {
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
+  // Optional display name for ADMIN/PANEL accounts (set via Users
+  // Management) - shown instead of email wherever a panel member is
+  // selected/listed (Positions, Interview Panel). Falls back to email when
+  // null, so existing accounts created before this field don't regress.
+  name         String?
   passwordHash String
   role         Role     @default(APPLICANT)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  applicant        Applicant?
-  jobPostingsMade  JobPosting[]
-  siftingsMade     Application[]
-  auditLogEntries  AuditLog[]
-  panelAssignments PanelAssignment[]
-  panelEvaluations PanelEvaluation[]
+  applicant             Applicant?
+  jobPostingsMade       JobPosting[]
+  siftingsMade          Application[]
+  auditLogEntries       AuditLog[]
+  panelAssignments      PanelAssignment[]
+  panelEvaluations      PanelEvaluation[]
+  positionPanelMemberOf PositionPanelMember[]
 
   @@map("users")
 }
@@ -178,7 +184,7 @@ model Award {
 /// it backs up - required per entry (see ApplicantsService.completeRegistration()),
 /// same as Eligibility Proof is required when hasEligibility is declared.
 model Document {
-  id               String          @id @default(uuid())
+  id               String       @id @default(uuid())
   applicantId      String
   applicationId    String?
   ldInterventionId String?
@@ -188,7 +194,7 @@ model Document {
   filePath         String
   mimeType         String
   fileSizeBytes    Int
-  uploadedAt       DateTime        @default(now())
+  uploadedAt       DateTime     @default(now())
 
   applicant      Applicant       @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   application    Application?    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
@@ -205,37 +211,80 @@ model Document {
 /// A vacancy applicants can apply to. closingAt is computed server-side at
 /// creation time as postedAt + 10 days, 23:59:59 (see JobPostingsService).
 model JobPosting {
-  id                       String @id @default(uuid())
+  id                       String           @id @default(uuid())
   title                    String
-  description              String @db.Text
+  // Which recruitment publication round/batch this posting belongs to -
+  // free text set by the admin (e.g. "ROS-1", "ROS-2"), not a fixed list.
+  publication              String           @default("ROS-1")
+  description              String           @db.Text
   numberOfVacantPositions  String
-  plantillaNumbers         String @db.Text
+  plantillaNumbers         String           @db.Text
   salaryGrade              String
   monthlySalary            String
-  placeOfAssignment        String @db.Text
-  positionNextInRank       String @db.Text
-  qualificationEducation   String @db.Text
-  qualificationTraining    String @db.Text
-  qualificationExperience  String @db.Text
-  qualificationEligibility String @db.Text
+  placeOfAssignment        String           @db.Text
+  positionNextInRank       String           @db.Text
+  qualificationEducation   String           @db.Text
+  qualificationTraining    String           @db.Text
+  qualificationExperience  String           @db.Text
+  qualificationEligibility String           @db.Text
   // Free text, one duty per line - rendered as a numbered list on the
   // applicant-facing details view.
-  duties        String            @db.Text
-  postedAt      DateTime          @default(now())
-  closingAt     DateTime
-  status        JobPostingStatus  @default(OPEN)
+  duties                   String           @db.Text
+  postedAt                 DateTime         @default(now())
+  closingAt                DateTime
+  status                   JobPostingStatus @default(OPEN)
   // Nullable + SetNull (not the required/Restrict Prisma would otherwise
   // default to) so deleting the admin who posted a job doesn't get
   // blocked by, or cascade into deleting, the postings they made.
-  createdByUserId String?
+  createdByUserId          String?
+  // Which master Position this posting was created from, if any - drives
+  // the auto-assignment of that position's default panel members at
+  // creation time (see JobPostingsService.create). Nullable + SetNull so
+  // deleting a Position later doesn't touch postings already made from it;
+  // postings created before this feature existed also have none.
+  positionId               String?
 
-  createdBy             User?                            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdBy             User?                           @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  position              Position?                       @relation(fields: [positionId], references: [id], onDelete: SetNull)
   applications          Application[]
   panelAssignments      PanelAssignment[]
   requiredEligibilities JobPostingRequiredEligibility[]
 
   @@index([status])
+  @@index([publication])
+  @@index([positionId])
   @@map("job_postings")
+}
+
+/// Master list of reusable positions (e.g. "Administrative Officer II").
+/// Selected from a dropdown when creating a job posting, instead of typing
+/// a free-text title - and carries a pre-made group of Panel members that
+/// get auto-assigned to the posting's interview board at creation time.
+model Position {
+  id        String   @id @default(uuid())
+  title     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  panelMembers PositionPanelMember[]
+  jobPostings  JobPosting[]
+
+  @@map("positions")
+}
+
+/// One PANEL user in a Position's default panel group. Always fully
+/// replaced (delete + recreate) on save rather than diffed - same
+/// convention as EvaluationCriterionQuestion under EvaluationCriterion.
+model PositionPanelMember {
+  id          String @id @default(uuid())
+  positionId  String
+  panelUserId String
+
+  position  Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  panelUser User     @relation(fields: [panelUserId], references: [id], onDelete: Cascade)
+
+  @@unique([positionId, panelUserId])
+  @@map("position_panel_members")
 }
 
 /// One required eligibility type for a posting (e.g. a posting requiring
@@ -320,9 +369,31 @@ model EvaluationCriterion {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  scores PanelScore[]
+  scores    PanelScore[]
+  questions EvaluationCriterionQuestion[]
 
   @@map("evaluation_criteria")
+}
+
+/// One guiding question a panelist should ask/consider when scoring its
+/// parent criterion (e.g. "Ask the applicant to describe a challenging
+/// situation they've handled at work") - a criterion can have any number of
+/// these, shown alongside the score input on the panel's evaluation form.
+/// See docs/rsp-domain-spec.md's Evaluation Forms phase ("boards'
+/// consumption"). Always fully replaced (delete + recreate) on save rather
+/// than diffed - same convention as PanelScore under a PanelEvaluation - so
+/// there's no per-question update endpoint to keep in sync with reordering.
+model EvaluationCriterionQuestion {
+  id          String   @id @default(uuid())
+  criterionId String
+  text        String   @db.Text
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  criterion EvaluationCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@index([criterionId])
+  @@map("evaluation_criterion_questions")
 }
 
 /// Which PANEL users sit on which job posting's interview board. Pure

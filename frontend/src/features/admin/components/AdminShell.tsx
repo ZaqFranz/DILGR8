@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 const NAV_ITEMS = [
   { to: "/admin/dashboard", label: "Dashboard" },
   { to: "/admin/jobs", label: "Job Management" },
+  { to: "/admin/positions", label: "Positions" },
   { to: "/admin/users", label: "Users Management" },
   { to: "/admin/evaluations", label: "Evaluate Applicants" },
   { to: "/admin/panel-interviews", label: "Interview Panel" },

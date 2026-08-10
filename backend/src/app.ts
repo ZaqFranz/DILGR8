@@ -16,6 +16,7 @@ import { createDashboardRouter } from "@/modules/dashboard/dashboard.routes";
 import { createEvaluationCriteriaRouter } from "@/modules/evaluation-criteria/evaluation-criteria.routes";
 import { createPanelAssignmentsRouter } from "@/modules/panel-assignments/panel-assignments.routes";
 import { createPanelEvaluationsRouter } from "@/modules/panel-evaluations/panel-evaluations.routes";
+import { createPositionsRouter } from "@/modules/positions/positions.routes";
 
 export function createApp(): Express {
   const app = express();
@@ -39,6 +40,7 @@ export function createApp(): Express {
   app.use("/api/evaluation-criteria", createEvaluationCriteriaRouter(container.evaluationCriteriaController));
   app.use("/api/panel-assignments", createPanelAssignmentsRouter(container.panelAssignmentsController));
   app.use("/api/panel-evaluations", createPanelEvaluationsRouter(container.panelEvaluationsController));
+  app.use("/api/positions", createPositionsRouter(container.positionsController));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -9,6 +9,7 @@ import { RegistrationPage } from "@/features/applicant-registration/pages/Regist
 import { MyApplicationsPage } from "@/features/applicant-registration/pages/MyApplicationsPage";
 import { DashboardPage } from "@/features/admin/pages/DashboardPage";
 import { JobManagementPage } from "@/features/admin/pages/JobManagementPage";
+import { PositionsPage } from "@/features/admin/pages/PositionsPage";
 import { UsersManagementPage } from "@/features/admin/pages/UsersManagementPage";
 import { EvaluateApplicantsPage } from "@/features/admin/pages/EvaluateApplicantsPage";
 import { AuditLogsPage } from "@/features/admin/pages/AuditLogsPage";
@@ -86,6 +87,14 @@ export default function App() {
           element={
             <ProtectedRoute role="ADMIN">
               <JobManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/positions"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <PositionsPage />
             </ProtectedRoute>
           }
         />

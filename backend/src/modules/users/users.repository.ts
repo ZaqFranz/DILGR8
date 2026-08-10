@@ -3,6 +3,7 @@ import type { PrismaClient, Role, User } from "@prisma/client";
 const publicUserSelect = {
   id: true,
   email: true,
+  name: true,
   role: true,
   createdAt: true,
   updatedAt: true,
@@ -11,6 +12,7 @@ const publicUserSelect = {
 export type PublicUser = {
   id: string;
   email: string;
+  name: string | null;
   role: Role;
   createdAt: Date;
   updatedAt: Date;
@@ -43,11 +45,11 @@ export class UsersRepository {
     return this.db.user.findUnique({ where: { email } });
   }
 
-  create(email: string, passwordHash: string, role: Role): Promise<PublicUser> {
-    return this.db.user.create({ data: { email, passwordHash, role }, select: publicUserSelect });
+  create(email: string, passwordHash: string, role: Role, name?: string): Promise<PublicUser> {
+    return this.db.user.create({ data: { email, passwordHash, role, name }, select: publicUserSelect });
   }
 
-  update(id: string, data: { email?: string; role?: Role }): Promise<PublicUser> {
+  update(id: string, data: { email?: string; role?: Role; name?: string }): Promise<PublicUser> {
     return this.db.user.update({ where: { id }, data, select: publicUserSelect });
   }
 

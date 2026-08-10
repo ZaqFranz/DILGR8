@@ -32,6 +32,30 @@ export interface AdminApplication {
   };
 }
 
+export interface PositionPanelMember {
+  id: string;
+  panelUserId: string;
+  panelUser: { id: string; email: string; name: string | null };
+}
+
+export interface Position {
+  id: string;
+  title: string;
+  panelMembers: PositionPanelMember[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePositionInput {
+  title: string;
+  panelUserIds?: string[];
+}
+
+export interface UpdatePositionInput {
+  title?: string;
+  panelUserIds?: string[];
+}
+
 export interface AdminDocument {
   id: string;
   type: DocumentType;
@@ -66,6 +90,7 @@ export type UserRole = "ADMIN" | "APPLICANT" | "PANEL";
 export interface AdminUser {
   id: string;
   email: string;
+  name: string | null;
   role: UserRole;
   createdAt: string;
   updatedAt: string;
@@ -75,11 +100,13 @@ export interface CreateUserInput {
   email: string;
   password: string;
   role: UserRole;
+  name: string;
 }
 
 export interface UpdateUserInput {
   email?: string;
   role?: UserRole;
+  name?: string;
 }
 
 export interface AuditLogEntry {
@@ -92,9 +119,16 @@ export interface AuditLogEntry {
   actor: { email: string } | null;
 }
 
+export interface EvaluationCriterionQuestion {
+  id: string;
+  text: string;
+  sortOrder: number;
+}
+
 export interface EvaluationCriterion {
   id: string;
   name: string;
+  questions: EvaluationCriterionQuestion[];
   maxScore: number;
   sortOrder: number;
   isActive: boolean;
@@ -104,12 +138,14 @@ export interface EvaluationCriterion {
 
 export interface CreateEvaluationCriterionInput {
   name: string;
+  questions?: string[];
   maxScore: number;
   sortOrder?: number;
 }
 
 export interface UpdateEvaluationCriterionInput {
   name?: string;
+  questions?: string[];
   maxScore?: number;
   sortOrder?: number;
   isActive?: boolean;
@@ -120,7 +156,7 @@ export interface PanelAssignment {
   jobPostingId: string;
   panelUserId: string;
   assignedAt: string;
-  panelUser: { id: string; email: string };
+  panelUser: { id: string; email: string; name: string | null };
 }
 
 export interface PanelScore {

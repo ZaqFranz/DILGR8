@@ -1,11 +1,11 @@
 import type { PanelAssignment, PrismaClient } from "@prisma/client";
 
 const panelAssignmentWithPanelUserInclude = {
-  panelUser: { select: { id: true, email: true } },
+  panelUser: { select: { id: true, email: true, name: true } },
 } as const;
 
 export type PanelAssignmentWithPanelUser = PanelAssignment & {
-  panelUser: { id: string; email: string };
+  panelUser: { id: string; email: string; name: string | null };
 };
 
 export class PanelAssignmentsRepository {

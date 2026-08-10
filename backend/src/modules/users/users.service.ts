@@ -22,7 +22,7 @@ export class UsersService {
     }
 
     const passwordHash = await hashPassword(dto.password);
-    const user = await this.usersRepository.create(dto.email, passwordHash, dto.role);
+    const user = await this.usersRepository.create(dto.email, passwordHash, dto.role, dto.name);
 
     await this.auditLogsRepository.record({
       actorUserId,
