@@ -193,7 +193,7 @@ export function RegistrationPage() {
           </p>
         </>
       )}
-      <ErrorBanner message={error} />
+      {!(step === "account" && !isAuthenticated) && <ErrorBanner message={error} />}
 
       {isAuthenticated && (
         <div className="wizard-steps">
@@ -222,6 +222,7 @@ export function RegistrationPage() {
             <p className="muted">
               This is step 1 of {STEPS.length} - the rest of your applicant information follows immediately after.
             </p>
+            <ErrorBanner message={error} />
             <form onSubmit={handleAccountSubmit} noValidate>
               <div className={`field${accountFieldErrors.email ? " has-error" : ""}`}>
                 <label htmlFor="email" className="required">
