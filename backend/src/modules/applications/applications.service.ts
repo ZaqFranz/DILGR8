@@ -16,6 +16,7 @@ import {
 } from "@/shared/email/applicationEmailTemplates";
 import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
 import type { ScheduleInterviewDto, SetExamScoreDto, SiftApplicationDto } from "./applications.dto";
+import ExcelJS from "exceljs";
 import { parseExamScoreWorkbook } from "./examScoreParser";
 
 // An application can be withdrawn any time before its outcome is already
@@ -68,7 +69,7 @@ function buildNameVariants(applicant: {
 
 export interface ExamScoreImportResult {
   matched: { applicationId: string; applicantName: string; score: number }[];
-  unmatched: { name: string; score: number }[];
+  unmatched: { name: string; score: number; jobTitle?: string }[];
 }
 
 export class ApplicationsService {
@@ -218,8 +219,39 @@ export class ApplicationsService {
     return updated;
   }
 
+  /**
+   * Excel of Qualified applicants still missing a PQE score, in the same
+   * shape importExaminationScores() reads (Name/Score/Job Title) - an admin
+   * can fill in the blank Score column and re-upload it directly via
+   * "Import PQE Scores" instead of hand-typing a spreadsheet from scratch.
+   */
+  async exportPendingPqeScores(jobPostingId: string | undefined): Promise<Buffer> {
+    const applications = await this.applicationsRepository.findMany(jobPostingId);
+    const pending = applications.filter(
+      (application) => application.status === "QUALIFIED" && application.examinationScore === null,
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Pending PQE Scores");
+    sheet.columns = [
+      { header: "Name", key: "name", width: 30 },
+      { header: "Score", key: "score", width: 10 },
+      { header: "Job Title", key: "jobTitle", width: 35 },
+    ];
+    for (const application of pending) {
+      sheet.addRow({
+        name: `${application.applicant.firstName} ${application.applicant.lastName}`,
+        score: "",
+        jobTitle: application.jobPosting.title,
+      });
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
   async importExaminationScores(
-    jobPostingId: string,
+    jobPostingId: string | undefined,
     actorUserId: string,
     fileBuffer: Buffer,
   ): Promise<ExamScoreImportResult> {
@@ -227,27 +259,60 @@ export class ApplicationsService {
 
     const applications = await this.applicationsRepository.findMany(jobPostingId);
     const qualified = applications.filter((application) => application.status === "QUALIFIED");
-    const byNormalizedName = new Map<string, (typeof qualified)[number]>();
-    for (const application of qualified) {
-      for (const variant of buildNameVariants(application.applicant)) {
-        byNormalizedName.set(variant, application);
-      }
-    }
 
     const matched: ExamScoreImportResult["matched"] = [];
     const unmatched: ExamScoreImportResult["unmatched"] = [];
 
-    for (const row of rows) {
-      const application = byNormalizedName.get(normalizeName(row.name));
-      if (!application) {
-        unmatched.push({ name: row.name, score: row.score });
-        continue;
+    if (jobPostingId) {
+      // Single posting selected - name alone is enough to disambiguate,
+      // since every candidate here is Qualified on the same posting. Job
+      // Title column, if present in the sheet, is ignored (extra column).
+      const byNormalizedName = new Map<string, (typeof qualified)[number]>();
+      for (const application of qualified) {
+        for (const variant of buildNameVariants(application.applicant)) {
+          byNormalizedName.set(variant, application);
+        }
       }
-      matched.push({
-        applicationId: application.id,
-        applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
-        score: row.score,
-      });
+      for (const row of rows) {
+        const application = byNormalizedName.get(normalizeName(row.name));
+        if (!application) {
+          unmatched.push({ name: row.name, score: row.score });
+          continue;
+        }
+        matched.push({
+          applicationId: application.id,
+          applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
+          score: row.score,
+        });
+      }
+    } else {
+      // All job postings - an applicant can be Qualified on more than one
+      // posting at once, so name alone is ambiguous. Require the sheet's
+      // Job Title column and match on name + job title together.
+      const byNormalizedNameAndTitle = new Map<string, (typeof qualified)[number]>();
+      for (const application of qualified) {
+        const titleKey = normalizeName(application.jobPosting.title);
+        for (const nameVariant of buildNameVariants(application.applicant)) {
+          byNormalizedNameAndTitle.set(`${nameVariant}::${titleKey}`, application);
+        }
+      }
+      for (const row of rows) {
+        if (!row.jobTitle) {
+          unmatched.push({ name: row.name, score: row.score });
+          continue;
+        }
+        const key = `${normalizeName(row.name)}::${normalizeName(row.jobTitle)}`;
+        const application = byNormalizedNameAndTitle.get(key);
+        if (!application) {
+          unmatched.push({ name: row.name, score: row.score, jobTitle: row.jobTitle });
+          continue;
+        }
+        matched.push({
+          applicationId: application.id,
+          applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
+          score: row.score,
+        });
+      }
     }
 
     await this.applicationsRepository.bulkSetExaminationScores(
@@ -258,8 +323,10 @@ export class ApplicationsService {
       actorUserId,
       action: AuditAction.APPLICATION_EXAM_SCORES_IMPORTED,
       entityType: AuditEntityType.APPLICATION,
-      entityId: jobPostingId,
-      details: `Imported PQE scores for job posting ${jobPostingId}: ${matched.length} matched, ${unmatched.length} unmatched`,
+      ...(jobPostingId ? { entityId: jobPostingId } : {}),
+      details: jobPostingId
+        ? `Imported PQE scores for job posting ${jobPostingId}: ${matched.length} matched, ${unmatched.length} unmatched`
+        : `Imported PQE scores across all job postings: ${matched.length} matched, ${unmatched.length} unmatched`,
     });
 
     for (const application of qualified) {

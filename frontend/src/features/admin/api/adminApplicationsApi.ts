@@ -1,4 +1,4 @@
-import { apiRequest } from "@/shared/api/apiClient";
+import { apiRequest, apiRequestBlob } from "@/shared/api/apiClient";
 import type { AdminApplication, ExamScoreImportResult, ScheduleInterviewInput, SiftApplicationInput } from "../types";
 
 export function listApplicationsForAdmin(jobPostingId?: string): Promise<AdminApplication[]> {
@@ -6,14 +6,22 @@ export function listApplicationsForAdmin(jobPostingId?: string): Promise<AdminAp
   return apiRequest<AdminApplication[]>(`/applications${query}`);
 }
 
+/** Excel of Qualified applicants still missing a PQE score - same Name/Score/Job Title shape importExamScores() reads, so it can be filled in and re-uploaded directly. */
+export function exportPendingPqeScores(jobPostingId?: string): Promise<Blob> {
+  const query = jobPostingId ? `?jobPostingId=${jobPostingId}` : "";
+  return apiRequestBlob(`/applications/pending-pqe-export${query}`);
+}
+
 export function siftApplication(id: string, input: SiftApplicationInput): Promise<AdminApplication> {
   return apiRequest<AdminApplication>(`/applications/${id}/sift`, { method: "PATCH", body: input });
 }
 
-export function importExamScores(jobPostingId: string, file: File): Promise<ExamScoreImportResult> {
+export function importExamScores(jobPostingId: string | undefined, file: File): Promise<ExamScoreImportResult> {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("jobPostingId", jobPostingId);
+  if (jobPostingId) {
+    formData.append("jobPostingId", jobPostingId);
+  }
   return apiRequest<ExamScoreImportResult>("/applications/import-exam-scores", {
     method: "POST",
     body: formData,

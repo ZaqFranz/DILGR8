@@ -58,7 +58,7 @@ export interface ScheduleInterviewInput {
 
 export interface ExamScoreImportResult {
   matched: { applicationId: string; applicantName: string; score: number }[];
-  unmatched: { name: string; score: number }[];
+  unmatched: { name: string; score: number; jobTitle?: string }[];
 }
 
 export type UserRole = "ADMIN" | "APPLICANT" | "PANEL";

@@ -33,6 +33,12 @@ export function createApplicationsRouter(controller: ApplicationsController): Ro
     validate({ params: idParamSchema, body: siftApplicationSchema }),
     asyncHandler(controller.sift),
   );
+  router.get(
+    "/pending-pqe-export",
+    requireRole("ADMIN"),
+    validate({ query: listApplicationsQuerySchema }),
+    asyncHandler(controller.exportPendingPqeScores),
+  );
   router.post(
     "/import-exam-scores",
     requireRole("ADMIN"),

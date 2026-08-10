@@ -8,7 +8,7 @@ import { useToast } from "@/shared/components/ToastProvider";
 import { usePagination } from "@/shared/utils/usePagination";
 import { listJobPostings } from "@/features/job-postings/api/jobPostingsApi";
 import type { JobPosting } from "@/features/job-postings/types";
-import { importExamScores, listApplicationsForAdmin } from "../api/adminApplicationsApi";
+import { exportPendingPqeScores, importExamScores, listApplicationsForAdmin } from "../api/adminApplicationsApi";
 import { getTabulation } from "../api/panelEvaluationsApi";
 import { EvaluationRow } from "../components/EvaluationRow";
 import { AdminShell } from "../components/AdminShell";
@@ -30,6 +30,7 @@ export function EvaluateApplicantsPage() {
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ExamScoreImportResult | null>(null);
+  const [exportingPending, setExportingPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobTitleFilter, setJobTitleFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -64,12 +65,12 @@ export function EvaluateApplicantsPage() {
 
   async function handleImportExamScores() {
     const file = fileInputRef.current?.files?.[0];
-    if (!file || !jobTitleFilter) return;
+    if (!file) return;
     setError(null);
     setImportResult(null);
     setImporting(true);
     try {
-      const result = await importExamScores(jobTitleFilter, file);
+      const result = await importExamScores(jobTitleFilter || undefined, file);
       setImportResult(result);
       toast.success(`Imported PQE scores: ${result.matched.length} matched, ${result.unmatched.length} unmatched.`);
       await loadAll();
@@ -80,6 +81,28 @@ export function EvaluateApplicantsPage() {
       setError(err instanceof ApiError ? err.message : "Failed to import PQE scores");
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function handleExportPendingPqe() {
+    setError(null);
+    setExportingPending(true);
+    try {
+      const blob = await exportPendingPqeScores(jobTitleFilter || undefined);
+      const selectedPosting = postings.find((posting) => posting.id === jobTitleFilter);
+      const fileName = selectedPosting
+        ? `pending-pqe-scores-${selectedPosting.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.xlsx`
+        : "pending-pqe-scores-all-jobs.xlsx";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to download pending PQE list");
+    } finally {
+      setExportingPending(false);
     }
   }
 
@@ -139,37 +162,52 @@ export function EvaluateApplicantsPage() {
             </div>
           </div>
 
-          {jobTitleFilter ? (
-            <div className="card-inset" style={{ marginBottom: "1rem" }}>
+          <div className="card-inset" style={{ marginBottom: "1rem" }}>
+            <p className="field-hint">
+              Download the applicants still waiting for a PQE score{jobTitleFilter ? " for this posting" : " across all job postings"}
+              , fill in the Score column, then upload it back below.
+            </p>
+            <div className="data-table-actions" style={{ marginBottom: "1rem" }}>
+              <button type="button" className="secondary" disabled={exportingPending} onClick={handleExportPendingPqe}>
+                {exportingPending && <Spinner size="sm" />}
+                {exportingPending ? "Downloading..." : "Download Pending PQE List"}
+              </button>
+            </div>
+            {jobTitleFilter ? (
               <p className="field-hint">
                 Import PQE (Pre-Qualifying Examination) scores from an Excel file (columns "Name" and "Score") -
-                matched by name against this posting's Qualified applicants.
+                matched by name against this posting's Qualified applicants. A "Job Title" column is ignored here
+                since every match is already scoped to this posting.
               </p>
-              <div className="data-table-actions">
-                <input ref={fileInputRef} type="file" accept=".xlsx,.xls" disabled={importing} />
-                <button type="button" className="secondary" disabled={importing} onClick={handleImportExamScores}>
-                  {importing && <Spinner size="sm" />}
-                  {importing ? "Importing..." : "Import PQE Scores"}
-                </button>
-              </div>
-              {importResult && importResult.unmatched.length > 0 && (
-                <div className="field-warning">
-                  <p>Could not match {importResult.unmatched.length} row(s) to a Qualified applicant:</p>
-                  <ul>
-                    {importResult.unmatched.map((row, i) => (
-                      <li key={i}>
-                        {row.name} — {row.score}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+            ) : (
+              <p className="field-hint">
+                Import PQE scores across all job postings at once from an Excel file (columns "Name", "Score", and
+                "Job Title") - matched by name <em>and</em> job title against every Qualified applicant, since the
+                same name can be Qualified on more than one posting. Add the job title column to align each row to
+                the right posting.
+              </p>
+            )}
+            <div className="data-table-actions">
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" disabled={importing} />
+              <button type="button" className="secondary" disabled={importing} onClick={handleImportExamScores}>
+                {importing && <Spinner size="sm" />}
+                {importing ? "Importing..." : "Import PQE Scores"}
+              </button>
             </div>
-          ) : (
-            <p className="field-hint" style={{ marginBottom: "1rem" }}>
-              Select a specific job title above to import PQE scores for that posting.
-            </p>
-          )}
+            {importResult && importResult.unmatched.length > 0 && (
+              <div className="field-warning">
+                <p>Could not match {importResult.unmatched.length} row(s) to a Qualified applicant:</p>
+                <ul>
+                  {importResult.unmatched.map((row, i) => (
+                    <li key={i}>
+                      {row.name}
+                      {row.jobTitle ? ` (${row.jobTitle})` : ""} — {row.score}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
 
           <div className="table-wrap">
             <table>

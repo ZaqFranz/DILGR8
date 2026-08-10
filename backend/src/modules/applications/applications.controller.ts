@@ -6,7 +6,7 @@ import { createApplicationSchema } from "./applications.dto";
 import type { ListApplicationsQueryDto, ScheduleInterviewDto, SetExamScoreDto, SiftApplicationDto } from "./applications.dto";
 
 const importExamScoresFieldsSchema = z.object({
-  jobPostingId: z.string().uuid(),
+  jobPostingId: z.string().uuid().optional(),
 });
 
 export class ApplicationsController {
@@ -56,6 +56,14 @@ export class ApplicationsController {
       req.body as SiftApplicationDto,
     );
     res.status(200).json(application);
+  };
+
+  exportPendingPqeScores = async (req: Request, res: Response): Promise<void> => {
+    const { jobPostingId } = req.query as ListApplicationsQueryDto;
+    const buffer = await this.applicationsService.exportPendingPqeScores(jobPostingId);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", 'attachment; filename="pending-pqe-scores.xlsx"');
+    res.send(buffer);
   };
 
   importExamScores = async (req: Request, res: Response): Promise<void> => {
