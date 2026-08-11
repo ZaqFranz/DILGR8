@@ -11,6 +11,7 @@ import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { usePagination } from "@/shared/utils/usePagination";
 import { AdminShell } from "../components/AdminShell";
+import { ApplicantScoresModal } from "../components/ApplicantScoresModal";
 import {
   createEvaluationCriterion,
   deleteEvaluationCriterion,
@@ -35,6 +36,7 @@ export function EvaluationCriteriaPage() {
   const [pendingDelete, setPendingDelete] = useState<EvaluationCriterion | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [viewingQuestionsFor, setViewingQuestionsFor] = useState<EvaluationCriterion | null>(null);
+  const [showApplicantScores, setShowApplicantScores] = useState(false);
   const pagination = usePagination(criteria, 10);
 
   useEffect(() => {
@@ -134,9 +136,14 @@ export function EvaluationCriteriaPage() {
     <AdminShell>
       <div className="page-header">
         <h1>Evaluation Criteria</h1>
-        <button type="button" onClick={openAddModal}>
-          Add Criterion
-        </button>
+        <div className="data-table-actions">
+          <button type="button" className="secondary" onClick={() => setShowApplicantScores(true)}>
+            Applicant Scores
+          </button>
+          <button type="button" onClick={openAddModal}>
+            Add Criterion
+          </button>
+        </div>
       </div>
       <p>
         The interview rubric panel members score applicants against. A criterion with recorded scores can&apos;t be
@@ -304,6 +311,8 @@ export function EvaluationCriteriaPage() {
           </ol>
         )}
       </Modal>
+
+      {showApplicantScores && <ApplicantScoresModal onClose={() => setShowApplicantScores(false)} />}
 
       <ConfirmDialog
         open={pendingDelete !== null}

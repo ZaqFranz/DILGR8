@@ -46,3 +46,27 @@ export const setExamScoreSchema = z.object({
   score: z.number().int().min(0).max(100),
 });
 export type SetExamScoreDto = z.infer<typeof setExamScoreSchema>;
+
+export const applicationComplianceItemParamSchema = z.object({
+  id: z.string().uuid(),
+  itemId: z.string().uuid(),
+});
+
+// The admin's per-requirement verdict on an applicant's submitted proof -
+// see docs/rsp-domain-spec.md's Compliance to Requirements phase.
+export const reviewComplianceItemSchema = z.object({
+  status: z.enum(["VERIFIED", "REJECTED"]),
+  remarks: z.string().max(2000).optional(),
+});
+export type ReviewComplianceItemDto = z.infer<typeof reviewComplianceItemSchema>;
+
+// Bundles the FOR_COMPLIANCE -> FOR_OATH_TAKING transition with the
+// ceremony's schedule itself, the same shape scheduleInterviewSchema uses
+// for FOR_INTERVIEW - one admin action rather than a bare status flip
+// followed by a separate scheduling step.
+export const scheduleOathTakingSchema = z.object({
+  scheduledAt: z.coerce.date(),
+  venue: z.string().min(1).max(2000),
+  notes: z.string().max(2000).optional(),
+});
+export type ScheduleOathTakingDto = z.infer<typeof scheduleOathTakingSchema>;

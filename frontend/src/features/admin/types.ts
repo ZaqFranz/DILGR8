@@ -7,6 +7,9 @@ export type ApplicationStatus =
   | "FOR_INTERVIEW"
   | "QUALIFIED"
   | "NOT_QUALIFIED"
+  | "FOR_COMPLIANCE"
+  | "FOR_OATH_TAKING"
+  | "HIRED"
   | "WITHDRAWN";
 export type EvaluationDecision = "QUALIFIED" | "NOT_QUALIFIED";
 
@@ -23,6 +26,12 @@ export interface AdminApplication {
   interviewVenue: string | null;
   interviewAttire: string | null;
   interviewNotes: string | null;
+  complianceRequestedAt: string | null;
+  complianceCompletedAt: string | null;
+  oathTakingScheduledAt: string | null;
+  oathTakingVenue: string | null;
+  oathTakingNotes: string | null;
+  hiredAt: string | null;
   jobPosting: JobPosting;
   applicant: {
     id: string;
@@ -30,6 +39,54 @@ export interface AdminApplication {
     lastName: string;
     user: { email: string };
   };
+}
+
+export type ComplianceItemStatus = "PENDING" | "VERIFIED" | "REJECTED";
+
+export interface ComplianceRequirement {
+  id: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateComplianceRequirementInput {
+  name: string;
+  description?: string;
+  sortOrder?: number;
+}
+
+export interface UpdateComplianceRequirementInput {
+  name?: string;
+  description?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface ApplicationComplianceItem {
+  id: string;
+  applicationId: string;
+  requirementId: string;
+  status: ComplianceItemStatus;
+  remarks: string | null;
+  reviewedAt: string | null;
+  reviewedByUserId: string | null;
+  requirement: ComplianceRequirement;
+  documents: AdminDocument[];
+}
+
+export interface ReviewComplianceItemInput {
+  status: "VERIFIED" | "REJECTED";
+  remarks?: string;
+}
+
+export interface ScheduleOathTakingInput {
+  scheduledAt: string;
+  venue: string;
+  notes?: string;
 }
 
 export interface PositionPanelMember {
@@ -179,7 +236,7 @@ export interface InterviewQueueApplication {
   status: ApplicationStatus;
   submittedAt: string;
   jobPosting: { id: string; title: string };
-  applicant: { firstName: string; lastName: string };
+  applicant: { id: string; firstName: string; lastName: string };
   panelEvaluations: PanelEvaluation[];
 }
 
@@ -201,6 +258,26 @@ export interface TabulationRow {
 export interface TabulationResult {
   panelists: { id: string; email: string }[];
   rows: TabulationRow[];
+}
+
+export interface ApplicantScoreCriterionColumn {
+  id: string;
+  name: string;
+  maxScore: number;
+}
+
+export interface ApplicantScoreRow {
+  applicationId: string;
+  applicantName: string;
+  jobPostingTitle: string;
+  perCriterion: Record<string, number | null>;
+  total: number | null;
+  panelistsSubmitted: number;
+}
+
+export interface ApplicantScoresOverview {
+  criteria: ApplicantScoreCriterionColumn[];
+  rows: ApplicantScoreRow[];
 }
 
 export interface DashboardSummary {

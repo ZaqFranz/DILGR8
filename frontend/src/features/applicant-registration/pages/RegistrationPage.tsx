@@ -11,18 +11,16 @@ import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { completeRegistration, getMyProfile } from "../api/applicantsApi";
 import { listMyDocuments } from "../api/documentsApi";
 import { DemographicProfileForm } from "../components/DemographicProfileForm";
-import { WorkExperienceSection } from "../components/WorkExperienceSection";
 import { LdInterventionSection } from "../components/LdInterventionSection";
 import { AwardsSection } from "../components/AwardsSection";
 import { DocumentsSection } from "../components/DocumentsSection";
 import type { ApplicantDocument, ApplicantProfile } from "../types";
 
-type Step = "account" | "profile" | "experience" | "learning" | "awards" | "documents";
+type Step = "account" | "profile" | "learning" | "awards" | "documents";
 
 const STEPS: { id: Step; label: string }[] = [
   { id: "account", label: "Account" },
   { id: "profile", label: "Demographic Profile" },
-  { id: "experience", label: "Work Experience" },
   { id: "learning", label: "Learning & Development" },
   { id: "awards", label: "Awards" },
   { id: "documents", label: "Documents" },
@@ -30,10 +28,12 @@ const STEPS: { id: Step; label: string }[] = [
 
 /**
  * The entire applicant registration flow: account creation through
- * demographic profile, work experience, L&D, awards, and documents, all in
- * one continuous process. Nothing here is deferred to "after logging in" -
- * an applicant isn't routed to the rest of the app (see ProtectedRoute)
- * until every step is finished.
+ * demographic profile, L&D, awards, and documents, all in one continuous
+ * process. Nothing here is deferred to "after logging in" - an applicant
+ * isn't routed to the rest of the app (see ProtectedRoute) until every step
+ * is finished. Work experience isn't collected here - it's already part of
+ * the required PDS upload (Documents step), so asking for it twice would
+ * just be duplicate data entry.
  */
 export function RegistrationPage() {
   const { isAuthenticated, isLoading, user, register, registrationComplete, refreshRegistrationStatus } = useAuth();
@@ -127,7 +127,7 @@ export function RegistrationPage() {
     setProfile(saved);
     toast.success(isFirstSave ? "Profile created." : "Profile updated.");
     if (isFirstSave) {
-      setStep("experience");
+      setStep("learning");
     }
   }
 
@@ -271,13 +271,6 @@ export function RegistrationPage() {
 
           {(!profile || step === "profile") && (
             <DemographicProfileForm profile={profile} onSaved={handleProfileSaved} />
-          )}
-
-          {profile && step === "experience" && (
-            <WorkExperienceSection
-              items={profile.workExperiences}
-              onChange={(workExperiences) => setProfile({ ...profile, workExperiences })}
-            />
           )}
 
           {profile && step === "learning" && (

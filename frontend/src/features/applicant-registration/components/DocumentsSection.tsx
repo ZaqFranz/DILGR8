@@ -69,6 +69,7 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   PQE_NOTICE: "Notice of Passing PQE Result",
   DESIGNATION_ORDER: "Proof of Designation",
   AWARD_PROOF: "Proof of Award(s)",
+  COMPLIANCE_PROOF: "Compliance Requirement Proof",
   OTHER: "Other",
 };
 
@@ -100,12 +101,15 @@ const DOCUMENT_CHECKLIST: { type: DocumentType; required: boolean; note?: string
 // LD_PROOF and AWARD_PROOF are uploaded per-entry from the Learning &
 // Development / Awards sections (tied to a specific LdIntervention/Award via
 // ldInterventionId/awardId); APPLICATION_LETTER is uploaded as part of the
-// "Apply" action on a specific job posting (tied via applicationId) - none
-// of the three are picked from this generic type dropdown. They're still in
-// the label map above so such documents still render correctly if they show
-// up in this flat list (e.g. an Application Letter from a prior application).
+// "Apply" action on a specific job posting (tied via applicationId);
+// COMPLIANCE_PROOF is uploaded per-checklist-item from the Compliance to
+// Requirements section on My Applications (tied via complianceItemId, and
+// only exists once an application reaches that phase, well after
+// registration) - none of the four are picked from this generic type
+// dropdown. They're still in the label map above so such documents still
+// render correctly if they show up in this flat list.
 const SELECTABLE_DOCUMENT_TYPES = (Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).filter(
-  (type) => type !== "LD_PROOF" && type !== "AWARD_PROOF" && type !== "APPLICATION_LETTER",
+  (type) => type !== "LD_PROOF" && type !== "AWARD_PROOF" && type !== "APPLICATION_LETTER" && type !== "COMPLIANCE_PROOF",
 );
 
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;

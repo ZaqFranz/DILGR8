@@ -11,15 +11,8 @@ export type DocumentType =
   | "PQE_NOTICE"
   | "DESIGNATION_ORDER"
   | "AWARD_PROOF"
+  | "COMPLIANCE_PROOF"
   | "OTHER";
-
-export interface WorkExperience {
-  id: string;
-  inclusiveFrom: string;
-  inclusiveTo: string | null;
-  positionDesignation: string;
-  agency: string;
-}
 
 export interface LdIntervention {
   id: string;
@@ -43,6 +36,17 @@ export interface ApplicantDocument {
   uploadedAt: string;
   ldInterventionId: string | null;
   awardId: string | null;
+  complianceItemId: string | null;
+}
+
+export type ComplianceItemStatus = "PENDING" | "VERIFIED" | "REJECTED";
+
+export interface ApplicationComplianceItem {
+  id: string;
+  status: ComplianceItemStatus;
+  remarks: string | null;
+  requirement: { id: string; name: string; description: string | null };
+  documents: ApplicantDocument[];
 }
 
 export interface ApplicantProfile {
@@ -60,7 +64,6 @@ export interface ApplicantProfile {
   eligibilityType: EligibilityType;
   eligibilityValidated: boolean;
   registrationCompletedAt: string | null;
-  workExperiences: WorkExperience[];
   ldInterventions: LdIntervention[];
   awards: Award[];
   documents?: ApplicantDocument[];

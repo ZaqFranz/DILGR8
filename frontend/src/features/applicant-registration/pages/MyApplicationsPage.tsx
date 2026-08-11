@@ -7,8 +7,17 @@ import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { useToast } from "@/shared/components/ToastProvider";
 import { listMyApplications, withdrawApplication, type Application } from "../api/applicationsApi";
 import { ApplicationStageTracker } from "../components/ApplicationStageTracker";
+import { ComplianceChecklistSection } from "../components/ComplianceChecklistSection";
 
-const WITHDRAWABLE_STATUSES: Application["status"][] = ["SUBMITTED", "UNDER_SIFTING", "QUALIFIED", "FOR_INTERVIEW"];
+const WITHDRAWABLE_STATUSES: Application["status"][] = [
+  "SUBMITTED",
+  "UNDER_SIFTING",
+  "QUALIFIED",
+  "FOR_INTERVIEW",
+  "FOR_COMPLIANCE",
+  "FOR_OATH_TAKING",
+];
+const COMPLIANCE_VISIBLE_STATUSES: Application["status"][] = ["FOR_COMPLIANCE", "FOR_OATH_TAKING", "HIRED"];
 
 function statusBadgeClass(status: string): string {
   return `badge ${status.toLowerCase()}`;
@@ -90,6 +99,30 @@ export function MyApplicationsPage() {
                 {application.interviewNotes && (
                   <li>
                     <strong>Additional instructions:</strong> {application.interviewNotes}
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+          {COMPLIANCE_VISIBLE_STATUSES.includes(application.status) && (
+            <ComplianceChecklistSection
+              applicationId={application.id}
+              canUpload={application.status === "FOR_COMPLIANCE"}
+            />
+          )}
+          {application.oathTakingScheduledAt !== null && (
+            <div className="card-inset">
+              <p className="field-hint">Oath-taking details:</p>
+              <ul>
+                <li>
+                  <strong>When:</strong> {new Date(application.oathTakingScheduledAt).toLocaleString()}
+                </li>
+                <li>
+                  <strong>Where:</strong> {application.oathTakingVenue}
+                </li>
+                {application.oathTakingNotes && (
+                  <li>
+                    <strong>Additional instructions:</strong> {application.oathTakingNotes}
                   </li>
                 )}
               </ul>

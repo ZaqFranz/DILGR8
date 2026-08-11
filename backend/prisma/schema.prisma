@@ -29,6 +29,9 @@ enum EligibilityType {
 // Order mirrors the official application-documents checklist (a-j):
 // letter, PDS, performance rating, eligibility proof, L&D proof,
 // transcript, diploma, PQE notice, designation proof, award proof.
+// COMPLIANCE_PROOF isn't part of that original checklist - it's uploaded
+// later, per ApplicationComplianceItem, during the post-evaluation
+// Compliance to Requirements phase (see docs/rsp-domain-spec.md §6).
 enum DocumentType {
   APPLICATION_LETTER
   PDS
@@ -41,6 +44,7 @@ enum DocumentType {
   PQE_NOTICE
   DESIGNATION_ORDER
   AWARD_PROOF
+  COMPLIANCE_PROOF
   OTHER
 }
 
@@ -49,13 +53,32 @@ enum JobPostingStatus {
   CLOSED
 }
 
+// FOR_INTERVIEW -> FOR_COMPLIANCE -> FOR_OATH_TAKING -> HIRED is the
+// post-evaluation tail of the pipeline (docs/rsp-domain-spec.md §6-7).
+// There's no separate "Deliberation" status - the RD's decision to advance
+// an applicant is the same kind of single admin judgment-call action as
+// sift()/scheduleInterview() already are, not a distinct system state.
 enum ApplicationStatus {
   SUBMITTED
   UNDER_SIFTING
   FOR_INTERVIEW
   QUALIFIED
   NOT_QUALIFIED
+  FOR_COMPLIANCE
+  FOR_OATH_TAKING
+  HIRED
   WITHDRAWN
+}
+
+// PENDING until the applicant has uploaded a COMPLIANCE_PROOF document AND
+// an admin has reviewed it - VERIFIED/REJECTED are both terminal per item
+// (an admin can flip a REJECTED item to VERIFIED after the applicant
+// re-uploads, but there's no separate "resubmitted" state - see
+// ApplicationsService.reviewComplianceItem()).
+enum ComplianceItemStatus {
+  PENDING
+  VERIFIED
+  REJECTED
 }
 
 model User {
@@ -78,6 +101,7 @@ model User {
   panelAssignments      PanelAssignment[]
   panelEvaluations      PanelEvaluation[]
   positionPanelMemberOf PositionPanelMember[]
+  complianceReviewsMade ApplicationComplianceItem[]
 
   @@map("users")
 }
@@ -189,6 +213,7 @@ model Document {
   applicationId    String?
   ldInterventionId String?
   awardId          String?
+  complianceItemId String?
   type             DocumentType
   fileName         String
   filePath         String
@@ -196,15 +221,17 @@ model Document {
   fileSizeBytes    Int
   uploadedAt       DateTime     @default(now())
 
-  applicant      Applicant       @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  application    Application?    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  ldIntervention LdIntervention? @relation(fields: [ldInterventionId], references: [id], onDelete: Cascade)
-  award          Award?          @relation(fields: [awardId], references: [id], onDelete: Cascade)
+  applicant      Applicant                  @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  application    Application?               @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  ldIntervention LdIntervention?            @relation(fields: [ldInterventionId], references: [id], onDelete: Cascade)
+  award          Award?                     @relation(fields: [awardId], references: [id], onDelete: Cascade)
+  complianceItem ApplicationComplianceItem? @relation(fields: [complianceItemId], references: [id], onDelete: Cascade)
 
   @@index([applicantId])
   @@index([applicationId])
   @@index([ldInterventionId])
   @@index([awardId])
+  @@index([complianceItemId])
   @@map("documents")
 }
 
@@ -344,11 +371,28 @@ model Application {
   // no separate actor column: applicantId already identifies who withdrew).
   withdrawnAt DateTime?
 
-  applicant        Applicant         @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  jobPosting       JobPosting        @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
-  siftedBy         User?             @relation(fields: [siftedByUserId], references: [id])
+  // Set by ApplicationsService.moveToCompliance() (admin-only) - the RD's
+  // decision to advance this applicant past Evaluation. Creates one
+  // ApplicationComplianceItem per currently-active ComplianceRequirement
+  // (a snapshot, not a live join - see docs/decisions.md).
+  complianceRequestedAt DateTime?
+  // Set by ApplicationsService.scheduleOathTaking() once every compliance
+  // item is VERIFIED - bundles the status change and the oath-taking
+  // schedule into one action, the same shape as scheduleInterview().
+  complianceCompletedAt DateTime?
+  oathTakingScheduledAt DateTime?
+  oathTakingVenue       String?   @db.Text
+  oathTakingNotes       String?   @db.Text
+  // Set by ApplicationsService.markHired() - terminal for this pipeline
+  // segment. Onboarding itself (videos, pre/post evaluations) is future work.
+  hiredAt               DateTime?
+
+  applicant        Applicant                   @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  jobPosting       JobPosting                  @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  siftedBy         User?                       @relation(fields: [siftedByUserId], references: [id])
   documents        Document[]
   panelEvaluations PanelEvaluation[]
+  complianceItems  ApplicationComplianceItem[]
 
   @@unique([applicantId, jobPostingId])
   @@index([jobPostingId])
@@ -447,6 +491,57 @@ model PanelScore {
 
   @@unique([panelEvaluationId, criterionId])
   @@map("panel_scores")
+}
+
+/// Admin-managed catalog of CSC-mandated documentary requirements for the
+/// Compliance to Requirements phase (docs/rsp-domain-spec.md §6). Global,
+/// not per-posting - same simplification already accepted for
+/// EvaluationCriterion (see docs/project-memory.md Known Limitations).
+/// isActive retires a requirement without breaking historical
+/// ApplicationComplianceItem rows, same convention as EvaluationCriterion.
+model ComplianceRequirement {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items ApplicationComplianceItem[]
+
+  @@map("compliance_requirements")
+}
+
+/// One requirement's checklist row for one application - a snapshot taken
+/// of the then-active ComplianceRequirement list at
+/// ApplicationsService.moveToCompliance() time, not a live join (see
+/// docs/decisions.md). The applicant's proof upload is a
+/// Document(type=COMPLIANCE_PROOF, complianceItemId=this row's id);
+/// reviewing requires that document to already exist (see
+/// ApplicationsService.reviewComplianceItem()). requirementId has no
+/// onDelete override (defaults to Restrict) - same convention as
+/// PanelScore.criterionId - ComplianceRequirementsService blocks deleting a
+/// requirement that already has items, directing the admin to deactivate it
+/// instead.
+model ApplicationComplianceItem {
+  id               String               @id @default(uuid())
+  applicationId    String
+  requirementId    String
+  status           ComplianceItemStatus @default(PENDING)
+  remarks          String?              @db.Text
+  reviewedAt       DateTime?
+  reviewedByUserId String?
+  createdAt        DateTime             @default(now())
+
+  application Application           @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  requirement ComplianceRequirement @relation(fields: [requirementId], references: [id])
+  reviewedBy  User?                 @relation(fields: [reviewedByUserId], references: [id])
+  documents   Document[]
+
+  @@unique([applicationId, requirementId])
+  @@index([requirementId])
+  @@map("application_compliance_items")
 }
 
 /// Append-only record of admin write actions (user/job-posting CRUD,

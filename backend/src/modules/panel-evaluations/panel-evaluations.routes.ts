@@ -26,6 +26,7 @@ export function createPanelEvaluationsRouter(controller: PanelEvaluationsControl
     validate({ params: jobPostingIdParamSchema }),
     asyncHandler(controller.tabulation),
   );
+  router.get("/applicant-scores", requireRole("ADMIN"), asyncHandler(controller.applicantScoresOverview));
 
   return router;
 }

@@ -1,14 +1,24 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ApiError } from "@/shared/api/apiClient";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { FieldError } from "@/shared/components/FieldError";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
-import { scheduleInterview, setExaminationScore, siftApplication } from "../api/adminApplicationsApi";
+import {
+  listComplianceItems,
+  markHired,
+  moveToCompliance,
+  scheduleInterview,
+  scheduleOathTaking,
+  setExaminationScore,
+  siftApplication,
+} from "../api/adminApplicationsApi";
 import { ApplicantDocumentsModal } from "./ApplicantDocumentsModal";
-import type { AdminApplication, EvaluationDecision, TabulationRow } from "../types";
+import { ComplianceReviewModal } from "./ComplianceReviewModal";
+import type { AdminApplication, ApplicationComplianceItem, EvaluationDecision, TabulationRow } from "../types";
 
 interface Props {
   application: AdminApplication;
@@ -23,6 +33,7 @@ function canScheduleInterview(application: AdminApplication): boolean {
 }
 
 const emptyScheduleForm = { scheduledAt: "", scheduledEndAt: "", venue: "", attire: "", notes: "" };
+const emptyOathForm = { scheduledAt: "", venue: "", notes: "" };
 
 export function EvaluationRow({ application, onSifted, onScheduled, tabulation, panelists }: Props) {
   const toast = useToast();
@@ -37,6 +48,13 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
   const [scheduling, setScheduling] = useState(false);
   const [settingScore, setSettingScore] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [movingToCompliance, setMovingToCompliance] = useState(false);
+  const [complianceItems, setComplianceItems] = useState<ApplicationComplianceItem[] | null>(null);
+  const [complianceRefreshToken, setComplianceRefreshToken] = useState(0);
+  const [showComplianceReview, setShowComplianceReview] = useState(false);
+  const [oathForm, setOathForm] = useState(emptyOathForm);
+  const [schedulingOath, setSchedulingOath] = useState(false);
+  const [showMarkHiredConfirm, setShowMarkHiredConfirm] = useState(false);
 
   const isSiftable = application.status === "UNDER_SIFTING";
   const isSchedulable = canScheduleInterview(application);
@@ -44,6 +62,31 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
   // upload above the table - same underlying score, just for admins who'd
   // rather key in one number than build a spreadsheet for it.
   const canEnterExamScore = application.status === "QUALIFIED" && application.examinationScore === null;
+  const isMovableToCompliance = application.status === "FOR_INTERVIEW";
+  const isInCompliance = application.status === "FOR_COMPLIANCE";
+  const isOathTaking = application.status === "FOR_OATH_TAKING";
+  const allComplianceVerified =
+    complianceItems !== null && complianceItems.length > 0 && complianceItems.every((item) => item.status === "VERIFIED");
+  const isOathSchedulable = isInCompliance && allComplianceVerified;
+
+  // Fetched once the applicant enters Compliance so "Schedule Oath-Taking"
+  // knows whether every requirement has actually been verified yet - not
+  // derivable from AdminApplication alone, which has no per-requirement detail.
+  useEffect(() => {
+    if (application.complianceRequestedAt === null) {
+      setComplianceItems(null);
+      return;
+    }
+    let cancelled = false;
+    listComplianceItems(application.id)
+      .then((items) => {
+        if (!cancelled) setComplianceItems(items);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [application.id, application.complianceRequestedAt, complianceRefreshToken]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -142,13 +185,78 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     }
   }
 
+  async function handleMoveToCompliance() {
+    setMovingToCompliance(true);
+    try {
+      const updated = await moveToCompliance(application.id);
+      onSifted(updated);
+      toast.success(
+        `${application.applicant.firstName} ${application.applicant.lastName} was moved to Compliance to Requirements.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to move to Compliance");
+    } finally {
+      setMovingToCompliance(false);
+    }
+  }
+
+  async function handleScheduleOathTakingSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setFieldErrors({});
+    if (!oathForm.scheduledAt) {
+      setFieldErrors({ scheduledAt: "Date/time is required." });
+      return;
+    }
+    if (!oathForm.venue.trim()) {
+      setFieldErrors({ venue: "Venue is required." });
+      return;
+    }
+    setSchedulingOath(true);
+    try {
+      const updated = await scheduleOathTaking(application.id, {
+        scheduledAt: oathForm.scheduledAt,
+        venue: oathForm.venue,
+        ...(oathForm.notes ? { notes: oathForm.notes } : {}),
+      });
+      onScheduled(updated);
+      toast.success(`${application.applicant.firstName} ${application.applicant.lastName} was scheduled for oath-taking.`);
+      setOathForm(emptyOathForm);
+      setExpanded(false);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setFieldErrors(getFieldErrors(err));
+      } else {
+        setError("Failed to schedule oath-taking");
+      }
+    } finally {
+      setSchedulingOath(false);
+    }
+  }
+
+  async function handleMarkHired() {
+    try {
+      const updated = await markHired(application.id);
+      onSifted(updated);
+      toast.success(`${application.applicant.firstName} ${application.applicant.lastName} was marked hired.`);
+      setShowMarkHiredConfirm(false);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to mark hired");
+    }
+  }
+
   const incompleteScoring = tabulation !== null && tabulation.panelistsSubmitted < tabulation.panelistsAssigned;
   const hasDetails =
     isSiftable ||
     isSchedulable ||
     canEnterExamScore ||
+    isOathSchedulable ||
     application.siftedAt !== null ||
     application.interviewScheduledAt !== null ||
+    application.complianceRequestedAt !== null ||
+    application.oathTakingScheduledAt !== null ||
+    application.hiredAt !== null ||
     (tabulation !== null && tabulation.panelistsAssigned > 0);
 
   function toggleLabel(): string {
@@ -156,6 +264,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     if (isSiftable) return "Sift";
     if (canEnterExamScore) return "Enter PQE Score";
     if (isSchedulable) return "Evaluate Applicant";
+    if (isOathSchedulable) return "Schedule Oath-Taking";
     return "Details";
   }
 
@@ -181,6 +290,22 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
             <button type="button" className="secondary" onClick={() => setShowDocuments(true)}>
               View Documents
             </button>
+            {application.complianceRequestedAt !== null && (
+              <button type="button" className="secondary" onClick={() => setShowComplianceReview(true)}>
+                Manage Compliance
+              </button>
+            )}
+            {isMovableToCompliance && (
+              <button type="button" disabled={movingToCompliance} onClick={handleMoveToCompliance}>
+                {movingToCompliance && <Spinner size="sm" onDark />}
+                {movingToCompliance ? "Moving..." : "Move to Compliance"}
+              </button>
+            )}
+            {isOathTaking && (
+              <button type="button" onClick={() => setShowMarkHiredConfirm(true)}>
+                Mark Hired
+              </button>
+            )}
             {hasDetails && (
               <button type="button" className="secondary" onClick={() => setExpanded((prev) => !prev)}>
                 {toggleLabel()}
@@ -233,6 +358,39 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                     </li>
                   )}
                 </ul>
+              </div>
+            )}
+            {application.complianceRequestedAt !== null && (
+              <div className="card-inset">
+                <p className="field-hint">
+                  Moved to Compliance to Requirements {new Date(application.complianceRequestedAt).toLocaleString()}
+                  {complianceItems !== null &&
+                    ` — ${complianceItems.filter((item) => item.status === "VERIFIED").length}/${complianceItems.length} requirement(s) verified`}
+                  .
+                </p>
+              </div>
+            )}
+            {application.oathTakingScheduledAt !== null && (
+              <div className="card-inset">
+                <p className="field-hint">Oath-taking scheduled:</p>
+                <ul>
+                  <li>
+                    <strong>When:</strong> {new Date(application.oathTakingScheduledAt).toLocaleString()}
+                  </li>
+                  <li>
+                    <strong>Where:</strong> {application.oathTakingVenue}
+                  </li>
+                  {application.oathTakingNotes && (
+                    <li>
+                      <strong>Notes:</strong> {application.oathTakingNotes}
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
+            {application.hiredAt !== null && (
+              <div className="card-inset">
+                <p className="field-hint">Hired {new Date(application.hiredAt).toLocaleString()}.</p>
               </div>
             )}
             {tabulation && tabulation.panelistsAssigned > 0 && (
@@ -374,6 +532,51 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                 </div>
               </form>
             )}
+            {isOathSchedulable && (
+              <form onSubmit={handleScheduleOathTakingSubmit} className="field-grid" noValidate>
+                <div className={fieldErrors.scheduledAt ? "field has-error" : "field"}>
+                  <label htmlFor={`oath-scheduled-at-${application.id}`} className="required">
+                    When
+                  </label>
+                  <input
+                    id={`oath-scheduled-at-${application.id}`}
+                    type="datetime-local"
+                    required
+                    value={oathForm.scheduledAt}
+                    onChange={(e) => setOathForm({ ...oathForm, scheduledAt: e.target.value })}
+                  />
+                  <FieldError message={fieldErrors.scheduledAt} />
+                </div>
+                <div className={fieldErrors.venue ? "field has-error" : "field"}>
+                  <label htmlFor={`oath-venue-${application.id}`} className="required">
+                    Venue
+                  </label>
+                  <input
+                    id={`oath-venue-${application.id}`}
+                    required
+                    placeholder="e.g. DILG Regional Office, Multi-Purpose Hall"
+                    value={oathForm.venue}
+                    onChange={(e) => setOathForm({ ...oathForm, venue: e.target.value })}
+                  />
+                  <FieldError message={fieldErrors.venue} />
+                </div>
+                <div className="field">
+                  <label htmlFor={`oath-notes-${application.id}`}>Additional instructions (optional)</label>
+                  <textarea
+                    id={`oath-notes-${application.id}`}
+                    placeholder="e.g. Bring a valid ID"
+                    value={oathForm.notes}
+                    onChange={(e) => setOathForm({ ...oathForm, notes: e.target.value })}
+                  />
+                </div>
+                <div className="field" style={{ alignSelf: "end" }}>
+                  <button type="submit" disabled={schedulingOath}>
+                    {schedulingOath && <Spinner size="sm" onDark />}
+                    {schedulingOath ? "Saving..." : "Save oath-taking schedule"}
+                  </button>
+                </div>
+              </form>
+            )}
           </td>
         </tr>
       )}
@@ -384,6 +587,30 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
           onClose={() => setShowDocuments(false)}
         />
       )}
+      {showComplianceReview && (
+        <ComplianceReviewModal
+          applicationId={application.id}
+          applicantName={`${application.applicant.firstName} ${application.applicant.lastName}`}
+          onClose={() => {
+            setShowComplianceReview(false);
+            setComplianceRefreshToken((prev) => prev + 1);
+          }}
+        />
+      )}
+      <ConfirmDialog
+        open={showMarkHiredConfirm}
+        title="Mark hired?"
+        description={
+          <>
+            Confirms <strong>{application.applicant.firstName} {application.applicant.lastName}</strong> has
+            completed the oath-taking ceremony for <strong>{application.jobPosting.title}</strong>.
+          </>
+        }
+        confirmLabel="Mark Hired"
+        danger={false}
+        onConfirm={handleMarkHired}
+        onCancel={() => setShowMarkHiredConfirm(false)}
+      />
     </>
   );
 }

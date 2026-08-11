@@ -24,6 +24,7 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   PQE_NOTICE: "Notice of Passing PQE Result",
   DESIGNATION_ORDER: "Proof of Designation",
   AWARD_PROOF: "Proof of Award(s)",
+  COMPLIANCE_PROOF: "Compliance Requirement Proof",
   OTHER: "Other",
 };
 

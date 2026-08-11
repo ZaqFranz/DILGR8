@@ -8,6 +8,8 @@ import { listEvaluationCriteria } from "@/features/admin/api/evaluationCriteriaA
 import type { EvaluationCriterion, InterviewQueueApplication, PanelEvaluation } from "@/features/admin/types";
 import { getMyQueue } from "../api/panelEvaluationsApi";
 import { InterviewRow } from "../components/InterviewRow";
+import { CriteriaReferencePanel } from "../components/CriteriaReferencePanel";
+import { ScoreSummaryPanel } from "../components/ScoreSummaryPanel";
 
 export function MyInterviewsPage() {
   const [criteria, setCriteria] = useState<EvaluationCriterion[]>([]);
@@ -42,6 +44,13 @@ export function MyInterviewsPage() {
 
       {criteria.length === 0 && (
         <p>No evaluation criteria have been set up yet. Check back once an admin adds the interview rubric.</p>
+      )}
+
+      {criteria.length > 0 && (
+        <>
+          <CriteriaReferencePanel criteria={criteria} />
+          <ScoreSummaryPanel criteria={criteria} queue={queue} />
+        </>
       )}
 
       {criteria.length > 0 && queue.length === 0 && <p>No applicants are currently in the interview stage for your assigned postings.</p>}

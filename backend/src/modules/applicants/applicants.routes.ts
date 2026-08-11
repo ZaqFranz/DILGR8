@@ -7,7 +7,6 @@ import {
   createApplicantProfileSchema,
   createAwardSchema,
   createLdInterventionSchema,
-  createWorkExperienceSchema,
   idParamSchema,
   updateApplicantProfileSchema,
 } from "./applicants.dto";
@@ -22,17 +21,6 @@ export function createApplicantsRouter(controller: ApplicantsController, documen
   router.post("/me", validate({ body: createApplicantProfileSchema }), asyncHandler(controller.createProfile));
   router.patch("/me", validate({ body: updateApplicantProfileSchema }), asyncHandler(controller.updateProfile));
   router.post("/me/complete-registration", asyncHandler(controller.completeRegistration));
-
-  router.post(
-    "/me/work-experiences",
-    validate({ body: createWorkExperienceSchema }),
-    asyncHandler(controller.addWorkExperience),
-  );
-  router.delete(
-    "/me/work-experiences/:id",
-    validate({ params: idParamSchema }),
-    asyncHandler(controller.removeWorkExperience),
-  );
 
   router.post(
     "/me/ld-interventions",
@@ -52,19 +40,20 @@ export function createApplicantsRouter(controller: ApplicantsController, documen
   router.get("/me/documents", asyncHandler(documentsController.listMine));
   router.delete("/me/documents/:id", validate({ params: idParamSchema }), asyncHandler(documentsController.remove));
 
-  // Admin-only: viewing a specific applicant's uploaded documents (Evaluate
-  // Applicants' "View Documents" modal). Registered after /me/documents
-  // above so a literal "/me/documents" request is never swallowed by the
-  // wildcard ":id" here.
+  // Admin and panel: viewing a specific applicant's uploaded documents
+  // (admin's "View Documents" modal gets the full set; panel gets PDS-only,
+  // scoped in the service to applicants on their assigned interview boards).
+  // Registered after /me/documents above so a literal "/me/documents"
+  // request is never swallowed by the wildcard ":id" here.
   router.get(
     "/:id/documents",
-    requireRole("ADMIN"),
+    requireRole("ADMIN", "PANEL"),
     validate({ params: idParamSchema }),
     asyncHandler(documentsController.listForApplicant),
   );
   router.get(
     "/documents/:id/file",
-    requireRole("ADMIN"),
+    requireRole("ADMIN", "PANEL"),
     validate({ params: idParamSchema }),
     asyncHandler(documentsController.viewFile),
   );

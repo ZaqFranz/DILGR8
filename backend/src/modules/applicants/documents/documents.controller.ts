@@ -26,12 +26,18 @@ export class DocumentsController {
   };
 
   listForApplicant = async (req: Request, res: Response): Promise<void> => {
-    const documents = await this.documentsService.listForApplicant(req.params.id as string);
+    const documents = await this.documentsService.listForApplicant(req.params.id as string, {
+      id: req.user!.id,
+      role: req.user!.role,
+    });
     res.status(200).json(documents);
   };
 
   viewFile = async (req: Request, res: Response): Promise<void> => {
-    const { filePath, mimeType, fileName } = await this.documentsService.getFileForAdmin(req.params.id as string);
+    const { filePath, mimeType, fileName } = await this.documentsService.getFileForViewer(req.params.id as string, {
+      id: req.user!.id,
+      role: req.user!.role,
+    });
     res.setHeader("Content-Type", mimeType);
     // "inline" so PDFs/images render in the browser tab instead of forcing a
     // download - filename is still supplied for when the browser can't

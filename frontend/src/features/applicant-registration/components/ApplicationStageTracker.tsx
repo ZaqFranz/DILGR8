@@ -24,6 +24,9 @@ const STAGE_ORDER: { key: string; label: string }[] = [
   { key: "UNDER_SIFTING", label: "Sifting" },
   { key: "EXAMINATION", label: "Pre-Qualifying Examination" },
   { key: "FOR_INTERVIEW", label: "Evaluation of Applicants" },
+  { key: "FOR_COMPLIANCE", label: "Compliance to Requirements" },
+  { key: "FOR_OATH_TAKING", label: "Oath-Taking" },
+  { key: "HIRED", label: "Hired" },
 ];
 
 // QUALIFIED/NOT_QUALIFIED is the Sifting phase's pass/fail result (against
@@ -37,6 +40,9 @@ const STATUS_TO_STAGE_INDEX: Record<ApplicationStatus, number> = {
   NOT_QUALIFIED: 1,
   QUALIFIED: 2,
   FOR_INTERVIEW: 3,
+  FOR_COMPLIANCE: 4,
+  FOR_OATH_TAKING: 5,
+  HIRED: 6,
   WITHDRAWN: -1, // handled separately, not part of the linear stepper
 };
 

@@ -5,7 +5,6 @@ import type {
   CreateApplicantProfileDto,
   CreateAwardDto,
   CreateLdInterventionDto,
-  CreateWorkExperienceDto,
   UpdateApplicantProfileDto,
 } from "./applicants.dto";
 
@@ -41,12 +40,13 @@ export class ApplicantsService {
 
   /**
    * Marks the applicant as having finished every registration step. All
-   * applicant-side data (profile, work experience, L&D, awards, documents)
-   * must be captured here, before this flag is set - nothing about the
-   * applicant's own record should be collected after they start using the
-   * rest of the app. The one exception is the Application Letter: it's
-   * specific to a single job posting (addressed per vacancy), so it's
-   * collected at apply time instead - see ApplicationsService.submit().
+   * applicant-side data (profile, L&D, awards, documents) must be captured
+   * here, before this flag is set - nothing about the applicant's own
+   * record should be collected after they start using the rest of the app.
+   * The one exception is the Application Letter: it's specific to a single
+   * job posting (addressed per vacancy), so it's collected at apply time
+   * instead - see ApplicationsService.submit(). Work experience isn't
+   * collected here at all - it's already captured on the uploaded PDS.
    */
   async completeRegistration(userId: string): Promise<ApplicantWithRelations> {
     const applicant = await this.getMyProfile(userId);
@@ -85,17 +85,6 @@ export class ApplicantsService {
     }
 
     return this.applicantsRepository.markRegistrationComplete(applicant.id);
-  }
-
-  async addWorkExperience(userId: string, dto: CreateWorkExperienceDto) {
-    const applicant = await this.getMyProfile(userId);
-    return this.applicantsRepository.addWorkExperience(applicant.id, dto);
-  }
-
-  async removeWorkExperience(userId: string, workExperienceId: string): Promise<void> {
-    const applicant = await this.getMyProfile(userId);
-    this.assertOwnsChild(applicant.workExperiences, workExperienceId, "Work experience");
-    await this.applicantsRepository.removeWorkExperience(workExperienceId);
   }
 
   async addLdIntervention(userId: string, dto: CreateLdInterventionDto) {

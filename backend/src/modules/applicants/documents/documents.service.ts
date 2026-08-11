@@ -1,9 +1,22 @@
 import fs from "node:fs/promises";
-import type { PrismaClient, Document, DocumentType } from "@prisma/client";
-import { NotFoundError, ValidationError } from "@/shared/errors/AppError";
+import type { PrismaClient, Document, DocumentType, Role } from "@prisma/client";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
 import type { ApplicantsRepository } from "../applicants.repository";
+import type { PanelAssignmentsRepository } from "@/modules/panel-assignments/panel-assignments.repository";
 import type { CreateDocumentInput, DocumentsRepository } from "./documents.repository";
 import type { UploadDocumentFieldsDto } from "./documents.dto";
+
+export interface DocumentViewer {
+  id: string;
+  role: Role;
+}
+
+// Interview panelists never get the applicant's full document set - only
+// the PDS itself (PDF copy and/or the CS Form 212 workbook), and only for
+// an applicant currently on one of their assigned interview boards. Keeps
+// "panel can see the PDS while interviewing" from widening into "panel can
+// browse every document an applicant has ever uploaded".
+const PANEL_VISIBLE_DOCUMENT_TYPES = new Set<DocumentType>(["PDS", "PDS_EXCEL"]);
 
 export interface UploadedFileInfo {
   originalname: string;
@@ -56,6 +69,7 @@ export class DocumentsService {
   constructor(
     private readonly documentsRepository: DocumentsRepository,
     private readonly applicantsRepository: ApplicantsRepository,
+    private readonly panelAssignmentsRepository: PanelAssignmentsRepository,
     private readonly db: PrismaClient,
   ) {}
 
@@ -91,6 +105,19 @@ export class DocumentsService {
       }
     }
 
+    if (fields.complianceItemId) {
+      const item = await this.db.applicationComplianceItem.findUnique({
+        where: { id: fields.complianceItemId },
+        include: { application: true },
+      });
+      if (!item || item.application.applicantId !== applicant.id) {
+        throw new NotFoundError("Compliance item");
+      }
+      if (item.application.status !== "FOR_COMPLIANCE") {
+        throw new ValidationError("Proof can only be uploaded while the application is in Compliance to Requirements");
+      }
+    }
+
     // One current file per "slot" - an applicant-level slot for
     // SINGLE_INSTANCE_TYPES, or a per-entry slot (this specific
     // LdIntervention/Award) for LD_PROOF/AWARD_PROOF - so re-uploading
@@ -103,7 +130,9 @@ export class DocumentsService {
         ? existingDocs.find((doc) => doc.type === "LD_PROOF" && doc.ldInterventionId === fields.ldInterventionId)
         : fields.type === "AWARD_PROOF" && fields.awardId
           ? existingDocs.find((doc) => doc.type === "AWARD_PROOF" && doc.awardId === fields.awardId)
-          : undefined;
+          : fields.type === "COMPLIANCE_PROOF" && fields.complianceItemId
+            ? existingDocs.find((doc) => doc.type === "COMPLIANCE_PROOF" && doc.complianceItemId === fields.complianceItemId)
+            : undefined;
     if (duplicate) {
       await this.documentsRepository.delete(duplicate.id);
       await fs.unlink(duplicate.filePath).catch(() => undefined);
@@ -119,6 +148,7 @@ export class DocumentsService {
       ...(fields.applicationId ? { applicationId: fields.applicationId } : {}),
       ...(fields.ldInterventionId ? { ldInterventionId: fields.ldInterventionId } : {}),
       ...(fields.awardId ? { awardId: fields.awardId } : {}),
+      ...(fields.complianceItemId ? { complianceItemId: fields.complianceItemId } : {}),
     };
 
     return this.documentsRepository.create(input);
@@ -132,26 +162,44 @@ export class DocumentsService {
     return this.documentsRepository.findByApplicant(applicant.id);
   }
 
-  /** Admin-only: list a specific applicant's documents, for the Evaluate Applicants "View Documents" modal. */
-  async listForApplicant(applicantId: string): Promise<Document[]> {
+  /**
+   * List a specific applicant's documents, for the Evaluate Applicants "View
+   * Documents" modal (admin, full set) and the panel's "View PDS" action
+   * (panel, PDS only - and only while that applicant is on one of the
+   * panelist's assigned interview boards).
+   */
+  async listForApplicant(applicantId: string, viewer: DocumentViewer): Promise<Document[]> {
     const applicant = await this.applicantsRepository.findById(applicantId);
     if (!applicant) {
       throw new NotFoundError("Applicant profile");
     }
-    return this.documentsRepository.findByApplicant(applicantId);
+    const documents = await this.documentsRepository.findByApplicant(applicantId);
+    if (viewer.role === "PANEL") {
+      await this.assertPanelistMayViewApplicant(viewer.id, applicantId);
+      return documents.filter((doc) => PANEL_VISIBLE_DOCUMENT_TYPES.has(doc.type));
+    }
+    return documents;
   }
 
   /**
-   * Admin-only: resolves a document to its file on disk for viewing/download.
-   * Checked separately from the DB lookup (not just trusted from
-   * `Document.filePath`) so a document whose underlying file is missing
-   * fails with a clear 404 instead of a raw filesystem error reaching the
-   * client.
+   * Resolves a document to its file on disk for viewing/download. Checked
+   * separately from the DB lookup (not just trusted from `Document.filePath`)
+   * so a document whose underlying file is missing fails with a clear 404
+   * instead of a raw filesystem error reaching the client.
    */
-  async getFileForAdmin(documentId: string): Promise<{ filePath: string; mimeType: string; fileName: string }> {
+  async getFileForViewer(
+    documentId: string,
+    viewer: DocumentViewer,
+  ): Promise<{ filePath: string; mimeType: string; fileName: string }> {
     const document = await this.documentsRepository.findById(documentId);
     if (!document) {
       throw new NotFoundError("Document");
+    }
+    if (viewer.role === "PANEL") {
+      if (!PANEL_VISIBLE_DOCUMENT_TYPES.has(document.type)) {
+        throw new ForbiddenError("Panel members may only view the applicant's PDS");
+      }
+      await this.assertPanelistMayViewApplicant(viewer.id, document.applicantId);
     }
     try {
       await fs.access(document.filePath);
@@ -159,6 +207,13 @@ export class DocumentsService {
       throw new NotFoundError("Document file");
     }
     return { filePath: document.filePath, mimeType: document.mimeType, fileName: document.fileName };
+  }
+
+  private async assertPanelistMayViewApplicant(panelUserId: string, applicantId: string): Promise<void> {
+    const assigned = await this.panelAssignmentsRepository.isPanelUserAssignedToApplicant(panelUserId, applicantId);
+    if (!assigned) {
+      throw new ForbiddenError("You are not assigned to interview this applicant");
+    }
   }
 
   async remove(userId: string, documentId: string): Promise<void> {

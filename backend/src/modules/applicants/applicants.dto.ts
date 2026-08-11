@@ -25,19 +25,6 @@ export type CreateApplicantProfileDto = z.infer<typeof createApplicantProfileSch
 export const updateApplicantProfileSchema = createApplicantProfileSchema.innerType().partial();
 export type UpdateApplicantProfileDto = z.infer<typeof updateApplicantProfileSchema>;
 
-export const createWorkExperienceSchema = z
-  .object({
-    inclusiveFrom: z.coerce.date(),
-    inclusiveTo: z.coerce.date().optional(),
-    positionDesignation: z.string().min(1).max(150),
-    agency: z.string().min(1).max(150),
-  })
-  .refine((data) => !data.inclusiveTo || data.inclusiveTo >= data.inclusiveFrom, {
-    message: "inclusiveTo must not be earlier than inclusiveFrom",
-    path: ["inclusiveTo"],
-  });
-export type CreateWorkExperienceDto = z.infer<typeof createWorkExperienceSchema>;
-
 export const createLdInterventionSchema = z.object({
   title: z.string().min(1).max(200),
   dateAttended: z.coerce.date(),

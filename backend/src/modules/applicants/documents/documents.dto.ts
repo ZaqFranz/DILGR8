@@ -12,10 +12,12 @@ export const uploadDocumentFieldsSchema = z.object({
     "PQE_NOTICE",
     "DESIGNATION_ORDER",
     "AWARD_PROOF",
+    "COMPLIANCE_PROOF",
     "OTHER",
   ]),
   applicationId: z.string().uuid().optional(),
   ldInterventionId: z.string().uuid().optional(),
   awardId: z.string().uuid().optional(),
+  complianceItemId: z.string().uuid().optional(),
 });
 export type UploadDocumentFieldsDto = z.infer<typeof uploadDocumentFieldsSchema>;

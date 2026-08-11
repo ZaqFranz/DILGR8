@@ -5,8 +5,11 @@ import { validate } from "@/shared/validation/validate";
 import { idParamSchema } from "@/modules/applicants/applicants.dto";
 import type { ApplicationsController } from "./applications.controller";
 import {
+  applicationComplianceItemParamSchema,
   listApplicationsQuerySchema,
+  reviewComplianceItemSchema,
   scheduleInterviewSchema,
+  scheduleOathTakingSchema,
   setExamScoreSchema,
   siftApplicationSchema,
 } from "./applications.dto";
@@ -20,6 +23,13 @@ export function createApplicationsRouter(controller: ApplicationsController): Ro
   router.post("/", uploadApplicationLetter, asyncHandler(controller.submit));
   router.get("/me", asyncHandler(controller.listMine));
   router.patch("/:id/withdraw", validate({ params: idParamSchema }), asyncHandler(controller.withdraw));
+  // No requireRole - an APPLICANT may only read their own application's
+  // checklist (enforced in the service), an ADMIN may read any.
+  router.get(
+    "/:id/compliance-items",
+    validate({ params: idParamSchema }),
+    asyncHandler(controller.listComplianceItems),
+  );
 
   router.get(
     "/",
@@ -56,6 +66,30 @@ export function createApplicationsRouter(controller: ApplicationsController): Ro
     requireRole("ADMIN"),
     validate({ params: idParamSchema, body: scheduleInterviewSchema }),
     asyncHandler(controller.scheduleInterview),
+  );
+  router.patch(
+    "/:id/move-to-compliance",
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema }),
+    asyncHandler(controller.moveToCompliance),
+  );
+  router.patch(
+    "/:id/compliance-items/:itemId",
+    requireRole("ADMIN"),
+    validate({ params: applicationComplianceItemParamSchema, body: reviewComplianceItemSchema }),
+    asyncHandler(controller.reviewComplianceItem),
+  );
+  router.patch(
+    "/:id/oath-taking",
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema, body: scheduleOathTakingSchema }),
+    asyncHandler(controller.scheduleOathTaking),
+  );
+  router.patch(
+    "/:id/hire",
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema }),
+    asyncHandler(controller.markHired),
   );
 
   return router;

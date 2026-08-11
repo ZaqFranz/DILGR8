@@ -1,3 +1,4 @@
+import type { Role } from "@prisma/client";
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
 import type { ApplicantsRepository } from "@/modules/applicants/applicants.repository";
 import type { DocumentsRepository } from "@/modules/applicants/documents/documents.repository";
@@ -6,23 +7,46 @@ import type { JobPostingsRepository } from "@/modules/job-postings/job-postings.
 import { JobPostingsService } from "@/modules/job-postings/job-postings.service";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
+import type {
+  ComplianceItemsRepository,
+  ApplicationComplianceItemWithDetails,
+} from "@/modules/compliance-requirements/compliance-items.repository";
+import type { ComplianceRequirementsRepository } from "@/modules/compliance-requirements/compliance-requirements.repository";
 import type { EmailService } from "@/shared/email/emailService";
 import {
+  complianceRequestedEmail,
   decisionEmail,
   examScoreEmail,
   forInterviewEmail,
+  hiredEmail,
+  oathTakingScheduledEmail,
   submittedEmail,
   withdrawnEmail,
 } from "@/shared/email/applicationEmailTemplates";
 import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
-import type { ScheduleInterviewDto, SetExamScoreDto, SiftApplicationDto } from "./applications.dto";
+import type {
+  ReviewComplianceItemDto,
+  ScheduleInterviewDto,
+  ScheduleOathTakingDto,
+  SetExamScoreDto,
+  SiftApplicationDto,
+} from "./applications.dto";
 import ExcelJS from "exceljs";
 import { parseExamScoreWorkbook } from "./examScoreParser";
 
 // An application can be withdrawn any time before its outcome is already
 // final - NOT_QUALIFIED and WITHDRAWN itself are terminal, so they're the
-// only statuses excluded here.
-const WITHDRAWABLE_STATUSES = ["SUBMITTED", "UNDER_SIFTING", "QUALIFIED", "FOR_INTERVIEW"] as const;
+// only statuses excluded here. FOR_COMPLIANCE/FOR_OATH_TAKING stay
+// withdrawable (an applicant can still decline up until actually hired);
+// HIRED itself is excluded the same way NOT_QUALIFIED is.
+const WITHDRAWABLE_STATUSES = [
+  "SUBMITTED",
+  "UNDER_SIFTING",
+  "QUALIFIED",
+  "FOR_INTERVIEW",
+  "FOR_COMPLIANCE",
+  "FOR_OATH_TAKING",
+] as const;
 
 const ELIGIBILITY_LABELS: Record<string, string> = {
   RA1080: "RA 1080",
@@ -80,6 +104,8 @@ export class ApplicationsService {
     private readonly documentsRepository: DocumentsRepository,
     private readonly auditLogsRepository: AuditLogsRepository,
     private readonly emailService: EmailService,
+    private readonly complianceItemsRepository: ComplianceItemsRepository,
+    private readonly complianceRequirementsRepository: ComplianceRequirementsRepository,
   ) {}
 
   async submit(
@@ -426,6 +452,178 @@ export class ApplicationsService {
       dto.attire,
       dto.notes,
       dto.scheduledEndAt,
+    );
+    await this.emailService.send({ to: application.applicant.user.email, subject, html });
+
+    return updated;
+  }
+
+  /**
+   * The RD's decision to advance this applicant past Evaluation - there's no
+   * separate "Deliberation" status (see docs/decisions.md), this is that
+   * judgment call. Snapshots one PENDING ApplicationComplianceItem per
+   * currently-active ComplianceRequirement; a requirement added later won't
+   * retroactively appear on an already-in-progress applicant's checklist.
+   */
+  async moveToCompliance(applicationId: string, actorUserId: string): Promise<ApplicationWithApplicant> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+    if (application.status !== "FOR_INTERVIEW") {
+      throw new ValidationError(`Cannot move to Compliance an application with status ${application.status}`);
+    }
+
+    const activeRequirements = await this.complianceRequirementsRepository.findMany(true);
+
+    const updated = await this.applicationsRepository.moveToCompliance(applicationId);
+    if (activeRequirements.length > 0) {
+      await this.complianceItemsRepository.createManyForApplication(
+        applicationId,
+        activeRequirements.map((requirement) => requirement.id),
+      );
+    }
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_MOVED_TO_COMPLIANCE,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Moved ${application.applicant.firstName} ${application.applicant.lastName} to Compliance to Requirements for "${application.jobPosting.title}" (${activeRequirements.length} requirement(s))`,
+    });
+
+    const { subject, html } = complianceRequestedEmail(
+      `${application.applicant.firstName} ${application.applicant.lastName}`,
+      application.jobPosting.title,
+      activeRequirements.map((requirement) => requirement.name),
+    );
+    await this.emailService.send({ to: application.applicant.user.email, subject, html });
+
+    return updated;
+  }
+
+  /** APPLICANT can only read their own application's checklist; ADMIN can read any - same role-branch shape as DocumentsService.listForApplicant(). */
+  async listComplianceItems(
+    applicationId: string,
+    viewer: { id: string; role: Role },
+  ): Promise<ApplicationComplianceItemWithDetails[]> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+    if (viewer.role === "APPLICANT") {
+      const applicant = await this.applicantsRepository.findByUserId(viewer.id);
+      if (!applicant || application.applicantId !== applicant.id) {
+        throw new NotFoundError("Application");
+      }
+    }
+    return this.complianceItemsRepository.findByApplication(applicationId);
+  }
+
+  /** Verifying/rejecting requires the applicant to have already uploaded a COMPLIANCE_PROOF document for this item - there's nothing to review otherwise. */
+  async reviewComplianceItem(
+    applicationId: string,
+    itemId: string,
+    actorUserId: string,
+    dto: ReviewComplianceItemDto,
+  ): Promise<ApplicationComplianceItemWithDetails> {
+    const item = await this.complianceItemsRepository.findById(itemId);
+    if (!item || item.applicationId !== applicationId) {
+      throw new NotFoundError("Compliance item");
+    }
+    if (item.documents.length === 0) {
+      throw new ValidationError("The applicant hasn't submitted proof for this requirement yet");
+    }
+
+    const updated = await this.complianceItemsRepository.update(itemId, {
+      status: dto.status,
+      remarks: dto.remarks,
+      reviewedByUserId: actorUserId,
+    });
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_COMPLIANCE_ITEM_REVIEWED,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Reviewed "${item.requirement.name}" for application ${applicationId}: ${dto.status}`,
+    });
+
+    return updated;
+  }
+
+  /** Bundles the FOR_COMPLIANCE -> FOR_OATH_TAKING transition with the ceremony's schedule - same shape as scheduleInterview(). */
+  async scheduleOathTaking(
+    applicationId: string,
+    actorUserId: string,
+    dto: ScheduleOathTakingDto,
+  ): Promise<ApplicationWithApplicant> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+    if (application.status !== "FOR_COMPLIANCE") {
+      throw new ValidationError(`Cannot schedule oath-taking for an application with status ${application.status}`);
+    }
+    const unverifiedCount = await this.complianceItemsRepository.countUnverified(applicationId);
+    if (unverifiedCount > 0) {
+      throw new ValidationError(
+        `${unverifiedCount} compliance requirement(s) still need to be verified before scheduling oath-taking`,
+      );
+    }
+    if (dto.scheduledAt.getTime() <= Date.now()) {
+      throw new ValidationError("Oath-taking date/time must be in the future");
+    }
+
+    const updated = await this.applicationsRepository.scheduleOathTaking(applicationId, {
+      scheduledAt: dto.scheduledAt,
+      venue: dto.venue,
+      ...(dto.notes ? { notes: dto.notes } : {}),
+    });
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_OATH_TAKING_SCHEDULED,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Scheduled ${application.applicant.firstName} ${application.applicant.lastName} for oath-taking - "${application.jobPosting.title}" on ${dto.scheduledAt.toISOString()} at ${dto.venue}`,
+    });
+
+    const { subject, html } = oathTakingScheduledEmail(
+      `${application.applicant.firstName} ${application.applicant.lastName}`,
+      application.jobPosting.title,
+      dto.scheduledAt,
+      dto.venue,
+      dto.notes,
+    );
+    await this.emailService.send({ to: application.applicant.user.email, subject, html });
+
+    return updated;
+  }
+
+  /** Terminal for this pipeline segment - Onboarding itself (videos, pre/post evaluations) is future work. */
+  async markHired(applicationId: string, actorUserId: string): Promise<ApplicationWithApplicant> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+    if (application.status !== "FOR_OATH_TAKING") {
+      throw new ValidationError(`Cannot mark hired an application with status ${application.status}`);
+    }
+
+    const updated = await this.applicationsRepository.markHired(applicationId);
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_HIRED,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Marked ${application.applicant.firstName} ${application.applicant.lastName} hired for "${application.jobPosting.title}"`,
+    });
+
+    const { subject, html } = hiredEmail(
+      `${application.applicant.firstName} ${application.applicant.lastName}`,
+      application.jobPosting.title,
     );
     await this.emailService.send({ to: application.applicant.user.email, subject, html });
 

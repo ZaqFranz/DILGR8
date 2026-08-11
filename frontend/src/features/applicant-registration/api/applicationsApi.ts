@@ -1,9 +1,19 @@
 import { apiRequest } from "@/shared/api/apiClient";
 import type { JobPosting } from "@/features/job-postings/types";
+import type { ApplicationComplianceItem } from "../types";
 
 export interface Application {
   id: string;
-  status: "SUBMITTED" | "UNDER_SIFTING" | "FOR_INTERVIEW" | "QUALIFIED" | "NOT_QUALIFIED" | "WITHDRAWN";
+  status:
+    | "SUBMITTED"
+    | "UNDER_SIFTING"
+    | "FOR_INTERVIEW"
+    | "QUALIFIED"
+    | "NOT_QUALIFIED"
+    | "FOR_COMPLIANCE"
+    | "FOR_OATH_TAKING"
+    | "HIRED"
+    | "WITHDRAWN";
   submittedAt: string;
   examinationScore: number | null;
   interviewScheduledAt: string | null;
@@ -11,6 +21,9 @@ export interface Application {
   interviewVenue: string | null;
   interviewAttire: string | null;
   interviewNotes: string | null;
+  oathTakingScheduledAt: string | null;
+  oathTakingVenue: string | null;
+  oathTakingNotes: string | null;
   jobPosting: JobPosting;
 }
 
@@ -27,4 +40,8 @@ export function listMyApplications(): Promise<Application[]> {
 
 export function withdrawApplication(id: string): Promise<Application> {
   return apiRequest<Application>(`/applications/${id}/withdraw`, { method: "PATCH" });
+}
+
+export function listComplianceItems(applicationId: string): Promise<ApplicationComplianceItem[]> {
+  return apiRequest<ApplicationComplianceItem[]>(`/applications/${applicationId}/compliance-items`);
 }

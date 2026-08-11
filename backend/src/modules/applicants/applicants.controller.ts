@@ -4,7 +4,6 @@ import type {
   CreateApplicantProfileDto,
   CreateAwardDto,
   CreateLdInterventionDto,
-  CreateWorkExperienceDto,
   UpdateApplicantProfileDto,
 } from "./applicants.dto";
 
@@ -29,16 +28,6 @@ export class ApplicantsController {
   completeRegistration = async (req: Request, res: Response): Promise<void> => {
     const profile = await this.applicantsService.completeRegistration(req.user!.id);
     res.status(200).json(profile);
-  };
-
-  addWorkExperience = async (req: Request, res: Response): Promise<void> => {
-    const result = await this.applicantsService.addWorkExperience(req.user!.id, req.body as CreateWorkExperienceDto);
-    res.status(201).json(result);
-  };
-
-  removeWorkExperience = async (req: Request, res: Response): Promise<void> => {
-    await this.applicantsService.removeWorkExperience(req.user!.id, req.params.id as string);
-    res.status(204).send();
   };
 
   addLdIntervention = async (req: Request, res: Response): Promise<void> => {

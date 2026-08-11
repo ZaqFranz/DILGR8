@@ -689,6 +689,27 @@ body.admin-account button:not(:disabled):not(.modal-close):not(.user-menu-trigge
   color: var(--color-muted);
 }
 
+.badge.for_compliance {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.badge.for_oath_taking {
+  background: #fdf3d0;
+  color: var(--color-accent-hover);
+}
+
+.badge.hired,
+.badge.verified {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.badge.rejected {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
 /* ---------- Page header ---------- */
 
 .page-header {
@@ -1079,6 +1100,24 @@ tbody tr:last-child td {
 .stage-tracker-circle.current-for_interview {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
+  color: white;
+}
+
+.stage-tracker-circle.current-for_compliance {
+  background: var(--color-info);
+  border-color: var(--color-info);
+  color: white;
+}
+
+.stage-tracker-circle.current-for_oath_taking {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  color: white;
+}
+
+.stage-tracker-circle.current-hired {
+  background: var(--color-success);
+  border-color: var(--color-success);
   color: white;
 }
 

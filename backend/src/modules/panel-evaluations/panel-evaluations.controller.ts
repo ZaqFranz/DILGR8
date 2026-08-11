@@ -23,4 +23,9 @@ export class PanelEvaluationsController {
     const result = await this.panelEvaluationsService.tabulation(req.params.jobPostingId as string);
     res.status(200).json(result);
   };
+
+  applicantScoresOverview = async (_req: Request, res: Response): Promise<void> => {
+    const result = await this.panelEvaluationsService.applicantScoresOverview();
+    res.status(200).json(result);
+  };
 }

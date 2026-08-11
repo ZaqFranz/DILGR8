@@ -1,21 +1,18 @@
-import type { Applicant, Award, Document, LdIntervention, PrismaClient, WorkExperience } from "@prisma/client";
+import type { Applicant, Award, Document, LdIntervention, PrismaClient } from "@prisma/client";
 import type {
   CreateApplicantProfileDto,
   CreateAwardDto,
   CreateLdInterventionDto,
-  CreateWorkExperienceDto,
   UpdateApplicantProfileDto,
 } from "./applicants.dto";
 
 const fullApplicantInclude = {
-  workExperiences: true,
   ldInterventions: true,
   awards: true,
   documents: true,
 } as const;
 
 export type ApplicantWithRelations = Applicant & {
-  workExperiences: WorkExperience[];
   ldInterventions: LdIntervention[];
   awards: Award[];
   documents: Document[];
@@ -59,14 +56,6 @@ export class ApplicantsRepository {
       data: { registrationCompletedAt: new Date() },
       include: fullApplicantInclude,
     });
-  }
-
-  addWorkExperience(applicantId: string, dto: CreateWorkExperienceDto): Promise<WorkExperience> {
-    return this.db.workExperience.create({ data: { applicantId, ...dto } });
-  }
-
-  removeWorkExperience(id: string): Promise<WorkExperience> {
-    return this.db.workExperience.delete({ where: { id } });
   }
 
   addLdIntervention(applicantId: string, dto: CreateLdInterventionDto): Promise<LdIntervention> {

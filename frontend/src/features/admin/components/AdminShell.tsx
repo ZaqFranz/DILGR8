@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: "/admin/evaluations", label: "Evaluate Applicants" },
   { to: "/admin/panel-interviews", label: "Interview Panel" },
   { to: "/admin/criteria", label: "Evaluation Criteria" },
+  { to: "/admin/compliance-requirements", label: "Compliance Requirements" },
   { to: "/admin/logs", label: "History of Logs" },
 ];
 

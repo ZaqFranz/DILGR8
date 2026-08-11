@@ -49,6 +49,11 @@ import { PositionsRepository } from "@/modules/positions/positions.repository";
 import { PositionsService } from "@/modules/positions/positions.service";
 import { PositionsController } from "@/modules/positions/positions.controller";
 
+import { ComplianceRequirementsRepository } from "@/modules/compliance-requirements/compliance-requirements.repository";
+import { ComplianceItemsRepository } from "@/modules/compliance-requirements/compliance-items.repository";
+import { ComplianceRequirementsService } from "@/modules/compliance-requirements/compliance-requirements.service";
+import { ComplianceRequirementsController } from "@/modules/compliance-requirements/compliance-requirements.controller";
+
 /**
  * Composition root: the one place that wires concrete repositories into
  * services into controllers. Every class up the chain takes its
@@ -69,11 +74,13 @@ function buildContainer() {
   const panelAssignmentsRepository = new PanelAssignmentsRepository(prisma);
   const panelEvaluationsRepository = new PanelEvaluationsRepository(prisma);
   const positionsRepository = new PositionsRepository(prisma);
+  const complianceRequirementsRepository = new ComplianceRequirementsRepository(prisma);
+  const complianceItemsRepository = new ComplianceItemsRepository(prisma);
   const emailService = new EmailService();
 
   const authService = new AuthService(authRepository);
   const applicantsService = new ApplicantsService(applicantsRepository, documentsRepository);
-  const documentsService = new DocumentsService(documentsRepository, applicantsRepository, prisma);
+  const documentsService = new DocumentsService(documentsRepository, applicantsRepository, panelAssignmentsRepository, prisma);
   const jobPostingsService = new JobPostingsService(
     jobPostingsRepository,
     auditLogsRepository,
@@ -87,6 +94,8 @@ function buildContainer() {
     documentsRepository,
     auditLogsRepository,
     emailService,
+    complianceItemsRepository,
+    complianceRequirementsRepository,
   );
   const usersService = new UsersService(usersRepository, auditLogsRepository);
   const auditLogsService = new AuditLogsService(auditLogsRepository);
@@ -105,6 +114,10 @@ function buildContainer() {
     auditLogsRepository,
   );
   const positionsService = new PositionsService(positionsRepository, auditLogsRepository);
+  const complianceRequirementsService = new ComplianceRequirementsService(
+    complianceRequirementsRepository,
+    auditLogsRepository,
+  );
 
   return {
     authController: new AuthController(authService),
@@ -119,6 +132,7 @@ function buildContainer() {
     panelAssignmentsController: new PanelAssignmentsController(panelAssignmentsService),
     panelEvaluationsController: new PanelEvaluationsController(panelEvaluationsService),
     positionsController: new PositionsController(positionsService),
+    complianceRequirementsController: new ComplianceRequirementsController(complianceRequirementsService),
   };
 }
 

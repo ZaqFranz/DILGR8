@@ -44,6 +44,12 @@ export interface ScheduleInterviewInput {
   notes?: string;
 }
 
+export interface ScheduleOathTakingInput {
+  scheduledAt: Date;
+  venue: string;
+  notes?: string;
+}
+
 export interface ApplicationLetterFileInput {
   fileName: string;
   filePath: string;
@@ -150,6 +156,36 @@ export class ApplicationsRepository {
         interviewAttire: input.attire,
         interviewNotes: input.notes,
       },
+      include: applicationWithApplicantInclude,
+    }) as Promise<ApplicationWithApplicant>;
+  }
+
+  moveToCompliance(id: string): Promise<ApplicationWithApplicant> {
+    return this.db.application.update({
+      where: { id },
+      data: { status: "FOR_COMPLIANCE", complianceRequestedAt: new Date() },
+      include: applicationWithApplicantInclude,
+    }) as Promise<ApplicationWithApplicant>;
+  }
+
+  scheduleOathTaking(id: string, input: ScheduleOathTakingInput): Promise<ApplicationWithApplicant> {
+    return this.db.application.update({
+      where: { id },
+      data: {
+        status: "FOR_OATH_TAKING",
+        complianceCompletedAt: new Date(),
+        oathTakingScheduledAt: input.scheduledAt,
+        oathTakingVenue: input.venue,
+        oathTakingNotes: input.notes,
+      },
+      include: applicationWithApplicantInclude,
+    }) as Promise<ApplicationWithApplicant>;
+  }
+
+  markHired(id: string): Promise<ApplicationWithApplicant> {
+    return this.db.application.update({
+      where: { id },
+      data: { status: "HIRED", hiredAt: new Date() },
       include: applicationWithApplicantInclude,
     }) as Promise<ApplicationWithApplicant>;
   }

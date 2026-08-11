@@ -18,6 +18,9 @@ const APPLICATION_STATUS_META: Record<ApplicationStatus, { label: string; color:
   FOR_INTERVIEW: { label: APPLICATION_STATUS_LABELS.FOR_INTERVIEW, color: "var(--color-accent-hover)" },
   QUALIFIED: { label: APPLICATION_STATUS_LABELS.QUALIFIED, color: "var(--color-success)" },
   NOT_QUALIFIED: { label: APPLICATION_STATUS_LABELS.NOT_QUALIFIED, color: "var(--color-danger)" },
+  FOR_COMPLIANCE: { label: APPLICATION_STATUS_LABELS.FOR_COMPLIANCE, color: "var(--color-info)" },
+  FOR_OATH_TAKING: { label: APPLICATION_STATUS_LABELS.FOR_OATH_TAKING, color: "var(--color-accent-hover)" },
+  HIRED: { label: APPLICATION_STATUS_LABELS.HIRED, color: "var(--color-success)" },
   WITHDRAWN: { label: APPLICATION_STATUS_LABELS.WITHDRAWN, color: "var(--color-muted)" },
 };
 const APPLICATION_STATUS_ORDER: ApplicationStatus[] = [
@@ -26,6 +29,9 @@ const APPLICATION_STATUS_ORDER: ApplicationStatus[] = [
   "FOR_INTERVIEW",
   "QUALIFIED",
   "NOT_QUALIFIED",
+  "FOR_COMPLIANCE",
+  "FOR_OATH_TAKING",
+  "HIRED",
   "WITHDRAWN",
 ];
 

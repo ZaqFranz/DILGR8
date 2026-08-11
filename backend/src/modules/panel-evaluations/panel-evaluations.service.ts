@@ -5,6 +5,7 @@ import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.reposi
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
 import type {
   ApplicationForInterviewQueue,
+  ApplicationForScoresOverview,
   PanelEvaluationsRepository,
   PanelEvaluationWithScores,
 } from "./panel-evaluations.repository";
@@ -25,8 +26,33 @@ export interface TabulationResult {
   rows: TabulationRow[];
 }
 
+export interface ApplicantScoreCriterionColumn {
+  id: string;
+  name: string;
+  maxScore: number;
+}
+
+export interface ApplicantScoreRow {
+  applicationId: string;
+  applicantName: string;
+  jobPostingTitle: string;
+  perCriterion: Record<string, number | null>;
+  total: number | null;
+  panelistsSubmitted: number;
+}
+
+export interface ApplicantScoresOverview {
+  criteria: ApplicantScoreCriterionColumn[];
+  rows: ApplicantScoreRow[];
+}
+
 function totalScore(evaluation: PanelEvaluationWithScores): number {
   return evaluation.scores.reduce((sum, s) => sum + s.score, 0);
+}
+
+function average(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
 export class PanelEvaluationsService {
@@ -138,5 +164,44 @@ export class PanelEvaluationsService {
     }
 
     return { panelists, rows };
+  }
+
+  /**
+   * Cross-posting, per-criterion view for the admin's "Applicant Scores"
+   * modal (Evaluation Criteria page): every scored application's average
+   * score on each active criterion, plus its overall average total -
+   * "average" because more than one panelist may have scored the same
+   * criterion differently. Ranking by any one of these columns (criterion
+   * or overall) is left to the frontend, since which column to rank by is
+   * a display choice, not fixed data.
+   */
+  async applicantScoresOverview(): Promise<ApplicantScoresOverview> {
+    const [criteria, applications] = await Promise.all([
+      this.evaluationCriteriaRepository.findMany(true),
+      this.panelEvaluationsRepository.findApplicationsWithScores(),
+    ]);
+
+    const rows: ApplicantScoreRow[] = applications.map((application: ApplicationForScoresOverview) => {
+      const perCriterion: Record<string, number | null> = {};
+      for (const criterion of criteria) {
+        const scoresForCriterion = application.panelEvaluations
+          .map((evaluation) => evaluation.scores.find((s) => s.criterionId === criterion.id)?.score)
+          .filter((score): score is number => score !== undefined);
+        perCriterion[criterion.id] = average(scoresForCriterion);
+      }
+      return {
+        applicationId: application.id,
+        applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
+        jobPostingTitle: application.jobPosting.title,
+        perCriterion,
+        total: average(application.panelEvaluations.map(totalScore)),
+        panelistsSubmitted: application.panelEvaluations.length,
+      };
+    });
+
+    return {
+      criteria: criteria.map((c) => ({ id: c.id, name: c.name, maxScore: c.maxScore })),
+      rows,
+    };
   }
 }

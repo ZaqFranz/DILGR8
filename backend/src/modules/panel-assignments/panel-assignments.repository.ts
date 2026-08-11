@@ -43,6 +43,23 @@ export class PanelAssignmentsRepository {
     });
   }
 
+  /**
+   * Whether this panel user currently has the applicant's interview-stage
+   * application on one of their assigned boards - the scoping check for
+   * letting a panelist view that applicant's PDS while interviewing them,
+   * without opening every applicant's documents to every panelist.
+   */
+  async isPanelUserAssignedToApplicant(panelUserId: string, applicantId: string): Promise<boolean> {
+    const count = await this.db.application.count({
+      where: {
+        applicantId,
+        status: "FOR_INTERVIEW",
+        jobPosting: { panelAssignments: { some: { panelUserId } } },
+      },
+    });
+    return count > 0;
+  }
+
   delete(id: string): Promise<PanelAssignment> {
     return this.db.panelAssignment.delete({ where: { id } });
   }

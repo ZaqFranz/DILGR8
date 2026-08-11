@@ -6,6 +6,11 @@ import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
 import type { EvaluationCriterion, InterviewQueueApplication, PanelEvaluation } from "@/features/admin/types";
+// Reused as-is from the admin feature: the panel role already depends on
+// admin/types.ts and admin/api/evaluationCriteriaApi.ts for shared rubric
+// data, so this follows the same established cross-feature reuse rather
+// than forking a second copy of a generic, read-only documents modal.
+import { ApplicantDocumentsModal } from "@/features/admin/components/ApplicantDocumentsModal";
 import { submitEvaluation } from "../api/panelEvaluationsApi";
 
 interface Props {
@@ -17,6 +22,7 @@ interface Props {
 export function InterviewRow({ application, criteria, onSubmitted }: Props) {
   const toast = useToast();
   const [expanded, setExpanded] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
   const ownEvaluation = application.panelEvaluations[0] ?? null;
   const [scores, setScores] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -86,9 +92,14 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
           <span className={`badge ${ownEvaluation ? "open" : "pending"}`}>{ownEvaluation ? "Scored" : "Pending"}</span>
         </td>
         <td>
-          <button type="button" className="secondary" onClick={() => setExpanded((prev) => !prev)}>
-            {expanded ? "Cancel" : ownEvaluation ? "Update scores" : "Score"}
-          </button>
+          <div className="data-table-actions data-table-actions--uniform">
+            <button type="button" className="secondary" onClick={() => setShowDocuments(true)}>
+              View PDS
+            </button>
+            <button type="button" className="secondary" onClick={() => setExpanded((prev) => !prev)}>
+              {expanded ? "Cancel" : ownEvaluation ? "Update scores" : "Score"}
+            </button>
+          </div>
         </td>
       </tr>
       {expanded && (
@@ -137,6 +148,13 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
             </form>
           </td>
         </tr>
+      )}
+      {showDocuments && (
+        <ApplicantDocumentsModal
+          applicantId={application.applicant.id}
+          applicantName={`${application.applicant.firstName} ${application.applicant.lastName}`}
+          onClose={() => setShowDocuments(false)}
+        />
       )}
     </>
   );

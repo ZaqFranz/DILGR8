@@ -3,7 +3,14 @@ import { z } from "zod";
 import { ValidationError } from "@/shared/errors/AppError";
 import type { ApplicationsService } from "./applications.service";
 import { createApplicationSchema } from "./applications.dto";
-import type { ListApplicationsQueryDto, ScheduleInterviewDto, SetExamScoreDto, SiftApplicationDto } from "./applications.dto";
+import type {
+  ListApplicationsQueryDto,
+  ReviewComplianceItemDto,
+  ScheduleInterviewDto,
+  ScheduleOathTakingDto,
+  SetExamScoreDto,
+  SiftApplicationDto,
+} from "./applications.dto";
 
 const importExamScoresFieldsSchema = z.object({
   jobPostingId: z.string().uuid().optional(),
@@ -97,6 +104,43 @@ export class ApplicationsController {
       req.user!.id,
       req.body as ScheduleInterviewDto,
     );
+    res.status(200).json(application);
+  };
+
+  moveToCompliance = async (req: Request, res: Response): Promise<void> => {
+    const application = await this.applicationsService.moveToCompliance(req.params.id as string, req.user!.id);
+    res.status(200).json(application);
+  };
+
+  listComplianceItems = async (req: Request, res: Response): Promise<void> => {
+    const items = await this.applicationsService.listComplianceItems(req.params.id as string, {
+      id: req.user!.id,
+      role: req.user!.role,
+    });
+    res.status(200).json(items);
+  };
+
+  reviewComplianceItem = async (req: Request, res: Response): Promise<void> => {
+    const item = await this.applicationsService.reviewComplianceItem(
+      req.params.id as string,
+      req.params.itemId as string,
+      req.user!.id,
+      req.body as ReviewComplianceItemDto,
+    );
+    res.status(200).json(item);
+  };
+
+  scheduleOathTaking = async (req: Request, res: Response): Promise<void> => {
+    const application = await this.applicationsService.scheduleOathTaking(
+      req.params.id as string,
+      req.user!.id,
+      req.body as ScheduleOathTakingDto,
+    );
+    res.status(200).json(application);
+  };
+
+  markHired = async (req: Request, res: Response): Promise<void> => {
+    const application = await this.applicationsService.markHired(req.params.id as string, req.user!.id);
     res.status(200).json(application);
   };
 }

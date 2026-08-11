@@ -1,5 +1,13 @@
 import { apiRequest, apiRequestBlob } from "@/shared/api/apiClient";
-import type { AdminApplication, ExamScoreImportResult, ScheduleInterviewInput, SiftApplicationInput } from "../types";
+import type {
+  AdminApplication,
+  ApplicationComplianceItem,
+  ExamScoreImportResult,
+  ReviewComplianceItemInput,
+  ScheduleInterviewInput,
+  ScheduleOathTakingInput,
+  SiftApplicationInput,
+} from "../types";
 
 export function listApplicationsForAdmin(jobPostingId?: string): Promise<AdminApplication[]> {
   const query = jobPostingId ? `?jobPostingId=${jobPostingId}` : "";
@@ -35,4 +43,31 @@ export function scheduleInterview(id: string, input: ScheduleInterviewInput): Pr
 
 export function setExaminationScore(id: string, score: number): Promise<AdminApplication> {
   return apiRequest<AdminApplication>(`/applications/${id}/exam-score`, { method: "PATCH", body: { score } });
+}
+
+export function moveToCompliance(id: string): Promise<AdminApplication> {
+  return apiRequest<AdminApplication>(`/applications/${id}/move-to-compliance`, { method: "PATCH" });
+}
+
+export function listComplianceItems(applicationId: string): Promise<ApplicationComplianceItem[]> {
+  return apiRequest<ApplicationComplianceItem[]>(`/applications/${applicationId}/compliance-items`);
+}
+
+export function reviewComplianceItem(
+  applicationId: string,
+  itemId: string,
+  input: ReviewComplianceItemInput,
+): Promise<ApplicationComplianceItem> {
+  return apiRequest<ApplicationComplianceItem>(`/applications/${applicationId}/compliance-items/${itemId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+export function scheduleOathTaking(id: string, input: ScheduleOathTakingInput): Promise<AdminApplication> {
+  return apiRequest<AdminApplication>(`/applications/${id}/oath-taking`, { method: "PATCH", body: input });
+}
+
+export function markHired(id: string): Promise<AdminApplication> {
+  return apiRequest<AdminApplication>(`/applications/${id}/hire`, { method: "PATCH" });
 }

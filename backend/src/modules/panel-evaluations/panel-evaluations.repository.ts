@@ -2,11 +2,17 @@ import type { Application, PanelEvaluation, PanelScore, PrismaClient } from "@pr
 
 export type ApplicationForInterviewQueue = Application & {
   jobPosting: { id: string; title: string };
-  applicant: { firstName: string; lastName: string };
+  applicant: { id: string; firstName: string; lastName: string };
   panelEvaluations: (PanelEvaluation & { scores: PanelScore[] })[];
 };
 
 export type ApplicationForTabulation = Application & {
+  applicant: { firstName: string; lastName: string };
+  panelEvaluations: (PanelEvaluation & { scores: PanelScore[] })[];
+};
+
+export type ApplicationForScoresOverview = Application & {
+  jobPosting: { title: string };
   applicant: { firstName: string; lastName: string };
   panelEvaluations: (PanelEvaluation & { scores: PanelScore[] })[];
 };
@@ -33,7 +39,7 @@ export class PanelEvaluationsRepository {
       where: { jobPostingId: { in: jobPostingIds }, status: "FOR_INTERVIEW" },
       include: {
         jobPosting: { select: { id: true, title: true } },
-        applicant: { select: { firstName: true, lastName: true } },
+        applicant: { select: { id: true, firstName: true, lastName: true } },
         panelEvaluations: { where: { panelUserId }, include: { scores: true } },
       },
       orderBy: { submittedAt: "asc" },
@@ -49,6 +55,27 @@ export class PanelEvaluationsRepository {
       },
       orderBy: { submittedAt: "asc" },
     }) as Promise<ApplicationForTabulation[]>;
+  }
+
+  /**
+   * Every scored application across every job posting currently in the
+   * evaluation phase - the source list for the admin's cross-posting
+   * "Applicant Scores" view (Evaluation Criteria page). Unlike
+   * findApplicationsForTabulation, this isn't scoped to one posting, and
+   * only includes applications at least one panelist has actually scored
+   * ("some" on panelEvaluations) since an unscored application has nothing
+   * to show here.
+   */
+  findApplicationsWithScores(): Promise<ApplicationForScoresOverview[]> {
+    return this.db.application.findMany({
+      where: { status: { in: [...TABULATION_STATUSES] }, panelEvaluations: { some: {} } },
+      include: {
+        jobPosting: { select: { title: true } },
+        applicant: { select: { firstName: true, lastName: true } },
+        panelEvaluations: { include: { scores: true } },
+      },
+      orderBy: { submittedAt: "asc" },
+    }) as Promise<ApplicationForScoresOverview[]>;
   }
 
   findOwnEvaluation(applicationId: string, panelUserId: string): Promise<PanelEvaluationWithScores | null> {

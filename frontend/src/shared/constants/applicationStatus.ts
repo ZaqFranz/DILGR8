@@ -17,5 +17,8 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   FOR_INTERVIEW: "Evaluation of Applicants",
   QUALIFIED: "Qualified",
   NOT_QUALIFIED: "Not Qualified",
+  FOR_COMPLIANCE: "Compliance to Requirements",
+  FOR_OATH_TAKING: "Oath-Taking",
+  HIRED: "Hired",
   WITHDRAWN: "Withdrawn",
 };
