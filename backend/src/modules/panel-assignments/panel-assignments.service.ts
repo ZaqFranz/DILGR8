@@ -4,7 +4,12 @@ import type { UsersRepository } from "@/modules/users/users.repository";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
 import type { PanelAssignmentsRepository, PanelAssignmentWithPanelUser } from "./panel-assignments.repository";
-import type { CreatePanelAssignmentDto } from "./panel-assignments.dto";
+import type { BulkCreatePanelAssignmentsDto, CreatePanelAssignmentDto } from "./panel-assignments.dto";
+
+export interface BulkCreatePanelAssignmentsResult {
+  created: PanelAssignmentWithPanelUser[];
+  skippedCount: number;
+}
 
 export class PanelAssignmentsService {
   constructor(
@@ -48,6 +53,74 @@ export class PanelAssignmentsService {
     });
 
     return assignment;
+  }
+
+  /**
+   * Assigns every panel user in `panelUserIds` to every posting in
+   * `jobPostingIds`, skipping pairs that are already assigned. Used by the
+   * Interview Panel page's "select multiple applicants, assign a panel to
+   * all of them at once" bulk action - each selected applicant resolves to
+   * its job posting, so this is really "add these panelists to the boards
+   * of these postings" (see PanelAssignment's schema comment: assignment is
+   * keyed on posting, not on an individual applicant).
+   */
+  async bulkCreate(actorUserId: string, dto: BulkCreatePanelAssignmentsDto): Promise<BulkCreatePanelAssignmentsResult> {
+    const jobPostingIds = [...new Set(dto.jobPostingIds)];
+    const panelUserIds = [...new Set(dto.panelUserIds)];
+
+    const [postings, panelUsers, existing] = await Promise.all([
+      this.jobPostingsRepository.findByIds(jobPostingIds),
+      this.usersRepository.findByIds(panelUserIds),
+      this.panelAssignmentsRepository.findManyByPostingAndPanelUserIds(jobPostingIds, panelUserIds),
+    ]);
+
+    if (postings.length !== jobPostingIds.length) {
+      throw new NotFoundError("Job posting");
+    }
+    if (panelUsers.length !== panelUserIds.length) {
+      throw new NotFoundError("Panel user");
+    }
+    const nonPanelUser = panelUsers.find((user) => user.role !== "PANEL");
+    if (nonPanelUser) {
+      throw new ValidationError(`${nonPanelUser.email} does not have the Panel role`);
+    }
+
+    const existingKeys = new Set(existing.map((a) => `${a.jobPostingId}:${a.panelUserId}`));
+    const pairsToCreate = jobPostingIds.flatMap((jobPostingId) =>
+      panelUserIds
+        .filter((panelUserId) => !existingKeys.has(`${jobPostingId}:${panelUserId}`))
+        .map((panelUserId) => ({ jobPostingId, panelUserId })),
+    );
+    const totalRequestedPairs = jobPostingIds.length * panelUserIds.length;
+
+    if (pairsToCreate.length === 0) {
+      return { created: [], skippedCount: totalRequestedPairs };
+    }
+
+    await this.panelAssignmentsRepository.createMany(pairsToCreate);
+    const afterCreate = await this.panelAssignmentsRepository.findManyByPostingAndPanelUserIds(
+      jobPostingIds,
+      panelUserIds,
+    );
+    const createdKeys = new Set(pairsToCreate.map((p) => `${p.jobPostingId}:${p.panelUserId}`));
+    const created = afterCreate.filter((a) => createdKeys.has(`${a.jobPostingId}:${a.panelUserId}`));
+
+    const postingTitleById = new Map(postings.map((p) => [p.id, p.title]));
+    await Promise.all(
+      created.map((assignment) =>
+        this.auditLogsRepository.record({
+          actorUserId,
+          action: AuditAction.PANEL_ASSIGNED,
+          entityType: AuditEntityType.PANEL_ASSIGNMENT,
+          entityId: assignment.id,
+          details: `Assigned ${assignment.panelUser.email} to interview panel for "${
+            postingTitleById.get(assignment.jobPostingId) ?? assignment.jobPostingId
+          }"`,
+        }),
+      ),
+    );
+
+    return { created, skippedCount: totalRequestedPairs - created.length };
   }
 
   async remove(actorUserId: string, id: string): Promise<void> {

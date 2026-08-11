@@ -64,6 +64,23 @@
 
 ---
 
+## 2026-08-11 — Bulk panel assignment is add-only, and operates on postings, not applicants
+
+**Context:** Client request: let an admin select multiple applicants on `PanelAssignmentsPage` and assign a panel to all of them at once, instead of repeating the single-applicant "Assign Panel" modal one row at a time. `PanelAssignment` is keyed on `(jobPostingId, panelUserId)` — every applicant under a posting already shares one panel — so "assign N applicants at once" only has a sound meaning once translated into "add these panelists to the postings behind the selected applicants." Two follow-on questions this raised: (1) should the bulk action *replace* each posting's panel roster (mirroring the single-assign modal's add+remove diff) or only *add* to it, and (2) should a selection spanning several distinct postings be allowed at all.
+
+**Decision:** Add-only, multi-posting. New `POST /api/panel-assignments/bulk` (`{ jobPostingIds: string[], panelUserIds: string[] }`, max 200 × 50) creates every `(posting, panelist)` pair not already assigned and silently skips the rest (`skippedCount` in the response) — it never removes an existing assignment. A selection is allowed to span any number of distinct postings; the bulk modal states the posting count and titles up front and repeats the single-assign modal's "every panelist checked will see every applicant under this posting" warning, generalized to "under each of those postings."
+
+**Pros:** Add-only means the action can never surprise-unassign a panelist from an applicant the admin didn't select (a real risk with a replace-style diff once a selection is a subset of a posting's applicants) — the failure mode of doing too little is much safer than doing too much for a bulk action. Cartesian pair generation plus a single skip-existing pass keeps the operation naturally idempotent (re-running the same bulk action is always safe) and lets one bulk call reasonably cover "assign this new panelist to every posting currently missing them," not just a single posting.
+- Each newly-created pair still gets its own audit log entry (`PANEL_ASSIGNED`) in the exact format `create()` already uses (`Assigned {email} to interview panel for "{title}"`) — a bulk action's trail reads identically to N manual assigns, so `History of Logs` needed no changes to display it.
+
+**Cons:** There's no bulk-unassign counterpart — removing a panelist from several postings at once still requires the single-applicant modal's checkbox-diff, once per posting. A large selection (many postings × many panelists) can log a proportionally large number of audit rows in one action, though this is consistent with — not worse than — doing the same assignments manually.
+
+**Future impact:** If a bulk-remove need materializes, it would need an explicit "remove" bulk endpoint rather than repurposing this one as a diff, precisely to keep the "add-only, never surprises" guarantee this decision relies on.
+
+**Reference:** [api.md § Interview Panel Assignments](./api.md#interview-panel-assignments--apipanel-assignments-all-admin-only), `backend/src/modules/panel-assignments/panel-assignments.service.ts`, `frontend/src/features/admin/pages/PanelAssignmentsPage.tsx`.
+
+---
+
 ## 2026-08-07 — Evaluation implemented as a single score+decision on `Application`, not a full board evaluation-forms system
 
 **Context:** The domain spec's Evaluation phase involves 13 board members each filling per-battery-test forms, feeding a Comparative Assessment (CompAss) ranking. The immediate ask was "admin can post jobs and evaluate applicants" — a much smaller scope.

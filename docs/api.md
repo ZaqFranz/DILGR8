@@ -207,6 +207,7 @@ Every status/role key is always present with a count of `0` rather than omitted 
 |---|---|---|---|
 | GET | `/` | — | Query `?jobPostingId=<uuid>` optional. Each entry includes the assigned panelist's `{ id, email }`. |
 | POST | `/` | `{ jobPostingId, panelUserId }` | Assigns a `PANEL`-role user to a posting's interview board. 400 if `panelUserId` isn't role `PANEL`; 409 if already assigned to that posting. |
+| POST | `/bulk` | `{ jobPostingIds: string[], panelUserIds: string[] }` (max 200 × 50) | Assigns every listed panelist to every listed posting's board in one call — the Interview Panel page's "select multiple applicants, assign a panel to all of them" bulk action, resolved to postings since that's what `PanelAssignment` is keyed on. Add-only: pairs already assigned are silently skipped, never removed. 404 if any posting/panel-user id doesn't exist; 400 if any `panelUserId` isn't role `PANEL`. Returns `{ created: PanelAssignmentWithPanelUser[], skippedCount: number }`. See `docs/decisions.md`'s 2026-08-11 entry. |
 | DELETE | `/:id` | — | Unassigns. Any scores that panelist already submitted for that posting's applications are kept. |
 
 ## Panel Evaluations — `/api/panel-evaluations`

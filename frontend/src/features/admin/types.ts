@@ -216,6 +216,11 @@ export interface PanelAssignment {
   panelUser: { id: string; email: string; name: string | null };
 }
 
+export interface BulkAssignPanelResult {
+  created: PanelAssignment[];
+  skippedCount: number;
+}
+
 export interface PanelScore {
   criterionId: string;
   score: number;

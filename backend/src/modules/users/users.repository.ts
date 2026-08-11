@@ -41,6 +41,11 @@ export class UsersRepository {
     return this.db.user.findUnique({ where: { id }, select: publicUserSelect });
   }
 
+  findByIds(ids: string[]): Promise<PublicUser[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.db.user.findMany({ where: { id: { in: ids } }, select: publicUserSelect });
+  }
+
   findByEmail(email: string): Promise<User | null> {
     return this.db.user.findUnique({ where: { email } });
   }

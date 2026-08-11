@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import type { PanelAssignmentsService } from "./panel-assignments.service";
-import type { CreatePanelAssignmentDto, ListPanelAssignmentsQueryDto } from "./panel-assignments.dto";
+import type {
+  BulkCreatePanelAssignmentsDto,
+  CreatePanelAssignmentDto,
+  ListPanelAssignmentsQueryDto,
+} from "./panel-assignments.dto";
 
 export class PanelAssignmentsController {
   constructor(private readonly panelAssignmentsService: PanelAssignmentsService) {}
@@ -14,6 +18,14 @@ export class PanelAssignmentsController {
   create = async (req: Request, res: Response): Promise<void> => {
     const assignment = await this.panelAssignmentsService.create(req.user!.id, req.body as CreatePanelAssignmentDto);
     res.status(201).json(assignment);
+  };
+
+  bulkCreate = async (req: Request, res: Response): Promise<void> => {
+    const result = await this.panelAssignmentsService.bulkCreate(
+      req.user!.id,
+      req.body as BulkCreatePanelAssignmentsDto,
+    );
+    res.status(201).json(result);
   };
 
   remove = async (req: Request, res: Response): Promise<void> => {

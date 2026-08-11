@@ -84,6 +84,12 @@ export class JobPostingsRepository {
     return postings.map(toJobPostingWithEligibility);
   }
 
+  async findByIds(ids: string[]): Promise<JobPostingWithEligibility[]> {
+    if (ids.length === 0) return [];
+    const postings = await this.db.jobPosting.findMany({ where: { id: { in: ids } }, ...WITH_ELIGIBILITY });
+    return postings.map(toJobPostingWithEligibility);
+  }
+
   async close(id: string): Promise<JobPostingWithEligibility> {
     const posting = await this.db.jobPosting.update({
       where: { id },

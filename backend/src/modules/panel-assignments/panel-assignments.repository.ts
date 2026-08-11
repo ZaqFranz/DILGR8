@@ -36,6 +36,28 @@ export class PanelAssignmentsRepository {
     }) as Promise<PanelAssignmentWithPanelUser[]>;
   }
 
+  findManyByPostingAndPanelUserIds(
+    jobPostingIds: string[],
+    panelUserIds: string[],
+  ): Promise<PanelAssignmentWithPanelUser[]> {
+    return this.db.panelAssignment.findMany({
+      where: { jobPostingId: { in: jobPostingIds }, panelUserId: { in: panelUserIds } },
+      include: panelAssignmentWithPanelUserInclude,
+      orderBy: { assignedAt: "asc" },
+    }) as Promise<PanelAssignmentWithPanelUser[]>;
+  }
+
+  /**
+   * Bulk-insert (posting, panelist) pairs the service has already confirmed
+   * don't exist yet. `skipDuplicates` is just a race-safety net, not the
+   * primary de-dup mechanism - the service diffs against existing rows first
+   * so it knows exactly which pairs were newly created for the audit trail.
+   */
+  async createMany(pairs: { jobPostingId: string; panelUserId: string }[]): Promise<void> {
+    if (pairs.length === 0) return;
+    await this.db.panelAssignment.createMany({ data: pairs, skipDuplicates: true });
+  }
+
   findJobPostingIdsForPanelUser(panelUserId: string): Promise<{ jobPostingId: string }[]> {
     return this.db.panelAssignment.findMany({
       where: { panelUserId },

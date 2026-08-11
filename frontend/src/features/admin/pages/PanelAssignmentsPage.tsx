@@ -10,7 +10,12 @@ import { usePagination } from "@/shared/utils/usePagination";
 import { formatUserDisplayName } from "@/shared/utils/formatUserDisplayName";
 import { listApplicationsForAdmin } from "../api/adminApplicationsApi";
 import { listUsers } from "../api/adminUsersApi";
-import { createPanelAssignment, deletePanelAssignment, listPanelAssignments } from "../api/panelAssignmentsApi";
+import {
+  bulkCreatePanelAssignments,
+  createPanelAssignment,
+  deletePanelAssignment,
+  listPanelAssignments,
+} from "../api/panelAssignmentsApi";
 import { AdminShell } from "../components/AdminShell";
 import type { AdminApplication, AdminUser, PanelAssignment } from "../types";
 
@@ -36,6 +41,12 @@ export function PanelAssignmentsPage() {
   const [selectedPanelUserIds, setSelectedPanelUserIds] = useState<string[]>([]);
   const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [selectedApplicationIds, setSelectedApplicationIds] = useState<Set<string>>(new Set());
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkPanelUserIds, setBulkPanelUserIds] = useState<string[]>([]);
+  const [bulkModalError, setBulkModalError] = useState<string | null>(null);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [loadedApplications, loadedPanelUsers] = await Promise.all([
@@ -76,6 +87,33 @@ export function PanelAssignmentsPage() {
       matchesSearch(app, search),
   );
   const pagination = usePagination(filteredApplications, 10);
+
+  const pageItemIds = pagination.pageItems.map((application) => application.id);
+  const allOnPageSelected = pageItemIds.length > 0 && pageItemIds.every((id) => selectedApplicationIds.has(id));
+  const someOnPageSelected = pageItemIds.some((id) => selectedApplicationIds.has(id));
+  const selectedApplications = applications.filter((application) => selectedApplicationIds.has(application.id));
+  const selectedJobPostingIds = [...new Set(selectedApplications.map((application) => application.jobPosting.id))];
+
+  function toggleApplicationSelected(applicationId: string, checked: boolean) {
+    setSelectedApplicationIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(applicationId);
+      else next.delete(applicationId);
+      return next;
+    });
+  }
+
+  function togglePageSelected(checked: boolean) {
+    setSelectedApplicationIds((prev) => {
+      const next = new Set(prev);
+      pageItemIds.forEach((id) => (checked ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedApplicationIds(new Set());
+  }
 
   function openAssignModal(application: AdminApplication) {
     setAssigningApplication(application);
@@ -122,6 +160,55 @@ export function PanelAssignmentsPage() {
       setModalError(err instanceof ApiError ? err.message : "Failed to update interview panel");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function openBulkAssignModal() {
+    setBulkPanelUserIds([]);
+    setBulkModalError(null);
+    setBulkAssignOpen(true);
+  }
+
+  function closeBulkAssignModal() {
+    if (bulkSaving) return;
+    setBulkAssignOpen(false);
+    setBulkPanelUserIds([]);
+    setBulkModalError(null);
+  }
+
+  function toggleBulkPanelUser(panelUserId: string, checked: boolean) {
+    setBulkPanelUserIds((prev) => (checked ? [...prev, panelUserId] : prev.filter((id) => id !== panelUserId)));
+  }
+
+  async function handleBulkAssign() {
+    if (selectedJobPostingIds.length === 0 || bulkPanelUserIds.length === 0) return;
+
+    setBulkModalError(null);
+    setBulkSaving(true);
+    try {
+      const result = await bulkCreatePanelAssignments(selectedJobPostingIds, bulkPanelUserIds);
+      setAssignmentsByPosting((prev) => {
+        const next = { ...prev };
+        for (const jobPostingId of selectedJobPostingIds) {
+          const createdForPosting = result.created.filter((a) => a.jobPostingId === jobPostingId);
+          if (createdForPosting.length === 0) continue;
+          const current = next[jobPostingId] ?? [];
+          next[jobPostingId] = [...current, ...createdForPosting];
+        }
+        return next;
+      });
+      const postingCount = selectedJobPostingIds.length;
+      toast.success(
+        `Added ${bulkPanelUserIds.length} panelist${bulkPanelUserIds.length === 1 ? "" : "s"} to ${postingCount} job posting${postingCount === 1 ? "" : "s"}` +
+          (result.skippedCount > 0 ? ` (${result.skippedCount} already assigned).` : "."),
+      );
+      setBulkAssignOpen(false);
+      setBulkPanelUserIds([]);
+      clearSelection();
+    } catch (err) {
+      setBulkModalError(err instanceof ApiError ? err.message : "Failed to bulk-assign interview panel");
+    } finally {
+      setBulkSaving(false);
     }
   }
 
@@ -200,10 +287,51 @@ export function PanelAssignmentsPage() {
       )}
 
       {applications.length > 0 && (
+        <div className="bulk-action-bar">
+          <div>
+            {selectedApplicationIds.size > 0 ? (
+              <span>
+                {selectedApplicationIds.size} applicant{selectedApplicationIds.size === 1 ? "" : "s"} selected
+                {" — "}
+                {selectedJobPostingIds.length} job posting{selectedJobPostingIds.length === 1 ? "" : "s"}
+              </span>
+            ) : (
+              <span className="muted">Select applicants below to assign a panel to several at once.</span>
+            )}
+          </div>
+          <div className="bulk-action-bar-buttons">
+            {selectedApplicationIds.size > 0 && (
+              <button type="button" className="secondary" onClick={clearSelection}>
+                Clear selection
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={selectedApplicationIds.size === 0 || panelUsers.length === 0}
+              onClick={openBulkAssignModal}
+            >
+              Assign Panel to Selected
+            </button>
+          </div>
+        </div>
+      )}
+
+      {applications.length > 0 && (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
+                <th className="select-col">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all applicants on this page"
+                    checked={allOnPageSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someOnPageSelected && !allOnPageSelected;
+                    }}
+                    onChange={(e) => togglePageSelected(e.target.checked)}
+                  />
+                </th>
                 <th>Applicant</th>
                 <th>Email</th>
                 <th>Job Posting</th>
@@ -215,7 +343,7 @@ export function PanelAssignmentsPage() {
             <tbody>
               {filteredApplications.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="table-empty">
+                  <td colSpan={7} className="table-empty">
                     No applicants match your search/filter.
                   </td>
                 </tr>
@@ -224,6 +352,14 @@ export function PanelAssignmentsPage() {
                 const assigned = assignmentsByPosting[application.jobPosting.id] ?? [];
                 return (
                   <tr key={application.id}>
+                    <td className="select-col">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${application.applicant.firstName} ${application.applicant.lastName}`}
+                        checked={selectedApplicationIds.has(application.id)}
+                        onChange={(e) => toggleApplicationSelected(application.id, e.target.checked)}
+                      />
+                    </td>
                     <td>
                       {application.applicant.firstName} {application.applicant.lastName}
                     </td>
@@ -312,6 +448,53 @@ export function PanelAssignmentsPage() {
             </div>
           </>
         )}
+      </Modal>
+
+      <Modal
+        open={bulkAssignOpen}
+        title={`Assign Panel to ${selectedApplicationIds.size} Applicant${selectedApplicationIds.size === 1 ? "" : "s"}`}
+        onClose={closeBulkAssignModal}
+        footer={
+          <>
+            <button type="button" className="secondary" disabled={bulkSaving} onClick={closeBulkAssignModal}>
+              Cancel
+            </button>
+            <button type="button" disabled={bulkSaving || bulkPanelUserIds.length === 0} onClick={handleBulkAssign}>
+              {bulkSaving && <Spinner size="sm" onDark />}
+              {bulkSaving ? "Saving..." : "Save"}
+            </button>
+          </>
+        }
+      >
+        <p className="field-hint">
+          Covers <strong>{selectedJobPostingIds.length}</strong> job posting
+          {selectedJobPostingIds.length === 1 ? "" : "s"}:
+        </p>
+        <ul className="job-posting-list">
+          {selectedJobPostingIds.map((id) => (
+            <li key={id}>{applications.find((app) => app.jobPosting.id === id)?.jobPosting.title ?? id}</li>
+          ))}
+        </ul>
+        <ErrorBanner message={bulkModalError} />
+        <div className="field">
+          <label>Panel members to add</label>
+          {panelUsers.length === 0 ? (
+            <p className="field-hint">No Panel accounts exist yet.</p>
+          ) : (
+            <div className="checkbox-group">
+              {panelUsers.map((panelUser) => (
+                <label key={panelUser.id} className="checkbox-option">
+                  <input
+                    type="checkbox"
+                    checked={bulkPanelUserIds.includes(panelUser.id)}
+                    onChange={(e) => toggleBulkPanelUser(panelUser.id, e.target.checked)}
+                  />
+                  {formatUserDisplayName(panelUser)}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
       </Modal>
     </AdminShell>
   );
