@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { passwordPolicySchema } from "@/shared/utils/password";
 
 const roleSchema = z.enum(["APPLICANT", "ADMIN", "PANEL"]);
 // Applicants self-register via /register (ApplicantsService), not through
@@ -7,7 +8,7 @@ const adminCreatableRoleSchema = z.enum(["ADMIN", "PANEL"]);
 
 export const createUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: passwordPolicySchema,
   role: adminCreatableRoleSchema,
   name: z.string().min(1, "Full name is required").max(200),
 });

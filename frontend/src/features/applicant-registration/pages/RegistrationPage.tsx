@@ -8,6 +8,7 @@ import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
+import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS_HINT, validatePassword } from "@/shared/utils/passwordPolicy";
 import { completeRegistration, getMyProfile } from "../api/applicantsApi";
 import { listMyDocuments } from "../api/documentsApi";
 import { DemographicProfileForm } from "../components/DemographicProfileForm";
@@ -87,8 +88,9 @@ export function RegistrationPage() {
     }
     if (!password) {
       errors.password = "Password is required.";
-    } else if (password.length < 8) {
-      errors.password = "Password must be at least 8 characters.";
+    } else {
+      const passwordError = validatePassword(password);
+      if (passwordError) errors.password = passwordError;
     }
     return errors;
   }
@@ -239,12 +241,12 @@ export function RegistrationPage() {
                   id="password"
                   type="password"
                   required
-                  minLength={8}
+                  minLength={PASSWORD_MIN_LENGTH}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 <FieldError message={accountFieldErrors.password} />
-                {!accountFieldErrors.password && <p className="field-hint">At least 8 characters.</p>}
+                {!accountFieldErrors.password && <p className="field-hint">{PASSWORD_REQUIREMENTS_HINT}</p>}
               </div>
               <button type="submit" disabled={accountSubmitting}>
                 {accountSubmitting && <Spinner size="sm" onDark />}

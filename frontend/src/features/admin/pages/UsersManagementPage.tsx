@@ -9,6 +9,7 @@ import { Pagination } from "@/shared/components/Pagination";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
+import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS_HINT } from "@/shared/utils/passwordPolicy";
 import { usePagination } from "@/shared/utils/usePagination";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { AdminShell } from "../components/AdminShell";
@@ -283,11 +284,12 @@ export function UsersManagementPage() {
                 id="password"
                 type="password"
                 required
-                minLength={8}
+                minLength={PASSWORD_MIN_LENGTH}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
               />
               <FieldError message={fieldErrors.password} />
+              {!fieldErrors.password && <p className="field-hint">{PASSWORD_REQUIREMENTS_HINT}</p>}
             </div>
           )}
           <div className="field">

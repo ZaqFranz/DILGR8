@@ -8,6 +8,7 @@ import { PasswordInput } from "@/shared/components/PasswordInput";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
+import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS_HINT, validatePassword } from "@/shared/utils/passwordPolicy";
 import { changePassword } from "../api/authApi";
 
 export function ChangePasswordPage() {
@@ -29,8 +30,12 @@ export function ChangePasswordPage() {
   function validate(): Record<string, string> {
     const errors: Record<string, string> = {};
     if (!currentPassword) errors.currentPassword = "Current password is required.";
-    if (!newPassword) errors.newPassword = "New password is required.";
-    else if (newPassword.length < 8) errors.newPassword = "New password must be at least 8 characters.";
+    if (!newPassword) {
+      errors.newPassword = "New password is required.";
+    } else {
+      const passwordError = validatePassword(newPassword);
+      if (passwordError) errors.newPassword = passwordError;
+    }
     if (confirmPassword !== newPassword) errors.confirmPassword = "Passwords do not match.";
     return errors;
   }
@@ -100,12 +105,12 @@ export function ChangePasswordPage() {
             <PasswordInput
               id="newPassword"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
             <FieldError message={fieldErrors.newPassword} />
-            {!fieldErrors.newPassword && <p className="field-hint">At least 8 characters.</p>}
+            {!fieldErrors.newPassword && <p className="field-hint">{PASSWORD_REQUIREMENTS_HINT}</p>}
           </div>
           <div className={fieldClass("confirmPassword")}>
             <label htmlFor="confirmPassword" className="required">
