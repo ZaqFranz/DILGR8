@@ -1,6 +1,7 @@
-import { NotFoundError } from "@/shared/errors/AppError";
+import { NotFoundError, ValidationError } from "@/shared/errors/AppError";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
+import type { UsersRepository } from "@/modules/users/users.repository";
 import type { PositionsRepository, PositionWithPanelMembers } from "./positions.repository";
 import type { CreatePositionDto, UpdatePositionDto } from "./positions.dto";
 
@@ -8,9 +9,31 @@ export class PositionsService {
   constructor(
     private readonly positionsRepository: PositionsRepository,
     private readonly auditLogsRepository: AuditLogsRepository,
+    private readonly usersRepository: UsersRepository,
   ) {}
 
+  // Mirrors PanelAssignmentsService's create()/bulkCreate() validation - a
+  // Position's panelUserIds become real PanelAssignment rows the moment a
+  // job posting is created from it (JobPostingsService.autoAssignPanelFromPosition()),
+  // so a non-PANEL id here would silently produce an assignment nobody can
+  // ever act on (the panel-evaluations routes gate on the caller's own role,
+  // not the assignment record). The admin UI's picker already only offers
+  // PANEL users, so this is defense-in-depth for direct API calls, not a
+  // day-to-day guard.
+  private async assertPanelUserIds(panelUserIds: string[] | undefined): Promise<void> {
+    if (!panelUserIds || panelUserIds.length === 0) return;
+    const users = await this.usersRepository.findByIds(panelUserIds);
+    if (users.length !== panelUserIds.length) {
+      throw new NotFoundError("Panel user");
+    }
+    const nonPanelUser = users.find((user) => user.role !== "PANEL");
+    if (nonPanelUser) {
+      throw new ValidationError(`${nonPanelUser.email} does not have the Panel role`);
+    }
+  }
+
   async create(actorUserId: string, dto: CreatePositionDto): Promise<PositionWithPanelMembers> {
+    await this.assertPanelUserIds(dto.panelUserIds);
     const position = await this.positionsRepository.create(dto);
 
     await this.auditLogsRepository.record({
@@ -38,6 +61,7 @@ export class PositionsService {
 
   async update(actorUserId: string, id: string, dto: UpdatePositionDto): Promise<PositionWithPanelMembers> {
     const existing = await this.findById(id);
+    await this.assertPanelUserIds(dto.panelUserIds);
     const updated = await this.positionsRepository.update(id, dto);
 
     await this.auditLogsRepository.record({

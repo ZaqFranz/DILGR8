@@ -41,6 +41,14 @@ export class UsersService {
       throw new NotFoundError("User");
     }
 
+    // Same reasoning as the self-delete guard in remove() below: changing
+    // your own role away from ADMIN can lock every admin out of the admin
+    // panel with no in-app recovery path, and unlike delete this wasn't
+    // guarded at all before.
+    if (actorUserId === userId && dto.role && dto.role !== target.role) {
+      throw new ValidationError("You cannot change your own role");
+    }
+
     if (dto.email && dto.email !== target.email) {
       const existing = await this.usersRepository.findByEmail(dto.email);
       if (existing) {

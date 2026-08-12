@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "@/shared/components/Layout";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import { useAuth } from "@/shared/auth/AuthContext";
+import { LandingPage } from "@/features/marketing/pages/LandingPage";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
 import { ForgotPasswordPage } from "@/features/auth/pages/ForgotPasswordPage";
 import { ChangePasswordPage } from "@/features/auth/pages/ChangePasswordPage";
@@ -28,7 +29,7 @@ const HOME_BY_ROLE: Record<"ADMIN" | "APPLICANT" | "PANEL", string> = {
 function HomeRedirect() {
   const { isAuthenticated, isLoading, user, registrationComplete } = useAuth();
   if (isLoading || (isAuthenticated && registrationComplete === null)) return null;
-  if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
+  if (!isAuthenticated || !user) return <LandingPage />;
   if (user.mustChangePassword) return <Navigate to="/account/password" replace />;
   if (user.role === "APPLICANT" && registrationComplete === false) {
     return <Navigate to="/register" replace />;

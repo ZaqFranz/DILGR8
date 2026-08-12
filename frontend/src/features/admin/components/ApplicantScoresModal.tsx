@@ -24,7 +24,7 @@ function formatScore(value: number | null): string {
  * score) - a display choice, so the sort/rank happens here rather than in
  * the API, which just returns the raw per-criterion averages.
  */
-function rankRows(rows: ApplicantScoreRow[], rankBy: string): (ApplicantScoreRow & { rank: number | null })[] {
+export function rankRows(rows: ApplicantScoreRow[], rankBy: string): (ApplicantScoreRow & { rank: number | null })[] {
   const valueOf = (row: ApplicantScoreRow): number | null => (rankBy === OVERALL ? row.total : row.perCriterion[rankBy] ?? null);
   const sorted = [...rows].sort((a, b) => {
     const aValue = valueOf(a);
@@ -34,11 +34,19 @@ function rankRows(rows: ApplicantScoreRow[], rankBy: string): (ApplicantScoreRow
     if (bValue === null) return -1;
     return bValue - aValue;
   });
-  let rank = 1;
-  return sorted.map((row) => {
+  // Standard competition ranking (1224...): rows with an equal value share a
+  // rank, and the next distinct value's rank is its 1-based position in the
+  // sorted list - not just "previous rank + 1", which would break ties
+  // arbitrarily by array order instead of ranking them the same.
+  let previousValue: number | null = null;
+  let previousRank = 1;
+  return sorted.map((row, index) => {
     const value = valueOf(row);
     if (value === null) return { ...row, rank: null };
-    return { ...row, rank: rank++ };
+    const rank = value === previousValue ? previousRank : index + 1;
+    previousValue = value;
+    previousRank = rank;
+    return { ...row, rank };
   });
 }
 

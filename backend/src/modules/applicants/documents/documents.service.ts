@@ -11,6 +11,15 @@ export interface DocumentViewer {
   role: Role;
 }
 
+/** A Document as it should ever reach a client - never `filePath` (the server's absolute on-disk path), which every caller of the endpoints below used to receive verbatim regardless of role. */
+export type PublicDocument = Omit<Document, "filePath">;
+
+export function toPublicDocument(document: Document): PublicDocument {
+  const { filePath, ...rest } = document;
+  void filePath;
+  return rest;
+}
+
 // Interview panelists never get the applicant's full document set - only
 // the PDS itself (PDF copy and/or the CS Form 212 workbook), and only for
 // an applicant currently on one of their assigned interview boards. Keeps
@@ -73,7 +82,7 @@ export class DocumentsService {
     private readonly db: PrismaClient,
   ) {}
 
-  async upload(userId: string, fields: UploadDocumentFieldsDto, file?: UploadedFileInfo): Promise<Document> {
+  async upload(userId: string, fields: UploadDocumentFieldsDto, file?: UploadedFileInfo): Promise<PublicDocument> {
     if (!file) {
       throw new ValidationError("A file is required");
     }
@@ -151,15 +160,17 @@ export class DocumentsService {
       ...(fields.complianceItemId ? { complianceItemId: fields.complianceItemId } : {}),
     };
 
-    return this.documentsRepository.create(input);
+    const created = await this.documentsRepository.create(input);
+    return toPublicDocument(created);
   }
 
-  async listMine(userId: string): Promise<Document[]> {
+  async listMine(userId: string): Promise<PublicDocument[]> {
     const applicant = await this.applicantsRepository.findByUserId(userId);
     if (!applicant) {
       throw new NotFoundError("Applicant profile");
     }
-    return this.documentsRepository.findByApplicant(applicant.id);
+    const documents = await this.documentsRepository.findByApplicant(applicant.id);
+    return documents.map(toPublicDocument);
   }
 
   /**
@@ -168,7 +179,7 @@ export class DocumentsService {
    * (panel, PDS only - and only while that applicant is on one of the
    * panelist's assigned interview boards).
    */
-  async listForApplicant(applicantId: string, viewer: DocumentViewer): Promise<Document[]> {
+  async listForApplicant(applicantId: string, viewer: DocumentViewer): Promise<PublicDocument[]> {
     const applicant = await this.applicantsRepository.findById(applicantId);
     if (!applicant) {
       throw new NotFoundError("Applicant profile");
@@ -176,9 +187,9 @@ export class DocumentsService {
     const documents = await this.documentsRepository.findByApplicant(applicantId);
     if (viewer.role === "PANEL") {
       await this.assertPanelistMayViewApplicant(viewer.id, applicantId);
-      return documents.filter((doc) => PANEL_VISIBLE_DOCUMENT_TYPES.has(doc.type));
+      return documents.filter((doc) => PANEL_VISIBLE_DOCUMENT_TYPES.has(doc.type)).map(toPublicDocument);
     }
-    return documents;
+    return documents.map(toPublicDocument);
   }
 
   /**

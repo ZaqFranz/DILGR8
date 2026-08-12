@@ -113,7 +113,7 @@ function buildContainer() {
     evaluationCriteriaRepository,
     auditLogsRepository,
   );
-  const positionsService = new PositionsService(positionsRepository, auditLogsRepository);
+  const positionsService = new PositionsService(positionsRepository, auditLogsRepository, usersRepository);
   const complianceRequirementsService = new ComplianceRequirementsService(
     complianceRequirementsRepository,
     auditLogsRepository,

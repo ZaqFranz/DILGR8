@@ -55,6 +55,27 @@ function average(values: number[]): number | null {
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
+/**
+ * Assigns standard competition ranks (1224...) to `rows` by descending
+ * `average`, mutating each row's `rank` in place: rows with an equal
+ * average share the same rank, and the next distinct average's rank is its
+ * 1-based position in the sorted order - not "previous rank + 1", which
+ * would break ties arbitrarily by array order instead of ranking them the
+ * same. Rows with a null average (nothing to rank) are left with `rank:
+ * null` and excluded from the ranking entirely. Exported standalone so it
+ * can be unit-tested without spinning up the full service.
+ */
+export function assignCompetitionRanks<T extends { average: number | null; rank: number | null }>(rows: T[]): T[] {
+  const ranked = [...rows].sort((a, b) => (b.average ?? -1) - (a.average ?? -1));
+  let previousAverage: number | null = null;
+  ranked.forEach((row, index) => {
+    if (row.average === null) return;
+    row.rank = row.average === previousAverage ? ranked[index - 1]!.rank : index + 1;
+    previousAverage = row.average;
+  });
+  return rows;
+}
+
 export class PanelEvaluationsService {
   constructor(
     private readonly panelEvaluationsRepository: PanelEvaluationsRepository,
@@ -154,14 +175,7 @@ export class PanelEvaluationsService {
       };
     });
 
-    const ranked = [...rows].sort((a, b) => (b.average ?? -1) - (a.average ?? -1));
-    let rank = 1;
-    for (const row of ranked) {
-      if (row.average !== null) {
-        row.rank = rank;
-        rank += 1;
-      }
-    }
+    assignCompetitionRanks(rows);
 
     return { panelists, rows };
   }

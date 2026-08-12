@@ -6,14 +6,18 @@ export function Layout({ children }: { children: ReactNode }) {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isLandingPage = location.pathname === "/" && !isAuthenticated;
   const isAdminSection = location.pathname.startsWith("/admin");
-  // The login page and the registration flow's unauthenticated "create an
-  // account" step get the full-bleed branded .auth-page treatment - the top
-  // nav (which would only offer "Log in"/"Register" links anyway, i.e.
-  // exactly where the visitor already is) is dropped for a cleaner, more
-  // immersive full-page look. The rest of the registration wizard, once
+  // The landing page, login page, and the registration flow's unauthenticated
+  // "create an account" step all get their own full-bleed treatment with a
+  // self-contained nav (logo + Log in/Register) - the default top nav would
+  // only offer the same two links, so it's dropped for a cleaner, more
+  // immersive first screen. The rest of the registration wizard, once
   // authenticated, keeps the normal header.
-  const hideHeader = location.pathname === "/login" || (location.pathname === "/register" && !isAuthenticated);
+  const hideHeader =
+    (location.pathname === "/" && !isAuthenticated) ||
+    location.pathname === "/login" ||
+    (location.pathname === "/register" && !isAuthenticated);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -118,7 +122,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </nav>
         </header>
       )}
-      <main className={isAdminSection ? "app-main app-main--full" : "app-main"}>{children}</main>
+      <main className={isAdminSection || isLandingPage ? "app-main app-main--full" : "app-main"}>{children}</main>
     </div>
   );
 }

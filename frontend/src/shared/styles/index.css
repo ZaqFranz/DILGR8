@@ -585,12 +585,14 @@ button.danger:hover {
   background: #8f1e17;
 }
 
-button.accent {
+button.accent,
+a.button.accent {
   background: var(--color-accent);
   color: #3a2c00;
 }
 
-button.accent:hover {
+button.accent:hover,
+a.button.accent:hover {
   background: var(--color-accent-hover);
 }
 
@@ -1632,6 +1634,444 @@ tbody tr:last-child td {
   overflow-wrap: anywhere;
 }
 
+/* ---------- Landing ---------- */
+
+.landing-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 2rem;
+}
+
+.landing-nav .brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--color-primary);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.landing-nav .brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  color: var(--color-accent);
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.landing-nav nav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.landing-nav nav a:not(.button) {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.landing-nav nav a:not(.button):hover {
+  color: var(--color-primary);
+}
+
+.landing-hero {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 20%, var(--color-primary-hover) 0%, transparent 55%),
+    linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 70%, #061c37 100%);
+  border-top: 3px solid var(--color-accent);
+  border-bottom: 3px solid var(--color-accent);
+  padding: 4.5rem 1.5rem;
+}
+
+.landing-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/dilg-logo.webp");
+  background-repeat: no-repeat;
+  background-position: calc(100% + 160px) calc(100% + 120px);
+  background-size: 720px 720px;
+  filter: blur(24px);
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+.landing-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.landing-hero-logo {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  padding: 6px;
+  box-shadow: var(--shadow-lg);
+  margin: 0 auto 1.25rem;
+  display: block;
+}
+
+.landing-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #d9c896;
+  margin: 0 0 0.75rem;
+}
+
+.landing-hero h1 {
+  color: #ffffff;
+  font-size: clamp(1.7rem, 4vw, 2.4rem);
+  margin-bottom: 0.9rem;
+}
+
+.landing-lede {
+  color: #d7e2f2;
+  font-size: 1.02rem;
+  line-height: 1.6;
+  margin: 0 0 2rem;
+}
+
+.landing-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.landing-hero a.button.ghost {
+  background: transparent;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.landing-hero a.button.ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.landing-section {
+  width: 75%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+}
+
+.landing-section--alt {
+  background: var(--color-surface-alt);
+  max-width: none;
+}
+
+.landing-section--alt > * {
+  width: 75%;
+  max-width: 1600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.landing-section h2 {
+  font-size: 1.4rem;
+}
+
+/* ---------- Landing: scroll reveal ---------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.reveal--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ---------- Landing: open positions ---------- */
+
+.landing-positions-loading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.landing-positions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 2rem;
+  text-align: left;
+}
+
+.landing-positions-more {
+  align-self: center;
+  margin-top: 0.5rem;
+}
+
+.landing-position-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.landing-position-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 1.1rem 1.35rem;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.landing-position-header:hover {
+  background: var(--color-surface-alt);
+}
+
+.landing-position-header h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+
+.landing-position-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.landing-position-closing {
+  color: var(--color-warning);
+  font-weight: 700;
+}
+
+.landing-position-caret {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  transition: transform 0.2s ease;
+}
+
+.landing-position-caret--open {
+  transform: rotate(180deg);
+}
+
+/* CSS-only accordion slide: the collapse wrapper is the grid item whose row
+   track is animated between 0fr (collapsed) and 1fr (open, i.e. sized to
+   its content) - grid-template-rows is animatable, unlike height:auto,
+   so this slides smoothly to the content's real height with no JS
+   measurement. The inner .landing-position-body needs min-height: 0 (grid
+   items default to min-height: auto, which would stop the row from ever
+   shrinking below its content's height) and overflow: hidden (clips the
+   content, including its own border-top, while the row is still animating). */
+.landing-position-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.landing-position-collapse--open {
+  grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-position-collapse {
+    transition: none;
+  }
+}
+
+.landing-position-body {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 1.35rem 1.35rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.landing-position-body p {
+  margin-top: 1rem;
+}
+
+.landing-position-body .posting-meta {
+  margin: 0.75rem 0 1.25rem;
+}
+
+/* ---------- Landing: interactive pipeline ---------- */
+
+.landing-pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 2rem 0 0;
+}
+
+.landing-pipeline-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.5rem 1rem 0.5rem 0.5rem;
+}
+
+.landing-pipeline-tab:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.landing-pipeline-tab--active,
+.landing-pipeline-tab--active:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.landing-pipeline-tab--active .landing-pipeline-num {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.landing-pipeline-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.landing-pipeline-tab:not(.landing-pipeline-tab--active) .landing-pipeline-num {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.landing-pipeline-detail {
+  max-width: 60ch;
+  margin: 1.75rem auto 0;
+  padding: 1.1rem 1.35rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  animation: landing-fade-in 0.25s ease;
+}
+
+.landing-pipeline-detail p {
+  margin: 0;
+  color: var(--color-text);
+}
+
+@keyframes landing-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Landing: FAQ accordion ---------- */
+
+.landing-faq {
+  width: 100%;
+  margin: 2rem auto 0;
+  text-align: left;
+}
+
+.landing-faq-item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.landing-faq-question {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 1rem 0.25rem;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.landing-faq-question:hover {
+  background: none;
+  color: var(--color-primary);
+}
+
+.landing-faq-caret {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  color: var(--color-accent-hover);
+}
+
+.landing-faq-answer {
+  margin: 0 0.25rem 1.1rem;
+  color: var(--color-text-secondary);
+  animation: landing-fade-in 0.2s ease;
+}
+
+.landing-footer {
+  text-align: center;
+  padding: 3.5rem 1.5rem 4rem;
+}
+
+.landing-footer h2 {
+  font-size: 1.3rem;
+  margin-bottom: 1.25rem;
+}
+
 @media (max-width: 720px) {
   .admin-shell {
     flex-direction: column;
@@ -1678,5 +2118,20 @@ tbody tr:last-child td {
 
   .auth-form {
     max-width: 100%;
+  }
+
+  .landing-section,
+  .landing-section--alt > * {
+    width: 100%;
+  }
+
+  .landing-position-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .landing-position-caret {
+    align-self: flex-end;
+    margin-top: -1.5rem;
   }
 }

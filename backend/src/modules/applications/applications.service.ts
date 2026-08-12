@@ -1,8 +1,9 @@
 import type { Role } from "@prisma/client";
-import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
 import type { ApplicantsRepository } from "@/modules/applicants/applicants.repository";
 import type { DocumentsRepository } from "@/modules/applicants/documents/documents.repository";
-import type { UploadedFileInfo } from "@/modules/applicants/documents/documents.service";
+import { toPublicDocument, type UploadedFileInfo } from "@/modules/applicants/documents/documents.service";
+import { escapeHtml } from "@/shared/utils/escapeHtml";
 import type { JobPostingsRepository } from "@/modules/job-postings/job-postings.repository";
 import { JobPostingsService } from "@/modules/job-postings/job-postings.service";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
@@ -96,6 +97,19 @@ function buildNameVariants(applicant: {
 export interface ExamScoreImportResult {
   matched: { applicationId: string; applicantName: string; score: number }[];
   unmatched: { name: string; score: number; jobTitle?: string }[];
+}
+
+// Same PublicDocument stripping as DocumentsService, applied to the
+// documents nested inside a compliance item response - this endpoint's
+// ApplicationComplianceItemWithDetails embeds full Document rows (including
+// the server's absolute filePath) the same way DocumentsService's own
+// list endpoints used to, before those were fixed to strip it too.
+type PublicComplianceItem = Omit<ApplicationComplianceItemWithDetails, "documents"> & {
+  documents: ReturnType<typeof toPublicDocument>[];
+};
+
+function toPublicComplianceItem(item: ApplicationComplianceItemWithDetails): PublicComplianceItem {
+  return { ...item, documents: item.documents.map(toPublicDocument) };
 }
 
 export class ApplicationsService {
@@ -536,7 +550,7 @@ export class ApplicationsService {
     const { subject, html } = regretEmail(
       `${application.applicant.firstName} ${application.applicant.lastName}`,
       application.jobPosting.title,
-      `We regret to inform you that, after the panel evaluation for <strong>${application.jobPosting.title}</strong>, you were not selected to proceed to the next stage.`,
+      `We regret to inform you that, after the panel evaluation for <strong>${escapeHtml(application.jobPosting.title)}</strong>, you were not selected to proceed to the next stage.`,
       dto.remarks,
     );
     await this.emailService.send({ to: application.applicant.user.email, subject, html });
@@ -544,11 +558,20 @@ export class ApplicationsService {
     return updated;
   }
 
-  /** APPLICANT can only read their own application's checklist; ADMIN can read any - same role-branch shape as DocumentsService.listForApplicant(). */
+  /**
+   * APPLICANT can only read their own application's checklist; ADMIN can
+   * read any. PANEL has no legitimate reason to see Compliance to
+   * Requirements at all (that stage comes after their part of the pipeline,
+   * and the panel frontend never calls this route) - forbidden explicitly
+   * rather than falling through the same "any non-APPLICANT" branch ADMIN
+   * uses, which previously left this the one endpoint where PANEL wasn't
+   * scoped to their assigned applicants the way DocumentsService.listForApplicant()
+   * scopes them to PDS-only + assignment-checked.
+   */
   async listComplianceItems(
     applicationId: string,
     viewer: { id: string; role: Role },
-  ): Promise<ApplicationComplianceItemWithDetails[]> {
+  ): Promise<PublicComplianceItem[]> {
     const application = await this.applicationsRepository.findById(applicationId);
     if (!application) {
       throw new NotFoundError("Application");
@@ -558,8 +581,11 @@ export class ApplicationsService {
       if (!applicant || application.applicantId !== applicant.id) {
         throw new NotFoundError("Application");
       }
+    } else if (viewer.role !== "ADMIN") {
+      throw new ForbiddenError("You do not have access to this application's compliance checklist");
     }
-    return this.complianceItemsRepository.findByApplication(applicationId);
+    const items = await this.complianceItemsRepository.findByApplication(applicationId);
+    return items.map(toPublicComplianceItem);
   }
 
   /** Verifying/rejecting requires the applicant to have already uploaded a COMPLIANCE_PROOF document for this item - there's nothing to review otherwise. */
@@ -568,7 +594,7 @@ export class ApplicationsService {
     itemId: string,
     actorUserId: string,
     dto: ReviewComplianceItemDto,
-  ): Promise<ApplicationComplianceItemWithDetails> {
+  ): Promise<PublicComplianceItem> {
     const item = await this.complianceItemsRepository.findById(itemId);
     if (!item || item.applicationId !== applicationId) {
       throw new NotFoundError("Compliance item");
@@ -591,7 +617,7 @@ export class ApplicationsService {
       details: `Reviewed "${item.requirement.name}" for application ${applicationId}: ${dto.status}`,
     });
 
-    return updated;
+    return toPublicComplianceItem(updated);
   }
 
   /** Bundles the FOR_COMPLIANCE -> FOR_OATH_TAKING transition with the ceremony's schedule - same shape as scheduleInterview(). */
@@ -677,7 +703,7 @@ export class ApplicationsService {
     const { subject, html } = regretEmail(
       `${application.applicant.firstName} ${application.applicant.lastName}`,
       application.jobPosting.title,
-      `We regret to inform you that your application for <strong>${application.jobPosting.title}</strong> did not proceed to oath-taking because the compliance requirements were not completed.`,
+      `We regret to inform you that your application for <strong>${escapeHtml(application.jobPosting.title)}</strong> did not proceed to oath-taking because the compliance requirements were not completed.`,
       dto.remarks,
     );
     await this.emailService.send({ to: application.applicant.user.email, subject, html });

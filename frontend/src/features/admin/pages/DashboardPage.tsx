@@ -9,7 +9,7 @@ import { AdminShell } from "../components/AdminShell";
 import { getDashboardSummary } from "../api/dashboardApi";
 import type { ApplicationStatus, DashboardSummary } from "../types";
 
-const USER_MANUAL_URL = "https://claude.ai/code/artifact/82ebc69d-0528-4eb9-bb7a-ea4866fbbf26";
+const USER_MANUAL_URL = "/DILGR8RSP-User-Manual.docx";
 
 // Label text is the single shared APPLICATION_STATUS_LABELS source (kept in
 // sync with the admin Evaluate Applicants table and the applicant-facing My
@@ -173,8 +173,7 @@ export function DashboardPage() {
           <a
             className="button secondary"
             href={USER_MANUAL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+            download="DILGR8RSP User Manual.docx"
           >
             User Manual
           </a>
