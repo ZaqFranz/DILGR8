@@ -52,9 +52,26 @@ export function decisionEmail(applicantName: string, jobTitle: string, decision:
       html: `<p>Hi ${applicantName},</p><p>Congratulations - you've met the qualification standards for <strong>${jobTitle}</strong> and are invited to take the DILG Pre-Qualifying Examination (PQE). Schedule details will follow separately.</p>${FOOTER}`,
     };
   }
+  return regretEmail(
+    applicantName,
+    jobTitle,
+    `After review, your application for <strong>${jobTitle}</strong> was marked <strong>not qualified</strong> against the position's qualification standards.`,
+  );
+}
+
+/**
+ * The single "regret letter" used everywhere an applicant fails to advance
+ * to the pipeline's next step - Sifting (decisionEmail's NOT_QUALIFIED
+ * branch above), the panel evaluation (rejectAfterInterview), and Compliance
+ * to Requirements (rejectAfterCompliance) all route through this one
+ * template so the applicant hears the same voice regardless of which stage
+ * turned them down. `reason` is the one sentence specific to that stage;
+ * `remarks` is the admin's optional free-text note for that decision.
+ */
+export function regretEmail(applicantName: string, jobTitle: string, reason: string, remarks?: string): EmailContent {
   return {
     subject: `Application update - ${jobTitle}`,
-    html: `<p>Hi ${applicantName},</p><p>After review, your application for <strong>${jobTitle}</strong> was marked <strong>not qualified</strong> against the position's qualification standards. Thank you for your interest in DILG.</p>${FOOTER}`,
+    html: `<p>Hi ${applicantName},</p><p>${reason}</p>${remarks ? `<p>${remarks}</p>` : ""}<p>We appreciate the time and effort you invested in this process and encourage you to apply again for future DILG opportunities that match your qualifications.</p>${FOOTER}`,
   };
 }
 

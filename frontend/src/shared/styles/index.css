@@ -676,7 +676,9 @@ body.admin-account button:not(:disabled):not(.modal-close):not(.user-menu-trigge
 }
 
 .badge.closed,
-.badge.not_qualified {
+.badge.not_qualified,
+.badge.not_selected,
+.badge.disqualified {
   background: var(--color-danger-bg);
   color: var(--color-danger);
 }

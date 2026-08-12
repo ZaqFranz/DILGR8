@@ -8,6 +8,8 @@ export type ApplicationStatus =
   | "QUALIFIED"
   | "NOT_QUALIFIED"
   | "FOR_COMPLIANCE"
+  | "NOT_SELECTED"
+  | "DISQUALIFIED"
   | "FOR_OATH_TAKING"
   | "HIRED"
   | "WITHDRAWN";
@@ -32,6 +34,8 @@ export interface AdminApplication {
   oathTakingVenue: string | null;
   oathTakingNotes: string | null;
   hiredAt: string | null;
+  rejectedAt: string | null;
+  rejectionRemarks: string | null;
   jobPosting: JobPosting;
   applicant: {
     id: string;
@@ -126,6 +130,10 @@ export interface AdminDocument {
 
 export interface SiftApplicationInput {
   decision: EvaluationDecision;
+  remarks?: string;
+}
+
+export interface RejectApplicationInput {
   remarks?: string;
 }
 

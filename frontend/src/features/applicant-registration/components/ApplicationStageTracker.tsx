@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode, type SVGProps } from "react";
+import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
 import type { Application } from "../api/applicationsApi";
 
 type ApplicationStatus = Application["status"];
@@ -34,16 +35,33 @@ const STAGE_ORDER: { key: string; label: string }[] = [
 // here, mid-pipeline, well before the PQE and interview. NOT_QUALIFIED is
 // terminal (rejected at sifting); QUALIFIED continues on to Examination/
 // Interview, so it maps past the Sifting node rather than resolving on it.
+// NOT_SELECTED/DISQUALIFIED are the same kind of terminal "regret" result,
+// just from a later stage (see ApplicationsService.rejectAfterInterview()/
+// rejectAfterCompliance()) - each resolves on the node it actually happened
+// at (Evaluation of Applicants / Compliance to Requirements) rather than
+// being dragged back to the Sifting node the way a single hardcoded check
+// would.
 const STATUS_TO_STAGE_INDEX: Record<ApplicationStatus, number> = {
   SUBMITTED: 0,
   UNDER_SIFTING: 1,
   NOT_QUALIFIED: 1,
   QUALIFIED: 2,
   FOR_INTERVIEW: 3,
+  NOT_SELECTED: 3,
   FOR_COMPLIANCE: 4,
+  DISQUALIFIED: 4,
   FOR_OATH_TAKING: 5,
   HIRED: 6,
   WITHDRAWN: -1, // handled separately, not part of the linear stepper
+};
+
+// Which terminal "regret" status, if any, resolves in place on a given
+// stage node - one entry per stage that can end in rejection instead of
+// advancing normally.
+const REJECTION_STATUS_BY_STAGE: Partial<Record<string, ApplicationStatus>> = {
+  UNDER_SIFTING: "NOT_QUALIFIED",
+  FOR_INTERVIEW: "NOT_SELECTED",
+  FOR_COMPLIANCE: "DISQUALIFIED",
 };
 
 interface Props {
@@ -73,7 +91,7 @@ export function ApplicationStageTracker({ status }: Props) {
   return (
     <div className="stage-tracker">
       {STAGE_ORDER.map((stage, i) => {
-        const isSifting = stage.key === "UNDER_SIFTING";
+        const rejectionStatus = REJECTION_STATUS_BY_STAGE[stage.key];
         const reached = i <= currentIndex;
         const isCurrent = i === currentIndex;
 
@@ -81,9 +99,9 @@ export function ApplicationStageTracker({ status }: Props) {
         let label = stage.label;
         let content: ReactNode = i + 1;
 
-        if (isSifting && isCurrent && status === "NOT_QUALIFIED") {
+        if (rejectionStatus && isCurrent && status === rejectionStatus) {
           circleClass += " not-qualified";
-          label = "Not Qualified";
+          label = APPLICATION_STATUS_LABELS[status];
           content = <XIcon width={14} height={14} />;
         } else if (reached && !isCurrent) {
           circleClass += " completed";

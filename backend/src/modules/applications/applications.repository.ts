@@ -190,6 +190,22 @@ export class ApplicationsRepository {
     }) as Promise<ApplicationWithApplicant>;
   }
 
+  rejectAfterInterview(id: string, remarks?: string): Promise<ApplicationWithApplicant> {
+    return this.db.application.update({
+      where: { id },
+      data: { status: "NOT_SELECTED", rejectedAt: new Date(), rejectionRemarks: remarks },
+      include: applicationWithApplicantInclude,
+    }) as Promise<ApplicationWithApplicant>;
+  }
+
+  rejectAfterCompliance(id: string, remarks?: string): Promise<ApplicationWithApplicant> {
+    return this.db.application.update({
+      where: { id },
+      data: { status: "DISQUALIFIED", rejectedAt: new Date(), rejectionRemarks: remarks },
+      include: applicationWithApplicantInclude,
+    }) as Promise<ApplicationWithApplicant>;
+  }
+
   /** Manual, single-application counterpart to bulkSetExaminationScores below (the Excel import path) - same fields, one row at a time. */
   setExaminationScore(id: string, score: number): Promise<ApplicationWithApplicant> {
     return this.db.application.update({

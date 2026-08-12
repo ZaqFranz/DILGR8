@@ -4,10 +4,23 @@ import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.reposi
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
 import type { PanelAssignmentsRepository } from "@/modules/panel-assignments/panel-assignments.repository";
 import type { PositionsRepository } from "@/modules/positions/positions.repository";
+import { formatMonthlySalary, SALARY_GRADE_MONTHLY_SALARY } from "@/shared/constants/salaryGrades";
 import type { JobPostingsRepository, JobPostingWithEligibility } from "./job-postings.repository";
 import type { CreateJobPostingDto, UpdateJobPostingDto } from "./job-postings.dto";
 
 const APPLICATION_WINDOW_DAYS = 10;
+
+// dto.salaryGrade is already constrained to SALARY_GRADE_VALUES by
+// createJobPostingSchema/updateJobPostingSchema (a zod enum built from this
+// same table's keys), so the lookup can't actually miss - the guard is
+// defense in depth, not a real runtime path.
+function monthlySalaryForGrade(salaryGrade: string): string {
+  const amount = SALARY_GRADE_MONTHLY_SALARY[salaryGrade];
+  if (amount === undefined) {
+    throw new Error(`No monthly salary on file for Salary Grade "${salaryGrade}"`);
+  }
+  return formatMonthlySalary(amount);
+}
 
 export class JobPostingsService {
   constructor(
@@ -20,7 +33,14 @@ export class JobPostingsService {
   async create(createdByUserId: string, dto: CreateJobPostingDto): Promise<JobPostingWithEligibility> {
     const postedAt = new Date();
     const closingAt = JobPostingsService.computeClosingAt(postedAt);
-    const posting = await this.jobPostingsRepository.create({ ...dto, postedAt, closingAt, createdByUserId });
+    const monthlySalary = monthlySalaryForGrade(dto.salaryGrade);
+    const posting = await this.jobPostingsRepository.create({
+      ...dto,
+      monthlySalary,
+      postedAt,
+      closingAt,
+      createdByUserId,
+    });
 
     await this.auditLogsRepository.record({
       actorUserId: createdByUserId,
@@ -77,7 +97,10 @@ export class JobPostingsService {
 
   async update(actorUserId: string, id: string, dto: UpdateJobPostingDto): Promise<JobPostingWithEligibility> {
     const existing = await this.findById(id);
-    const updated = await this.jobPostingsRepository.update(id, dto);
+    const updated = await this.jobPostingsRepository.update(id, {
+      ...dto,
+      ...(dto.salaryGrade ? { monthlySalary: monthlySalaryForGrade(dto.salaryGrade) } : {}),
+    });
 
     await this.auditLogsRepository.record({
       actorUserId,

@@ -11,6 +11,8 @@ export interface Application {
     | "QUALIFIED"
     | "NOT_QUALIFIED"
     | "FOR_COMPLIANCE"
+    | "NOT_SELECTED"
+    | "DISQUALIFIED"
     | "FOR_OATH_TAKING"
     | "HIRED"
     | "WITHDRAWN";

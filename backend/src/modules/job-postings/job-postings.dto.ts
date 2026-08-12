@@ -1,8 +1,14 @@
 import { z } from "zod";
+import { SALARY_GRADE_VALUES } from "@/shared/constants/salaryGrades";
 
 const eligibilityTypeSchema = z.enum(["RA1080", "CSC_PROFESSIONAL", "CSC_SUBPROFESSIONAL", "BARANGAY"]);
 // Free text set by the admin (e.g. "ROS-1", "ROS-2") - not a fixed list.
 const publicationSchema = z.string().min(1).max(191);
+// SG 1-33 only - JobPostingsService derives monthlySalary from this value
+// via SALARY_GRADE_MONTHLY_SALARY, so monthlySalary is no longer part of
+// either input schema (it's server-computed, never admin-typed) - see
+// docs/decisions.md's 2026-08-12 entry.
+const salaryGradeSchema = z.enum(SALARY_GRADE_VALUES);
 
 export const createJobPostingSchema = z.object({
   title: z.string().min(1).max(200),
@@ -13,8 +19,7 @@ export const createJobPostingSchema = z.object({
   description: z.string().min(1),
   numberOfVacantPositions: z.string().min(1).max(191),
   plantillaNumbers: z.string().min(1),
-  salaryGrade: z.string().min(1).max(191),
-  monthlySalary: z.string().min(1).max(191),
+  salaryGrade: salaryGradeSchema,
   placeOfAssignment: z.string().min(1),
   positionNextInRank: z.string().min(1),
   qualificationEducation: z.string().min(1),
@@ -33,8 +38,7 @@ export const updateJobPostingSchema = z.object({
   description: z.string().min(1).optional(),
   numberOfVacantPositions: z.string().min(1).max(191).optional(),
   plantillaNumbers: z.string().min(1).optional(),
-  salaryGrade: z.string().min(1).max(191).optional(),
-  monthlySalary: z.string().min(1).max(191).optional(),
+  salaryGrade: salaryGradeSchema.optional(),
   placeOfAssignment: z.string().min(1).optional(),
   positionNextInRank: z.string().min(1).optional(),
   qualificationEducation: z.string().min(1).optional(),

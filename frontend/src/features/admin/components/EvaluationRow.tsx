@@ -11,6 +11,8 @@ import {
   listComplianceItems,
   markHired,
   moveToCompliance,
+  rejectAfterCompliance,
+  rejectAfterInterview,
   scheduleInterview,
   scheduleOathTaking,
   setExaminationScore,
@@ -55,6 +57,10 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
   const [oathForm, setOathForm] = useState(emptyOathForm);
   const [schedulingOath, setSchedulingOath] = useState(false);
   const [showMarkHiredConfirm, setShowMarkHiredConfirm] = useState(false);
+  const [showNotSelectedConfirm, setShowNotSelectedConfirm] = useState(false);
+  const [notSelectedRemarks, setNotSelectedRemarks] = useState("");
+  const [showDisqualifyConfirm, setShowDisqualifyConfirm] = useState(false);
+  const [disqualifyRemarks, setDisqualifyRemarks] = useState("");
 
   const isSiftable = application.status === "UNDER_SIFTING";
   const isSchedulable = canScheduleInterview(application);
@@ -200,6 +206,34 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     }
   }
 
+  async function handleRejectAfterInterview() {
+    try {
+      const updated = await rejectAfterInterview(application.id, {
+        ...(notSelectedRemarks ? { remarks: notSelectedRemarks } : {}),
+      });
+      onSifted(updated);
+      toast.success(`${application.applicant.firstName} ${application.applicant.lastName} was marked not selected.`);
+      setShowNotSelectedConfirm(false);
+      setNotSelectedRemarks("");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to mark not selected");
+    }
+  }
+
+  async function handleRejectAfterCompliance() {
+    try {
+      const updated = await rejectAfterCompliance(application.id, {
+        ...(disqualifyRemarks ? { remarks: disqualifyRemarks } : {}),
+      });
+      onSifted(updated);
+      toast.success(`${application.applicant.firstName} ${application.applicant.lastName} was disqualified.`);
+      setShowDisqualifyConfirm(false);
+      setDisqualifyRemarks("");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to disqualify");
+    }
+  }
+
   async function handleScheduleOathTakingSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -257,6 +291,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     application.complianceRequestedAt !== null ||
     application.oathTakingScheduledAt !== null ||
     application.hiredAt !== null ||
+    application.rejectedAt !== null ||
     (tabulation !== null && tabulation.panelistsAssigned > 0);
 
   function toggleLabel(): string {
@@ -299,6 +334,16 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
               <button type="button" disabled={movingToCompliance} onClick={handleMoveToCompliance}>
                 {movingToCompliance && <Spinner size="sm" onDark />}
                 {movingToCompliance ? "Moving..." : "Move to Compliance"}
+              </button>
+            )}
+            {isMovableToCompliance && (
+              <button type="button" className="danger" onClick={() => setShowNotSelectedConfirm(true)}>
+                Not Selected
+              </button>
+            )}
+            {isInCompliance && (
+              <button type="button" className="danger" onClick={() => setShowDisqualifyConfirm(true)}>
+                Disqualify
               </button>
             )}
             {isOathTaking && (
@@ -358,6 +403,15 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                     </li>
                   )}
                 </ul>
+              </div>
+            )}
+            {application.rejectedAt !== null && (
+              <div className="card-inset">
+                <p className="field-hint">
+                  {application.status === "DISQUALIFIED" ? "Disqualified" : "Marked not selected"}{" "}
+                  {new Date(application.rejectedAt).toLocaleString()}.
+                </p>
+                {application.rejectionRemarks && <p>{application.rejectionRemarks}</p>}
               </div>
             )}
             {application.complianceRequestedAt !== null && (
@@ -610,6 +664,59 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
         danger={false}
         onConfirm={handleMarkHired}
         onCancel={() => setShowMarkHiredConfirm(false)}
+      />
+      <ConfirmDialog
+        open={showNotSelectedConfirm}
+        title="Mark not selected?"
+        description={
+          <>
+            <p>
+              <strong>{application.applicant.firstName} {application.applicant.lastName}</strong> will be marked not
+              selected for <strong>{application.jobPosting.title}</strong> and sent a regret email. This can&apos;t be
+              undone.
+            </p>
+            <div className="field">
+              <label htmlFor={`not-selected-remarks-${application.id}`}>Remarks (optional, included in the email)</label>
+              <textarea
+                id={`not-selected-remarks-${application.id}`}
+                value={notSelectedRemarks}
+                onChange={(e) => setNotSelectedRemarks(e.target.value)}
+              />
+            </div>
+          </>
+        }
+        confirmLabel="Not Selected"
+        onConfirm={handleRejectAfterInterview}
+        onCancel={() => {
+          setShowNotSelectedConfirm(false);
+          setNotSelectedRemarks("");
+        }}
+      />
+      <ConfirmDialog
+        open={showDisqualifyConfirm}
+        title="Disqualify?"
+        description={
+          <>
+            <p>
+              <strong>{application.applicant.firstName} {application.applicant.lastName}</strong> will be disqualified
+              from <strong>{application.jobPosting.title}</strong> and sent a regret email. This can&apos;t be undone.
+            </p>
+            <div className="field">
+              <label htmlFor={`disqualify-remarks-${application.id}`}>Remarks (optional, included in the email)</label>
+              <textarea
+                id={`disqualify-remarks-${application.id}`}
+                value={disqualifyRemarks}
+                onChange={(e) => setDisqualifyRemarks(e.target.value)}
+              />
+            </div>
+          </>
+        }
+        confirmLabel="Disqualify"
+        onConfirm={handleRejectAfterCompliance}
+        onCancel={() => {
+          setShowDisqualifyConfirm(false);
+          setDisqualifyRemarks("");
+        }}
       />
     </>
   );

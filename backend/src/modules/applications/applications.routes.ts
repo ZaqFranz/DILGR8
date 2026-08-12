@@ -7,6 +7,7 @@ import type { ApplicationsController } from "./applications.controller";
 import {
   applicationComplianceItemParamSchema,
   listApplicationsQuerySchema,
+  rejectApplicationSchema,
   reviewComplianceItemSchema,
   scheduleInterviewSchema,
   scheduleOathTakingSchema,
@@ -74,6 +75,12 @@ export function createApplicationsRouter(controller: ApplicationsController): Ro
     asyncHandler(controller.moveToCompliance),
   );
   router.patch(
+    "/:id/not-selected",
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema, body: rejectApplicationSchema }),
+    asyncHandler(controller.rejectAfterInterview),
+  );
+  router.patch(
     "/:id/compliance-items/:itemId",
     requireRole("ADMIN"),
     validate({ params: applicationComplianceItemParamSchema, body: reviewComplianceItemSchema }),
@@ -90,6 +97,12 @@ export function createApplicationsRouter(controller: ApplicationsController): Ro
     requireRole("ADMIN"),
     validate({ params: idParamSchema }),
     asyncHandler(controller.markHired),
+  );
+  router.patch(
+    "/:id/disqualify",
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema, body: rejectApplicationSchema }),
+    asyncHandler(controller.rejectAfterCompliance),
   );
 
   return router;

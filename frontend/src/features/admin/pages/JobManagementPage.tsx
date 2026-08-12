@@ -12,6 +12,7 @@ import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { usePagination } from "@/shared/utils/usePagination";
 import { ELIGIBILITY_OPTIONS } from "@/shared/constants/eligibility";
+import { formatMonthlySalary, SALARY_GRADE_MONTHLY_SALARY, SALARY_GRADE_OPTIONS } from "@/shared/constants/salaryGrades";
 import type { EligibilityType } from "@/features/applicant-registration/types";
 import { AdminShell } from "../components/AdminShell";
 import { listPositions } from "../api/positionsApi";
@@ -32,7 +33,6 @@ const emptyForm: CreateJobPostingInput = {
   numberOfVacantPositions: "",
   plantillaNumbers: "",
   salaryGrade: "",
-  monthlySalary: "",
   placeOfAssignment: "",
   positionNextInRank: "",
   qualificationEducation: "",
@@ -117,7 +117,6 @@ export function JobManagementPage() {
       numberOfVacantPositions: posting.numberOfVacantPositions,
       plantillaNumbers: posting.plantillaNumbers,
       salaryGrade: posting.salaryGrade,
-      monthlySalary: posting.monthlySalary,
       placeOfAssignment: posting.placeOfAssignment,
       positionNextInRank: posting.positionNextInRank,
       qualificationEducation: posting.qualificationEducation,
@@ -382,27 +381,34 @@ export function JobManagementPage() {
               <label htmlFor="salaryGrade" className="required">
                 Salary grade
               </label>
-              <input
+              <select
                 id="salaryGrade"
                 required
-                placeholder="e.g. 18"
                 value={form.salaryGrade}
                 onChange={(e) => update("salaryGrade", e.target.value)}
-              />
+              >
+                <option value="">Select a salary grade...</option>
+                {SALARY_GRADE_OPTIONS.map((grade) => (
+                  <option key={grade} value={grade}>
+                    SG {grade}
+                  </option>
+                ))}
+              </select>
               <FieldError message={fieldErrors.salaryGrade} />
             </div>
-            <div className={fieldErrors.monthlySalary ? "field has-error" : "field"}>
-              <label htmlFor="monthlySalary" className="required">
-                Monthly salary
-              </label>
+            <div className="field">
+              <label htmlFor="monthlySalary">Monthly salary</label>
               <input
                 id="monthlySalary"
-                required
-                placeholder="e.g. ₱27,000.00"
-                value={form.monthlySalary}
-                onChange={(e) => update("monthlySalary", e.target.value)}
+                disabled
+                value={
+                  form.salaryGrade in SALARY_GRADE_MONTHLY_SALARY
+                    ? `${formatMonthlySalary(SALARY_GRADE_MONTHLY_SALARY[form.salaryGrade])} (Step 1)`
+                    : ""
+                }
+                placeholder="Select a salary grade first"
               />
-              <FieldError message={fieldErrors.monthlySalary} />
+              <p className="field-hint">Fixed by Salary Grade, per the DBM salary schedule - not editable directly.</p>
             </div>
             {editingId && (
               <div className="field">

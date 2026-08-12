@@ -65,6 +65,15 @@ enum ApplicationStatus {
   QUALIFIED
   NOT_QUALIFIED
   FOR_COMPLIANCE
+  // Terminal "regret" outcomes past Sifting - NOT_QUALIFIED only ever
+  // happens at Sifting (see sift()), so an applicant who doesn't advance
+  // after the panel evaluation or after Compliance needs its own status:
+  // otherwise the stage tracker (ApplicationStageTracker.tsx) would show
+  // them as rejected back at the Sifting node, which would be wrong. Both
+  // are set via ApplicationsService.rejectAfterInterview()/
+  // rejectAfterCompliance() and send the same regretEmail() as NOT_QUALIFIED.
+  NOT_SELECTED
+  DISQUALIFIED
   FOR_OATH_TAKING
   HIRED
   WITHDRAWN
@@ -246,6 +255,15 @@ model JobPosting {
   description              String           @db.Text
   numberOfVacantPositions  String
   plantillaNumbers         String           @db.Text
+  // salaryGrade is constrained to "1".."33" at the DTO layer (a zod enum,
+  // not a DB-level check - see job-postings.dto.ts), not free text like its
+  // sibling fields. monthlySalary stays a String column (same "carry the
+  // value formatted exactly as the document prints it" reasoning as the
+  // rest of this model) but is no longer admin-typed - JobPostingsService
+  // computes and overwrites it from salaryGrade via the official DBM Salary
+  // Grade schedule (backend/src/shared/constants/salaryGrades.ts) on every
+  // create/update, so the two can never disagree. See docs/decisions.md's
+  // 2026-08-12 "Fixed Monthly Salary derived from Salary Grade" entry.
   salaryGrade              String
   monthlySalary            String
   placeOfAssignment        String           @db.Text
@@ -386,6 +404,15 @@ model Application {
   // Set by ApplicationsService.markHired() - terminal for this pipeline
   // segment. Onboarding itself (videos, pre/post evaluations) is future work.
   hiredAt               DateTime?
+
+  // Set together by ApplicationsService.rejectAfterInterview() (FOR_INTERVIEW
+  // -> NOT_SELECTED) or rejectAfterCompliance() (FOR_COMPLIANCE ->
+  // DISQUALIFIED) - one shared pair of columns rather than two near-identical
+  // sets, since both are the same kind of one-shot terminal "regret" call an
+  // admin makes, just from a different stage. remarks is optional free text
+  // included in the regret email sent to the applicant.
+  rejectedAt       DateTime?
+  rejectionRemarks String?   @db.Text
 
   applicant        Applicant                   @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   jobPosting       JobPosting                  @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)

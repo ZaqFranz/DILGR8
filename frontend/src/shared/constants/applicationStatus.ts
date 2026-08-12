@@ -18,6 +18,8 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   QUALIFIED: "Qualified",
   NOT_QUALIFIED: "Not Qualified",
   FOR_COMPLIANCE: "Compliance to Requirements",
+  NOT_SELECTED: "Not Selected",
+  DISQUALIFIED: "Disqualified",
   FOR_OATH_TAKING: "Oath-Taking",
   HIRED: "Hired",
   WITHDRAWN: "Withdrawn",

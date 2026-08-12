@@ -70,3 +70,11 @@ export const scheduleOathTakingSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 export type ScheduleOathTakingDto = z.infer<typeof scheduleOathTakingSchema>;
+
+// Shared by rejectAfterInterview (FOR_INTERVIEW -> NOT_SELECTED) and
+// rejectAfterCompliance (FOR_COMPLIANCE -> DISQUALIFIED) - both are the same
+// kind of one-shot "regret" decision, just from a different stage.
+export const rejectApplicationSchema = z.object({
+  remarks: z.string().max(2000).optional(),
+});
+export type RejectApplicationDto = z.infer<typeof rejectApplicationSchema>;

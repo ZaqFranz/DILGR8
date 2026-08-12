@@ -5,6 +5,7 @@ import type { ApplicationsService } from "./applications.service";
 import { createApplicationSchema } from "./applications.dto";
 import type {
   ListApplicationsQueryDto,
+  RejectApplicationDto,
   ReviewComplianceItemDto,
   ScheduleInterviewDto,
   ScheduleOathTakingDto,
@@ -112,6 +113,15 @@ export class ApplicationsController {
     res.status(200).json(application);
   };
 
+  rejectAfterInterview = async (req: Request, res: Response): Promise<void> => {
+    const application = await this.applicationsService.rejectAfterInterview(
+      req.params.id as string,
+      req.user!.id,
+      req.body as RejectApplicationDto,
+    );
+    res.status(200).json(application);
+  };
+
   listComplianceItems = async (req: Request, res: Response): Promise<void> => {
     const items = await this.applicationsService.listComplianceItems(req.params.id as string, {
       id: req.user!.id,
@@ -141,6 +151,15 @@ export class ApplicationsController {
 
   markHired = async (req: Request, res: Response): Promise<void> => {
     const application = await this.applicationsService.markHired(req.params.id as string, req.user!.id);
+    res.status(200).json(application);
+  };
+
+  rejectAfterCompliance = async (req: Request, res: Response): Promise<void> => {
+    const application = await this.applicationsService.rejectAfterCompliance(
+      req.params.id as string,
+      req.user!.id,
+      req.body as RejectApplicationDto,
+    );
     res.status(200).json(application);
   };
 }

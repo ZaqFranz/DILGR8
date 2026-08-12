@@ -28,6 +28,10 @@ export interface JobPosting {
   status: JobPostingStatus;
 }
 
+// monthlySalary is deliberately absent from these two input types - it's
+// server-computed from salaryGrade
+// (backend/src/shared/constants/salaryGrades.ts) on every create/update,
+// never admin-typed. See docs/decisions.md's 2026-08-12 entry.
 export interface CreateJobPostingInput {
   title: string;
   positionId: string;
@@ -36,7 +40,6 @@ export interface CreateJobPostingInput {
   numberOfVacantPositions: string;
   plantillaNumbers: string;
   salaryGrade: string;
-  monthlySalary: string;
   placeOfAssignment: string;
   positionNextInRank: string;
   qualificationEducation: string;
@@ -55,7 +58,6 @@ export interface UpdateJobPostingInput {
   numberOfVacantPositions?: string;
   plantillaNumbers?: string;
   salaryGrade?: string;
-  monthlySalary?: string;
   placeOfAssignment?: string;
   positionNextInRank?: string;
   qualificationEducation?: string;

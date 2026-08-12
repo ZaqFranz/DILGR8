@@ -3,6 +3,7 @@ import type {
   AdminApplication,
   ApplicationComplianceItem,
   ExamScoreImportResult,
+  RejectApplicationInput,
   ReviewComplianceItemInput,
   ScheduleInterviewInput,
   ScheduleOathTakingInput,
@@ -47,6 +48,14 @@ export function setExaminationScore(id: string, score: number): Promise<AdminApp
 
 export function moveToCompliance(id: string): Promise<AdminApplication> {
   return apiRequest<AdminApplication>(`/applications/${id}/move-to-compliance`, { method: "PATCH" });
+}
+
+export function rejectAfterInterview(id: string, input: RejectApplicationInput): Promise<AdminApplication> {
+  return apiRequest<AdminApplication>(`/applications/${id}/not-selected`, { method: "PATCH", body: input });
+}
+
+export function rejectAfterCompliance(id: string, input: RejectApplicationInput): Promise<AdminApplication> {
+  return apiRequest<AdminApplication>(`/applications/${id}/disqualify`, { method: "PATCH", body: input });
 }
 
 export function listComplianceItems(applicationId: string): Promise<ApplicationComplianceItem[]> {

@@ -20,11 +20,13 @@ import {
   forInterviewEmail,
   hiredEmail,
   oathTakingScheduledEmail,
+  regretEmail,
   submittedEmail,
   withdrawnEmail,
 } from "@/shared/email/applicationEmailTemplates";
 import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
 import type {
+  RejectApplicationDto,
   ReviewComplianceItemDto,
   ScheduleInterviewDto,
   ScheduleOathTakingDto,
@@ -35,10 +37,10 @@ import ExcelJS from "exceljs";
 import { parseExamScoreWorkbook } from "./examScoreParser";
 
 // An application can be withdrawn any time before its outcome is already
-// final - NOT_QUALIFIED and WITHDRAWN itself are terminal, so they're the
-// only statuses excluded here. FOR_COMPLIANCE/FOR_OATH_TAKING stay
-// withdrawable (an applicant can still decline up until actually hired);
-// HIRED itself is excluded the same way NOT_QUALIFIED is.
+// final - NOT_QUALIFIED, NOT_SELECTED, DISQUALIFIED, HIRED, and WITHDRAWN
+// itself are all terminal, so they're the only statuses excluded here.
+// FOR_COMPLIANCE/FOR_OATH_TAKING stay withdrawable (an applicant can still
+// decline up until actually hired).
 const WITHDRAWABLE_STATUSES = [
   "SUBMITTED",
   "UNDER_SIFTING",
@@ -502,6 +504,46 @@ export class ApplicationsService {
     return updated;
   }
 
+  /**
+   * The regret outcome when an applicant doesn't advance past the panel
+   * evaluation - the only other exit from FOR_INTERVIEW is moveToCompliance()
+   * above. Sends the same regretEmail() sift's NOT_QUALIFIED decision uses,
+   * with wording specific to this stage.
+   */
+  async rejectAfterInterview(
+    applicationId: string,
+    actorUserId: string,
+    dto: RejectApplicationDto,
+  ): Promise<ApplicationWithApplicant> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+    if (application.status !== "FOR_INTERVIEW") {
+      throw new ValidationError(`Cannot mark not selected an application with status ${application.status}`);
+    }
+
+    const updated = await this.applicationsRepository.rejectAfterInterview(applicationId, dto.remarks);
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_NOT_SELECTED,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Marked ${application.applicant.firstName} ${application.applicant.lastName} not selected after evaluation for "${application.jobPosting.title}"${dto.remarks ? `: ${dto.remarks}` : ""}`,
+    });
+
+    const { subject, html } = regretEmail(
+      `${application.applicant.firstName} ${application.applicant.lastName}`,
+      application.jobPosting.title,
+      `We regret to inform you that, after the panel evaluation for <strong>${application.jobPosting.title}</strong>, you were not selected to proceed to the next stage.`,
+      dto.remarks,
+    );
+    await this.emailService.send({ to: application.applicant.user.email, subject, html });
+
+    return updated;
+  }
+
   /** APPLICANT can only read their own application's checklist; ADMIN can read any - same role-branch shape as DocumentsService.listForApplicant(). */
   async listComplianceItems(
     applicationId: string,
@@ -595,6 +637,48 @@ export class ApplicationsService {
       dto.scheduledAt,
       dto.venue,
       dto.notes,
+    );
+    await this.emailService.send({ to: application.applicant.user.email, subject, html });
+
+    return updated;
+  }
+
+  /**
+   * The regret outcome when an applicant doesn't complete Compliance to
+   * Requirements - the only other exit from FOR_COMPLIANCE is
+   * scheduleOathTaking() above (which itself is blocked until every item is
+   * VERIFIED). Unlike that gate, this action carries no such precondition:
+   * an admin can disqualify at any point during Compliance, e.g. once it's
+   * clear a requirement won't be met rather than waiting indefinitely.
+   */
+  async rejectAfterCompliance(
+    applicationId: string,
+    actorUserId: string,
+    dto: RejectApplicationDto,
+  ): Promise<ApplicationWithApplicant> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+    if (application.status !== "FOR_COMPLIANCE") {
+      throw new ValidationError(`Cannot disqualify an application with status ${application.status}`);
+    }
+
+    const updated = await this.applicationsRepository.rejectAfterCompliance(applicationId, dto.remarks);
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_DISQUALIFIED,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Disqualified ${application.applicant.firstName} ${application.applicant.lastName} for "${application.jobPosting.title}"${dto.remarks ? `: ${dto.remarks}` : ""}`,
+    });
+
+    const { subject, html } = regretEmail(
+      `${application.applicant.firstName} ${application.applicant.lastName}`,
+      application.jobPosting.title,
+      `We regret to inform you that your application for <strong>${application.jobPosting.title}</strong> did not proceed to oath-taking because the compliance requirements were not completed.`,
+      dto.remarks,
     );
     await this.emailService.send({ to: application.applicant.user.email, subject, html });
 
