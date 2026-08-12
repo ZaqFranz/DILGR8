@@ -1,4 +1,4 @@
-import type { PrismaClient, User } from "@prisma/client";
+import type { Applicant, PrismaClient, User } from "@prisma/client";
 
 /**
  * Repository pattern: isolates auth's data access behind a small
@@ -12,6 +12,10 @@ export class AuthRepository {
     return this.db.user.findUnique({ where: { email } });
   }
 
+  findByEmailWithApplicant(email: string): Promise<(User & { applicant: Applicant | null }) | null> {
+    return this.db.user.findUnique({ where: { email }, include: { applicant: true } });
+  }
+
   findById(id: string): Promise<User | null> {
     return this.db.user.findUnique({ where: { id } });
   }
@@ -20,7 +24,14 @@ export class AuthRepository {
     return this.db.user.create({ data: { email, passwordHash } });
   }
 
+  // Any completed password change - self-service or forced after a
+  // temporary password - clears mustChangePassword, since both paths end
+  // with the account back in a normal, fully-authenticated state.
   async updatePassword(id: string, passwordHash: string): Promise<void> {
-    await this.db.user.update({ where: { id }, data: { passwordHash } });
+    await this.db.user.update({ where: { id }, data: { passwordHash, mustChangePassword: false } });
+  }
+
+  async setTemporaryPassword(id: string, passwordHash: string): Promise<void> {
+    await this.db.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true } });
   }
 }

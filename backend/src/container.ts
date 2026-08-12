@@ -78,7 +78,7 @@ function buildContainer() {
   const complianceItemsRepository = new ComplianceItemsRepository(prisma);
   const emailService = new EmailService();
 
-  const authService = new AuthService(authRepository);
+  const authService = new AuthService(authRepository, auditLogsRepository, emailService);
   const applicantsService = new ApplicantsService(applicantsRepository, documentsRepository);
   const documentsService = new DocumentsService(documentsRepository, applicantsRepository, panelAssignmentsRepository, prisma);
   const jobPostingsService = new JobPostingsService(

@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { ApiError } from "@/shared/api/apiClient";
+import { useAuth } from "@/shared/auth/AuthContext";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { FieldError } from "@/shared/components/FieldError";
 import { PasswordInput } from "@/shared/components/PasswordInput";
@@ -10,6 +12,9 @@ import { changePassword } from "../api/authApi";
 
 export function ChangePasswordPage() {
   const toast = useToast();
+  const navigate = useNavigate();
+  const { user, clearMustChangePassword } = useAuth();
+  const forced = Boolean(user?.mustChangePassword);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -49,6 +54,10 @@ export function ChangePasswordPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      if (forced) {
+        clearMustChangePassword();
+        navigate("/", { replace: true });
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -65,11 +74,16 @@ export function ChangePasswordPage() {
     <div className="centered-page">
       <h1>Change Password</h1>
       <div className="card" style={{ maxWidth: 420, width: "100%" }}>
+        {forced && (
+          <p className="muted">
+            You're signing in with a temporary password. Set a new password to continue.
+          </p>
+        )}
         <ErrorBanner message={error} />
         <form onSubmit={handleSubmit} noValidate>
           <div className={fieldClass("currentPassword")}>
             <label htmlFor="currentPassword" className="required">
-              Current password
+              {forced ? "Temporary password" : "Current password"}
             </label>
             <PasswordInput
               id="currentPassword"

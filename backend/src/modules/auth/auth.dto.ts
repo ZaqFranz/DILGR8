@@ -19,11 +19,17 @@ export const changePasswordSchema = z.object({
 });
 export type ChangePasswordDto = z.infer<typeof changePasswordSchema>;
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
+
 export interface AuthResponseDto {
   accessToken: string;
   user: {
     id: string;
     email: string;
     role: Role;
+    mustChangePassword: boolean;
   };
 }

@@ -16,9 +16,10 @@ Three roles exist: `APPLICANT` (self-registers via `/auth/register`), `ADMIN`, a
 
 | Method | Path | Auth | Body | Notes |
 |---|---|---|---|---|
-| POST | `/register` | none | `{ email, password }` | Creates a `User` with role `APPLICANT`. Returns `{ accessToken, user }`. |
-| POST | `/login` | none | `{ email, password }` | Returns `{ accessToken, user }`. |
-| PATCH | `/me/password` | any authenticated role | `{ currentPassword, newPassword }` | Self-service password change - works identically for `APPLICANT`/`ADMIN`/`PANEL` since it acts on the caller's own `User` row (`req.user.id`), not a role-specific one. 400 with a `currentPassword` field error if `currentPassword` doesn't match; `newPassword` must be ≥8 characters (same rule as registration). 204 on success. Does **not** invalidate other active tokens for the same user - see [decisions.md](./decisions.md). |
+| POST | `/register` | none | `{ email, password }` | Creates a `User` with role `APPLICANT`. Returns `{ accessToken, user }`, where `user` now also carries `mustChangePassword`. |
+| POST | `/login` | none | `{ email, password }` | Returns `{ accessToken, user }` (same shape as register, including `mustChangePassword`). |
+| POST | `/forgot-password` | none | `{ email }` | **Applicant-only** temporary-password issuance. Always 204, regardless of whether the email matches an account, so the endpoint can't be used to enumerate registered emails - and it's a silent no-op for `ADMIN`/`PANEL` accounts, so it can't be used to force-reset one either (see [decisions.md](./decisions.md)). For a matching `APPLICANT`, generates a random 12-character temporary password, hashes and saves it, sets `User.mustChangePassword = true`, records `AuditAction.USER_TEMPORARY_PASSWORD_ISSUED`, and emails it via the `temporaryPasswordEmail` template (`authEmailTemplates.ts`) - subject to the same `[DEV EMAIL]` console fallback as every other notification when SMTP isn't configured. |
+| PATCH | `/me/password` | any authenticated role | `{ currentPassword, newPassword }` | Self-service password change - works identically for `APPLICANT`/`ADMIN`/`PANEL` since it acts on the caller's own `User` row (`req.user.id`), not a role-specific one. 400 with a `currentPassword` field error if `currentPassword` doesn't match; `newPassword` must be ≥8 characters (same rule as registration). 204 on success, and always clears `mustChangePassword` (so this same endpoint is also how a temporary password gets replaced - the temp password is submitted as `currentPassword`). Does **not** invalidate other active tokens for the same user - see [decisions.md](./decisions.md). |
 
 ## Applicants — `/api/applicants` (all require auth)
 

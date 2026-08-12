@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { AuthService } from "./auth.service";
-import type { ChangePasswordDto, LoginDto, RegisterDto } from "./auth.dto";
+import type { ChangePasswordDto, ForgotPasswordDto, LoginDto, RegisterDto } from "./auth.dto";
 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -17,6 +17,11 @@ export class AuthController {
 
   changePassword = async (req: Request, res: Response): Promise<void> => {
     await this.authService.changePassword(req.user!.id, req.body as ChangePasswordDto);
+    res.status(204).send();
+  };
+
+  forgotPassword = async (req: Request, res: Response): Promise<void> => {
+    await this.authService.forgotPassword(req.body as ForgotPasswordDto);
     res.status(204).send();
   };
 }

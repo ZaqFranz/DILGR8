@@ -3,6 +3,7 @@ import { Layout } from "@/shared/components/Layout";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { LoginPage } from "@/features/auth/pages/LoginPage";
+import { ForgotPasswordPage } from "@/features/auth/pages/ForgotPasswordPage";
 import { ChangePasswordPage } from "@/features/auth/pages/ChangePasswordPage";
 import { JobPostingsListPage } from "@/features/job-postings/pages/JobPostingsListPage";
 import { RegistrationPage } from "@/features/applicant-registration/pages/RegistrationPage";
@@ -28,6 +29,7 @@ function HomeRedirect() {
   const { isAuthenticated, isLoading, user, registrationComplete } = useAuth();
   if (isLoading || (isAuthenticated && registrationComplete === null)) return null;
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/account/password" replace />;
   if (user.role === "APPLICANT" && registrationComplete === false) {
     return <Navigate to="/register" replace />;
   }
@@ -40,6 +42,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         {/* Covers the whole applicant registration flow - account creation
             through profile, work experience, L&D, awards, and documents -
             so it isn't wrapped in ProtectedRoute; it manages its own

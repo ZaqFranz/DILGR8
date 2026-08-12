@@ -28,6 +28,8 @@ interface AuthContextValue {
   logout: () => void;
   /** Re-checks registration status; call after finishing the registration flow. */
   refreshRegistrationStatus: () => Promise<void>;
+  /** Call after a successful password change to clear the forced-change gate. */
+  clearMustChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -101,6 +103,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // No GET /me endpoint exists to re-fetch this from - the backend clears
+  // mustChangePassword the moment the password-change call succeeds, so the
+  // frontend just mirrors that locally rather than adding a round trip.
+  function clearMustChangePassword() {
+    if (!user) return;
+    const updated = { ...user, mustChangePassword: false };
+    setUser(updated);
+    const stored = readStoredAuth();
+    if (stored) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored, user: updated }));
+    }
+  }
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -111,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       logout,
       refreshRegistrationStatus,
+      clearMustChangePassword,
     }),
     [user, isLoading, registrationComplete],
   );

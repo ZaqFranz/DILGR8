@@ -57,6 +57,9 @@ export function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <p className="field-hint">
+              <Link to="/forgot-password">Forgot password?</Link>
+            </p>
           </div>
           <button type="submit" disabled={submitting}>
             {submitting && <Spinner size="sm" onDark />}

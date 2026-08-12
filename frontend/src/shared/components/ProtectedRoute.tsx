@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/shared/auth/AuthContext";
+
+const FORCED_PASSWORD_CHANGE_PATH = "/account/password";
 
 type AppRole = "ADMIN" | "APPLICANT" | "PANEL";
 
@@ -18,6 +20,7 @@ const HOME_BY_ROLE: Record<AppRole, string> = {
 
 export function ProtectedRoute({ children, role }: Props) {
   const { isAuthenticated, isLoading, user, registrationComplete } = useAuth();
+  const location = useLocation();
   // Wait for the stored session to load before deciding to redirect -
   // otherwise an already-logged-in user landing here gets bounced to
   // /login during the one render before localStorage has been read. Same
@@ -28,6 +31,13 @@ export function ProtectedRoute({ children, role }: Props) {
   }
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
+  }
+  // A temporary password (issued via forgot-password) must be replaced
+  // before anything else is reachable, regardless of role - takes priority
+  // over the role/registration checks below. Exempted on the change-password
+  // page itself to avoid redirecting it to itself.
+  if (user.mustChangePassword && location.pathname !== FORCED_PASSWORD_CHANGE_PATH) {
+    return <Navigate to={FORCED_PASSWORD_CHANGE_PATH} replace />;
   }
   // Admins only post jobs and evaluate applicants, panel members only score
   // their assigned interviews, applicants only manage their own

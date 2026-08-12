@@ -100,8 +100,12 @@ model User {
   name         String?
   passwordHash String
   role         Role     @default(APPLICANT)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  // Set when a temporary password is issued via forgot-password; forces the
+  // frontend to redirect straight to Change Password after login, and is
+  // cleared automatically the moment any password change succeeds.
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   applicant             Applicant?
   jobPostingsMade       JobPosting[]

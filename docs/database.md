@@ -28,6 +28,8 @@ User (1) ── (1) Applicant (1) ── (N) WorkExperience
 ### `users`
 Auth identity. `role` is `APPLICANT` (default), `ADMIN`, or `PANEL` (interview board members - see the `panel_assignments`/`panel_evaluations` tables below). Password stored as a bcrypt hash, never plaintext. Full CRUD via `/api/users` (ADMIN only) — see [api.md](./api.md); a user can't delete their own account.
 
+- `mustChangePassword` (default `false`) is set `true` when an applicant requests a temporary password via `POST /api/auth/forgot-password`, and cleared automatically the moment any password change succeeds (`PATCH /api/auth/me/password`, self-service or using the temporary password as `currentPassword`). Returned on the `user` object from both `/login` and `/register`; the frontend gates on it the same way it gates on `registrationCompletedAt` — see [architecture.md § Registration gating](./architecture.md#registration-gating-frontend), which now also covers this forced-password-change redirect.
+
 ### `applicants`
 One row per registered applicant, created once via `POST /api/applicants/me`. Holds the demographic profile plus the eligibility flag (`hasEligibility`, `eligibilityType`, `eligibilityValidated`).
 
