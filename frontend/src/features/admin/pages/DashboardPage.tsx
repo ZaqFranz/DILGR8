@@ -9,6 +9,8 @@ import { AdminShell } from "../components/AdminShell";
 import { getDashboardSummary } from "../api/dashboardApi";
 import type { ApplicationStatus, DashboardSummary } from "../types";
 
+const USER_MANUAL_URL = "https://claude.ai/code/artifact/82ebc69d-0528-4eb9-bb7a-ea4866fbbf26";
+
 // Label text is the single shared APPLICATION_STATUS_LABELS source (kept in
 // sync with the admin Evaluate Applicants table and the applicant-facing My
 // Applications page) - only the per-status bar color is specific to this chart.
@@ -167,15 +169,25 @@ export function DashboardPage() {
           <h1>Dashboard</h1>
           <p>Overview of applicants, job postings, and applications across the RSP pipeline.</p>
         </div>
-        <button
-          type="button"
-          className="secondary"
-          disabled={loading || refreshing}
-          onClick={() => loadSummary({ silent: true })}
-        >
-          {refreshing && <Spinner size="sm" />}
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </button>
+        <div className="dashboard-hero-actions">
+          <a
+            className="button secondary"
+            href={USER_MANUAL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            User Manual
+          </a>
+          <button
+            type="button"
+            className="secondary"
+            disabled={loading || refreshing}
+            onClick={() => loadSummary({ silent: true })}
+          >
+            {refreshing && <Spinner size="sm" />}
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
       </div>
       <ErrorBanner message={error} />
 
