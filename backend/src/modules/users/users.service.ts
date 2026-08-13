@@ -1,5 +1,7 @@
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
-import { hashPassword } from "@/shared/utils/password";
+import { generateTemporaryPassword, hashPassword } from "@/shared/utils/password";
+import type { EmailService } from "@/shared/email/emailService";
+import { temporaryPasswordEmail } from "@/shared/email/authEmailTemplates";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
 import type { ListUsersFilters, PublicUser, UsersRepository } from "./users.repository";
@@ -9,6 +11,7 @@ export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly auditLogsRepository: AuditLogsRepository,
+    private readonly emailService: EmailService,
   ) {}
 
   list(filters: ListUsersFilters): Promise<PublicUser[]> {
@@ -88,5 +91,35 @@ export class UsersService {
       entityId: userId,
       details: `Deleted ${target.role} account for ${target.email}`,
     });
+  }
+
+  /**
+   * Admin-initiated counterpart to AuthService.forgotPassword() - closes the
+   * gap noted in docs/project-memory.md's Known Limitations ("no in-app
+   * password recovery for ADMIN/PANEL", who can't use the applicant-only
+   * self-service flow). Works for any role since there's no reason to
+   * exclude APPLICANT accounts an admin might legitimately need to help.
+   */
+  async resetPassword(actorUserId: string, userId: string): Promise<void> {
+    const target = await this.usersRepository.findByIdForPasswordReset(userId);
+    if (!target) {
+      throw new NotFoundError("User");
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await hashPassword(temporaryPassword);
+    await this.usersRepository.setTemporaryPassword(userId, passwordHash);
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.USER_TEMPORARY_PASSWORD_ISSUED,
+      entityType: AuditEntityType.USER,
+      entityId: userId,
+      details: `Admin-issued temporary password for ${target.email}`,
+    });
+
+    const displayName = target.name ?? (target.applicant ? `${target.applicant.firstName} ${target.applicant.lastName}` : target.email);
+    const { subject, html } = temporaryPasswordEmail(displayName, temporaryPassword);
+    await this.emailService.send({ to: target.email, subject, html });
   }
 }

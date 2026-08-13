@@ -24,4 +24,9 @@ export class UsersController {
     await this.usersService.remove(req.user!.id, req.params.id as string);
     res.status(204).send();
   };
+
+  resetPassword = async (req: Request, res: Response): Promise<void> => {
+    await this.usersService.resetPassword(req.user!.id, req.params.id as string);
+    res.status(204).send();
+  };
 }

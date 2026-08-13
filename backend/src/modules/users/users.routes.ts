@@ -14,6 +14,11 @@ export function createUsersRouter(controller: UsersController): Router {
   router.post("/", validate({ body: createUserSchema }), asyncHandler(controller.create));
   router.patch("/:id", validate({ params: idParamSchema, body: updateUserSchema }), asyncHandler(controller.update));
   router.delete("/:id", validate({ params: idParamSchema }), asyncHandler(controller.remove));
+  router.post(
+    "/:id/reset-password",
+    validate({ params: idParamSchema }),
+    asyncHandler(controller.resetPassword),
+  );
 
   return router;
 }

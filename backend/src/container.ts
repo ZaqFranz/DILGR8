@@ -97,7 +97,7 @@ function buildContainer() {
     complianceItemsRepository,
     complianceRequirementsRepository,
   );
-  const usersService = new UsersService(usersRepository, auditLogsRepository);
+  const usersService = new UsersService(usersRepository, auditLogsRepository, emailService);
   const auditLogsService = new AuditLogsService(auditLogsRepository);
   const dashboardService = new DashboardService(dashboardRepository, auditLogsRepository);
   const evaluationCriteriaService = new EvaluationCriteriaService(evaluationCriteriaRepository, auditLogsRepository);

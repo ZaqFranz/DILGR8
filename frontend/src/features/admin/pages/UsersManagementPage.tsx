@@ -13,7 +13,7 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS_HINT } from "@/shared/utils/
 import { usePagination } from "@/shared/utils/usePagination";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { AdminShell } from "../components/AdminShell";
-import { createUser, deleteUser, listUsers, updateUser } from "../api/adminUsersApi";
+import { createUser, deleteUser, listUsers, resetUserPassword, updateUser } from "../api/adminUsersApi";
 import type { AdminUser, CreateUserInput, UserRole } from "../types";
 
 // Applicants self-register via /register - this page only ever creates
@@ -31,6 +31,7 @@ export function UsersManagementPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<AdminUser | null>(null);
+  const [pendingReset, setPendingReset] = useState<AdminUser | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "">("");
@@ -123,6 +124,18 @@ export function UsersManagementPage() {
     }
   }
 
+  async function handleResetPassword() {
+    if (!pendingReset) return;
+    setError(null);
+    try {
+      await resetUserPassword(pendingReset.id);
+      toast.success(`Temporary password emailed to ${pendingReset.email}.`);
+      setPendingReset(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to reset password");
+    }
+  }
+
   return (
     <AdminShell>
       <div className="page-header">
@@ -207,6 +220,9 @@ export function UsersManagementPage() {
                       <div className="data-table-actions">
                         <button type="button" className="secondary" onClick={() => startEdit(target)}>
                           Edit
+                        </button>
+                        <button type="button" className="secondary" onClick={() => setPendingReset(target)}>
+                          Reset Password
                         </button>
                         {isSelf ? (
                           <span className="user-email">(you)</span>
@@ -319,6 +335,21 @@ export function UsersManagementPage() {
         confirmLabel="Delete"
         onConfirm={handleDelete}
         onCancel={() => setPendingDelete(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingReset !== null}
+        title="Reset password?"
+        description={
+          <>
+            A temporary password will be emailed to <strong>{pendingReset?.email}</strong>, replacing their
+            current password immediately. They'll be required to set a new password the next time they log in.
+          </>
+        }
+        confirmLabel="Reset Password"
+        danger={false}
+        onConfirm={handleResetPassword}
+        onCancel={() => setPendingReset(null)}
       />
     </AdminShell>
   );

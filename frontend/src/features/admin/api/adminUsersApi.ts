@@ -20,3 +20,7 @@ export function updateUser(id: string, input: UpdateUserInput): Promise<AdminUse
 export function deleteUser(id: string): Promise<void> {
   return apiRequest<void>(`/users/${id}`, { method: "DELETE" });
 }
+
+export function resetUserPassword(id: string): Promise<void> {
+  return apiRequest<void>(`/users/${id}/reset-password`, { method: "POST" });
+}

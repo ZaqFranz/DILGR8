@@ -23,6 +23,13 @@ export interface ListUsersFilters {
   search?: string;
 }
 
+export type UserForPasswordReset = {
+  id: string;
+  email: string;
+  name: string | null;
+  applicant: { firstName: string; lastName: string } | null;
+};
+
 export class UsersRepository {
   constructor(private readonly db: PrismaClient) {}
 
@@ -48,6 +55,20 @@ export class UsersRepository {
 
   findByEmail(email: string): Promise<User | null> {
     return this.db.user.findUnique({ where: { email } });
+  }
+
+  // Only the fields resetPassword()'s email greeting needs - the display
+  // name falls back from User.name (ADMIN/PANEL) to the Applicant's
+  // first/last name (APPLICANT accounts don't set User.name) to email.
+  findByIdForPasswordReset(id: string): Promise<UserForPasswordReset | null> {
+    return this.db.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, name: true, applicant: { select: { firstName: true, lastName: true } } },
+    });
+  }
+
+  async setTemporaryPassword(id: string, passwordHash: string): Promise<void> {
+    await this.db.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true } });
   }
 
   create(email: string, passwordHash: string, role: Role, name?: string): Promise<PublicUser> {

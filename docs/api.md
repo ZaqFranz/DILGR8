@@ -168,8 +168,9 @@ Adding, editing, or deleting a requirement here never touches applications alrea
 |---|---|---|---|
 | GET | `/` | — | Query `?role=ADMIN|APPLICANT|PANEL&search=<email substring>` both optional. Never returns `passwordHash`. |
 | POST | `/` | `{ email, password, role }` | Admin-provisioned account creation — the only way to create an `ADMIN` or `PANEL` user (aside from `prisma/seed.ts`). 409 on duplicate email. |
-| PATCH | `/:id` | `{ email?, role? }` | No password field — there's no admin-initiated password reset yet (see project-memory.md). |
+| PATCH | `/:id` | `{ email?, role? }` | No password field — password changes go through `POST /:id/reset-password` below (self-service change is `PATCH /api/auth/me/password` instead). |
 | DELETE | `/:id` | — | 400 if you try to delete your own account. Deleting a user cascades to their `Applicant` profile (if any) and everything under it; job postings they created or applications they evaluated are kept, with the FK set to null (see [decisions.md](./decisions.md)). |
+| POST | `/:id/reset-password` | — | Admin-initiated counterpart to `POST /api/auth/forgot-password` (which is `APPLICANT`-only self-service) — issues a fresh temporary password for *any* role, emails it to the target, and sets `mustChangePassword`, invalidating whatever password they had immediately. 404 if the user doesn't exist. No self-delete-style guard on resetting your own password — doing it to yourself is harmless (the current session stays valid; only the next login needs the emailed temporary password). |
 
 ## Audit Logs — `/api/audit-logs` (ADMIN only, read-only)
 
