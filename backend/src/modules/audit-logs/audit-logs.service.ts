@@ -5,6 +5,6 @@ export class AuditLogsService {
   constructor(private readonly auditLogsRepository: AuditLogsRepository) {}
 
   list(query: ListAuditLogsQueryDto): Promise<AuditLogWithActor[]> {
-    return this.auditLogsRepository.findMany({ entityType: query.entityType }, query.limit);
+    return this.auditLogsRepository.findMany({ entityType: query.entityType, search: query.search }, query.limit);
   }
 }

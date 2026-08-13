@@ -98,6 +98,13 @@ export class PanelEvaluationsService {
     if (application.status !== "FOR_INTERVIEW") {
       throw new ValidationError("This application is not currently in the interview stage");
     }
+    // Belt-and-suspenders: scheduleInterview() already requires a recorded
+    // PQE score before an application can reach FOR_INTERVIEW, so this
+    // should be unreachable in practice - kept as an explicit guard so panel
+    // scoring never depends solely on that earlier gate holding.
+    if (application.examinationScore === null) {
+      throw new ValidationError("Cannot score this applicant until a PQE exam score has been recorded");
+    }
 
     const assignment = await this.panelAssignmentsRepository.findByPostingAndPanelUser(
       application.jobPostingId,

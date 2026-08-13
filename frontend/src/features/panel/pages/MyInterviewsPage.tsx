@@ -63,6 +63,7 @@ export function MyInterviewsPage() {
                 <th>Applicant</th>
                 <th>Job posting</th>
                 <th>Submitted</th>
+                <th>PQE score</th>
                 <th>Status</th>
                 <th></th>
               </tr>

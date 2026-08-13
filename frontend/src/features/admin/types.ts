@@ -248,6 +248,7 @@ export interface InterviewQueueApplication {
   id: string;
   status: ApplicationStatus;
   submittedAt: string;
+  examinationScore: number | null;
   jobPosting: { id: string; title: string };
   applicant: { id: string; firstName: string; lastName: string };
   panelEvaluations: PanelEvaluation[];

@@ -19,17 +19,25 @@ const ENTITY_TYPE_OPTIONS = [
 export function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [entityType, setEntityType] = useState("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const pagination = usePagination(logs, 10);
 
+  // Debounced so typing a search term doesn't fire a request per keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     setLoading(true);
-    listAuditLogs(entityType || undefined)
+    listAuditLogs({ entityType: entityType || undefined, search: debouncedSearch || undefined })
       .then(setLogs)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load logs"))
       .finally(() => setLoading(false));
-  }, [entityType]);
+  }, [entityType, debouncedSearch]);
 
   return (
     <AdminShell>
@@ -37,26 +45,43 @@ export function AuditLogsPage() {
       <p>Read-only record of admin actions - user, job posting, and evaluation changes. Entries cannot be edited or deleted.</p>
       <ErrorBanner message={error} />
 
-      <div className="field" style={{ maxWidth: 260 }}>
-        <label htmlFor="entity-type">Filter by type</label>
-        <select
-          id="entity-type"
-          value={entityType}
-          onChange={(e) => {
-            setEntityType(e.target.value);
-            pagination.setPage(1);
-          }}
-        >
-          {ENTITY_TYPE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+      <div className="filters-row">
+        <div className="field">
+          <label htmlFor="log-search">Search</label>
+          <input
+            id="log-search"
+            type="search"
+            placeholder="Search by actor, action, or details..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              pagination.setPage(1);
+            }}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="entity-type">Filter by type</label>
+          <select
+            id="entity-type"
+            value={entityType}
+            onChange={(e) => {
+              setEntityType(e.target.value);
+              pagination.setPage(1);
+            }}
+          >
+            {ENTITY_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loading && <LoadingBlock />}
-      {!loading && logs.length === 0 && <p>No log entries yet.</p>}
+      {!loading && logs.length === 0 && (
+        <p>{entityType || debouncedSearch ? "No log entries match your search/filter." : "No log entries yet."}</p>
+      )}
       {!loading && logs.length > 0 && (
         <div className="table-wrap">
           <table>

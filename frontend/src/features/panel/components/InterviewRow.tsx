@@ -24,6 +24,7 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const ownEvaluation = application.panelEvaluations[0] ?? null;
+  const canScore = application.examinationScore !== null;
   const [scores, setScores] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const criterion of criteria) {
@@ -88,6 +89,7 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
         </td>
         <td>{application.jobPosting.title}</td>
         <td>{new Date(application.submittedAt).toLocaleDateString()}</td>
+        <td>{application.examinationScore ?? "-"}</td>
         <td>
           <span className={`badge ${ownEvaluation ? "open" : "pending"}`}>{ownEvaluation ? "Scored" : "Pending"}</span>
         </td>
@@ -96,15 +98,28 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
             <button type="button" className="secondary" onClick={() => setShowDocuments(true)}>
               View PDS
             </button>
-            <button type="button" className="secondary" onClick={() => setExpanded((prev) => !prev)}>
+            <button
+              type="button"
+              className="secondary"
+              disabled={!canScore}
+              title={canScore ? undefined : "No PQE exam score has been recorded for this applicant yet"}
+              onClick={() => setExpanded((prev) => !prev)}
+            >
               {expanded ? "Cancel" : ownEvaluation ? "Update scores" : "Score"}
             </button>
           </div>
         </td>
       </tr>
+      {!canScore && (
+        <tr>
+          <td colSpan={6}>
+            <p className="field-hint">No PQE exam score has been recorded for this applicant yet. Scoring is locked until it is.</p>
+          </td>
+        </tr>
+      )}
       {expanded && (
         <tr>
-          <td colSpan={5}>
+          <td colSpan={6}>
             <ErrorBanner message={error} />
             <form onSubmit={handleSubmit} className="field-grid" noValidate>
               {criteria.map((criterion) => (

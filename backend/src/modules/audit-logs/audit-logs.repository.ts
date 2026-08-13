@@ -24,9 +24,27 @@ export class AuditLogsRepository {
     return this.db.auditLog.create({ data: input });
   }
 
-  findMany(filters: { entityType?: string }, limit: number): Promise<AuditLogWithActor[]> {
+  /**
+   * `search` is matched against `action`/`details`/the actor's email, and
+   * applied in the WHERE clause (not client-side after fetch) so it can
+   * still surface an old entry that's beyond `limit`'s most-recent-N window
+   * - the whole point of searching a long-running audit trail is finding a
+   * match `limit` alone would otherwise cut off.
+   */
+  findMany(filters: { entityType?: string; search?: string }, limit: number): Promise<AuditLogWithActor[]> {
     return this.db.auditLog.findMany({
-      where: filters.entityType ? { entityType: filters.entityType } : undefined,
+      where: {
+        entityType: filters.entityType,
+        ...(filters.search
+          ? {
+              OR: [
+                { action: { contains: filters.search } },
+                { details: { contains: filters.search } },
+                { actor: { email: { contains: filters.search } } },
+              ],
+            }
+          : {}),
+      },
       include: { actor: { select: { email: true } } },
       orderBy: { createdAt: "desc" },
       take: limit,
