@@ -1,4 +1,4 @@
-import type { Application, ApplicationStatus, PrismaClient } from "@prisma/client";
+import type { Application, ApplicationStatus, EligibilityType, LdIntervention, PrismaClient } from "@prisma/client";
 
 const applicationWithPostingInclude = {
   jobPosting: true,
@@ -6,10 +6,13 @@ const applicationWithPostingInclude = {
 } as const;
 
 const applicationWithApplicantInclude = {
-  jobPosting: true,
+  jobPosting: { include: { requiredEligibilities: true } },
   applicant: {
     include: {
       user: { select: { email: true } },
+      // Needed to sum total training hours for the Sifting qualification
+      // hint - see frontend/src/shared/utils/qualificationMatch.ts.
+      ldInterventions: true,
     },
   },
 } as const;
@@ -19,11 +22,37 @@ export type ApplicationWithPosting = Application & {
 };
 
 export type ApplicationWithApplicant = Application & {
-  jobPosting: NonNullable<Awaited<ReturnType<PrismaClient["jobPosting"]["findUnique"]>>>;
+  jobPosting: NonNullable<Awaited<ReturnType<PrismaClient["jobPosting"]["findUnique"]>>> & {
+    requiredEligibilityTypes: EligibilityType[];
+  };
   applicant: NonNullable<Awaited<ReturnType<PrismaClient["applicant"]["findUnique"]>>> & {
     user: { email: string };
+    ldInterventions: LdIntervention[];
   };
 };
+
+type RawApplicationWithApplicant = Application & {
+  jobPosting: NonNullable<Awaited<ReturnType<PrismaClient["jobPosting"]["findUnique"]>>> & {
+    requiredEligibilities: { eligibilityType: EligibilityType }[];
+  };
+  applicant: NonNullable<Awaited<ReturnType<PrismaClient["applicant"]["findUnique"]>>> & {
+    user: { email: string };
+    ldInterventions: LdIntervention[];
+  };
+};
+
+// requiredEligibilities is a join table (JobPostingRequiredEligibility) -
+// reshaped into a flat requiredEligibilityTypes array here, the same way
+// JobPostingsRepository.toJobPostingWithEligibility() does, so every
+// ApplicationWithApplicant carries what qualificationMatch.ts needs to
+// compute the Eligibility hint without a second query.
+function toApplicationWithApplicant(row: RawApplicationWithApplicant): ApplicationWithApplicant {
+  const { requiredEligibilities, ...restPosting } = row.jobPosting;
+  return {
+    ...row,
+    jobPosting: { ...restPosting, requiredEligibilityTypes: requiredEligibilities.map((r) => r.eligibilityType) },
+  };
+}
 
 export interface SiftApplicationInput {
   status: ApplicationStatus;
@@ -109,23 +138,25 @@ export class ApplicationsRepository {
     }) as Promise<ApplicationWithPosting[]>;
   }
 
-  findById(id: string): Promise<ApplicationWithApplicant | null> {
-    return this.db.application.findUnique({
+  async findById(id: string): Promise<ApplicationWithApplicant | null> {
+    const row = await this.db.application.findUnique({
       where: { id },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant | null>;
+    });
+    return row ? toApplicationWithApplicant(row as RawApplicationWithApplicant) : null;
   }
 
-  findMany(jobPostingId?: string): Promise<ApplicationWithApplicant[]> {
-    return this.db.application.findMany({
+  async findMany(jobPostingId?: string): Promise<ApplicationWithApplicant[]> {
+    const rows = await this.db.application.findMany({
       where: jobPostingId ? { jobPostingId } : undefined,
       include: applicationWithApplicantInclude,
       orderBy: { submittedAt: "desc" },
-    }) as Promise<ApplicationWithApplicant[]>;
+    });
+    return (rows as RawApplicationWithApplicant[]).map(toApplicationWithApplicant);
   }
 
-  sift(id: string, input: SiftApplicationInput): Promise<ApplicationWithApplicant> {
-    return this.db.application.update({
+  async sift(id: string, input: SiftApplicationInput): Promise<ApplicationWithApplicant> {
+    const row = await this.db.application.update({
       where: { id },
       data: {
         siftingRemarks: input.remarks,
@@ -134,19 +165,21 @@ export class ApplicationsRepository {
         status: input.status,
       },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant>;
+    });
+    return toApplicationWithApplicant(row as RawApplicationWithApplicant);
   }
 
-  withdraw(id: string): Promise<ApplicationWithApplicant> {
-    return this.db.application.update({
+  async withdraw(id: string): Promise<ApplicationWithApplicant> {
+    const row = await this.db.application.update({
       where: { id },
       data: { status: "WITHDRAWN", withdrawnAt: new Date() },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant>;
+    });
+    return toApplicationWithApplicant(row as RawApplicationWithApplicant);
   }
 
-  scheduleInterview(id: string, input: ScheduleInterviewInput): Promise<ApplicationWithApplicant> {
-    return this.db.application.update({
+  async scheduleInterview(id: string, input: ScheduleInterviewInput): Promise<ApplicationWithApplicant> {
+    const row = await this.db.application.update({
       where: { id },
       data: {
         status: "FOR_INTERVIEW",
@@ -157,19 +190,21 @@ export class ApplicationsRepository {
         interviewNotes: input.notes,
       },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant>;
+    });
+    return toApplicationWithApplicant(row as RawApplicationWithApplicant);
   }
 
-  moveToCompliance(id: string): Promise<ApplicationWithApplicant> {
-    return this.db.application.update({
+  async moveToCompliance(id: string): Promise<ApplicationWithApplicant> {
+    const row = await this.db.application.update({
       where: { id },
       data: { status: "FOR_COMPLIANCE", complianceRequestedAt: new Date() },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant>;
+    });
+    return toApplicationWithApplicant(row as RawApplicationWithApplicant);
   }
 
-  scheduleOathTaking(id: string, input: ScheduleOathTakingInput): Promise<ApplicationWithApplicant> {
-    return this.db.application.update({
+  async scheduleOathTaking(id: string, input: ScheduleOathTakingInput): Promise<ApplicationWithApplicant> {
+    const row = await this.db.application.update({
       where: { id },
       data: {
         status: "FOR_OATH_TAKING",
@@ -179,40 +214,45 @@ export class ApplicationsRepository {
         oathTakingNotes: input.notes,
       },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant>;
+    });
+    return toApplicationWithApplicant(row as RawApplicationWithApplicant);
   }
 
-  markHired(id: string): Promise<ApplicationWithApplicant> {
-    return this.db.application.update({
+  async markHired(id: string): Promise<ApplicationWithApplicant> {
+    const row = await this.db.application.update({
       where: { id },
       data: { status: "HIRED", hiredAt: new Date() },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant>;
+    });
+    return toApplicationWithApplicant(row as RawApplicationWithApplicant);
   }
 
-  rejectAfterInterview(id: string, remarks?: string): Promise<ApplicationWithApplicant> {
-    return this.db.application.update({
+  async rejectAfterInterview(id: string, remarks?: string): Promise<ApplicationWithApplicant> {
+    const row = await this.db.application.update({
       where: { id },
       data: { status: "NOT_SELECTED", rejectedAt: new Date(), rejectionRemarks: remarks },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant>;
+    });
+    return toApplicationWithApplicant(row as RawApplicationWithApplicant);
   }
 
-  rejectAfterCompliance(id: string, remarks?: string): Promise<ApplicationWithApplicant> {
-    return this.db.application.update({
+  async rejectAfterCompliance(id: string, remarks?: string): Promise<ApplicationWithApplicant> {
+    const row = await this.db.application.update({
       where: { id },
       data: { status: "DISQUALIFIED", rejectedAt: new Date(), rejectionRemarks: remarks },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant>;
+    });
+    return toApplicationWithApplicant(row as RawApplicationWithApplicant);
   }
 
   /** Manual, single-application counterpart to bulkSetExaminationScores below (the Excel import path) - same fields, one row at a time. */
-  setExaminationScore(id: string, score: number): Promise<ApplicationWithApplicant> {
-    return this.db.application.update({
+  async setExaminationScore(id: string, score: number): Promise<ApplicationWithApplicant> {
+    const row = await this.db.application.update({
       where: { id },
       data: { examinationScore: score, examinationScoredAt: new Date() },
       include: applicationWithApplicantInclude,
-    }) as Promise<ApplicationWithApplicant>;
+    });
+    return toApplicationWithApplicant(row as RawApplicationWithApplicant);
   }
 
   async bulkSetExaminationScores(updates: ExaminationScoreUpdate[]): Promise<void> {

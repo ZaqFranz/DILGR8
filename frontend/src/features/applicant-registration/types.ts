@@ -1,4 +1,14 @@
 export type EligibilityType = "RA1080" | "CSC_PROFESSIONAL" | "CSC_SUBPROFESSIONAL" | "BARANGAY" | "NONE";
+export type EducationLevel =
+  | "ELEMENTARY"
+  | "HIGH_SCHOOL"
+  | "VOCATIONAL"
+  | "COLLEGE_LEVEL"
+  | "BACHELORS"
+  | "MASTERS_LEVEL"
+  | "MASTERS"
+  | "DOCTORATE_LEVEL"
+  | "DOCTORATE";
 export type DocumentType =
   | "APPLICATION_LETTER"
   | "PDS"
@@ -63,6 +73,8 @@ export interface ApplicantProfile {
   hasEligibility: boolean;
   eligibilityType: EligibilityType;
   eligibilityValidated: boolean;
+  educationLevel: EducationLevel;
+  yearsOfExperience: number;
   registrationCompletedAt: string | null;
   ldInterventions: LdIntervention[];
   awards: Award[];
@@ -81,4 +93,6 @@ export interface DemographicProfileInput {
   contactNumber: string;
   hasEligibility: boolean;
   eligibilityType: EligibilityType;
+  educationLevel: EducationLevel;
+  yearsOfExperience: number;
 }

@@ -13,6 +13,7 @@ import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { usePagination } from "@/shared/utils/usePagination";
 import { ELIGIBILITY_OPTIONS } from "@/shared/constants/eligibility";
 import { formatMonthlySalary, SALARY_GRADE_MONTHLY_SALARY, SALARY_GRADE_OPTIONS } from "@/shared/constants/salaryGrades";
+import { EDUCATION_LEVEL_OPTIONS } from "@/shared/constants/educationLevels";
 import type { EligibilityType } from "@/features/applicant-registration/types";
 import { AdminShell } from "../components/AdminShell";
 import { listPositions } from "../api/positionsApi";
@@ -23,9 +24,20 @@ import {
   listJobPostings,
   updateJobPosting,
 } from "@/features/job-postings/api/jobPostingsApi";
-import type { CreateJobPostingInput, JobPosting, JobPostingStatus } from "@/features/job-postings/types";
+import type { CreateJobPostingInput, JobPosting, JobPostingStatus, UpdateJobPostingInput } from "@/features/job-postings/types";
 
-const emptyForm: CreateJobPostingInput = {
+// The structured minimums are optional and driven by <select>/<input
+// type="number"> controls that need a blank/unselected state - unlike
+// CreateJobPostingInput's proper `EducationLevel | undefined`/`number |
+// undefined` typing (the real API contract), this form keeps them as plain
+// strings ("" = not set) and only converts to the typed payload on submit.
+interface JobPostingFormState extends Omit<CreateJobPostingInput, "minEducationLevel" | "minYearsExperience" | "minTrainingHours"> {
+  minEducationLevel: string;
+  minYearsExperience: string;
+  minTrainingHours: string;
+}
+
+const emptyForm: JobPostingFormState = {
   title: "",
   positionId: "",
   publication: "",
@@ -40,6 +52,9 @@ const emptyForm: CreateJobPostingInput = {
   qualificationExperience: "",
   qualificationEligibility: "",
   requiredEligibilityTypes: [],
+  minEducationLevel: "",
+  minYearsExperience: "",
+  minTrainingHours: "",
   duties: "",
 };
 
@@ -48,7 +63,7 @@ export function JobManagementPage() {
   const [postings, setPostings] = useState<JobPosting[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState<CreateJobPostingInput>(emptyForm);
+  const [form, setForm] = useState<JobPostingFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingStatus, setEditingStatus] = useState<JobPostingStatus>("OPEN");
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +95,7 @@ export function JobManagementPage() {
   );
   const pagination = usePagination(filteredPostings, 10);
 
-  function update<K extends keyof CreateJobPostingInput>(key: K, value: CreateJobPostingInput[K]) {
+  function update<K extends keyof JobPostingFormState>(key: K, value: JobPostingFormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -124,6 +139,9 @@ export function JobManagementPage() {
       qualificationExperience: posting.qualificationExperience,
       qualificationEligibility: posting.qualificationEligibility,
       requiredEligibilityTypes: posting.requiredEligibilityTypes,
+      minEducationLevel: posting.minEducationLevel ?? "",
+      minYearsExperience: posting.minYearsExperience?.toString() ?? "",
+      minTrainingHours: posting.minTrainingHours?.toString() ?? "",
       duties: posting.duties,
     });
     setError(null);
@@ -146,11 +164,24 @@ export function JobManagementPage() {
     setSubmitting(true);
     try {
       if (editingId) {
-        const updated = await updateJobPosting(editingId, { ...form, status: editingStatus });
+        const updated = await updateJobPosting(editingId, {
+          ...form,
+          status: editingStatus,
+          minEducationLevel: (form.minEducationLevel || null) as UpdateJobPostingInput["minEducationLevel"],
+          minYearsExperience: form.minYearsExperience ? Number(form.minYearsExperience) : null,
+          minTrainingHours: form.minTrainingHours ? Number(form.minTrainingHours) : null,
+        });
         setPostings((prev) => prev.map((p) => (p.id === editingId ? updated : p)));
         toast.success(`"${updated.title}" was updated.`);
       } else {
-        const created = await createJobPosting(form);
+        const created = await createJobPosting({
+          ...form,
+          minEducationLevel: form.minEducationLevel
+            ? (form.minEducationLevel as CreateJobPostingInput["minEducationLevel"])
+            : undefined,
+          minYearsExperience: form.minYearsExperience ? Number(form.minYearsExperience) : undefined,
+          minTrainingHours: form.minTrainingHours ? Number(form.minTrainingHours) : undefined,
+        });
         setPostings((prev) => [created, ...prev]);
         toast.success(`"${created.title}" was posted. Applications close ${new Date(created.closingAt).toLocaleString()}.`);
       }
@@ -458,6 +489,22 @@ export function JobManagementPage() {
             />
             <FieldError message={fieldErrors.qualificationEducation} />
           </div>
+          <div className={fieldErrors.minEducationLevel ? "field has-error" : "field"}>
+            <label htmlFor="minEducationLevel">Minimum education level (optional — enables an automatic Sifting hint)</label>
+            <select
+              id="minEducationLevel"
+              value={form.minEducationLevel}
+              onChange={(e) => update("minEducationLevel", e.target.value)}
+            >
+              <option value="">No automatic check</option>
+              {EDUCATION_LEVEL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <FieldError message={fieldErrors.minEducationLevel} />
+          </div>
           <div className={fieldErrors.qualificationTraining ? "field has-error" : "field"}>
             <label htmlFor="qualificationTraining" className="required">
               Qualification standard - Training
@@ -470,6 +517,19 @@ export function JobManagementPage() {
             />
             <FieldError message={fieldErrors.qualificationTraining} />
           </div>
+          <div className={fieldErrors.minTrainingHours ? "field has-error" : "field"}>
+            <label htmlFor="minTrainingHours">Minimum training hours (optional — enables an automatic Sifting hint)</label>
+            <input
+              id="minTrainingHours"
+              type="number"
+              min={0}
+              max={10000}
+              placeholder="e.g. 40"
+              value={form.minTrainingHours}
+              onChange={(e) => update("minTrainingHours", e.target.value)}
+            />
+            <FieldError message={fieldErrors.minTrainingHours} />
+          </div>
           <div className={fieldErrors.qualificationExperience ? "field has-error" : "field"}>
             <label htmlFor="qualificationExperience" className="required">
               Qualification standard - Experience
@@ -481,6 +541,19 @@ export function JobManagementPage() {
               onChange={(e) => update("qualificationExperience", e.target.value)}
             />
             <FieldError message={fieldErrors.qualificationExperience} />
+          </div>
+          <div className={fieldErrors.minYearsExperience ? "field has-error" : "field"}>
+            <label htmlFor="minYearsExperience">Minimum years of experience (optional — enables an automatic Sifting hint)</label>
+            <input
+              id="minYearsExperience"
+              type="number"
+              min={0}
+              max={60}
+              placeholder="e.g. 1"
+              value={form.minYearsExperience}
+              onChange={(e) => update("minYearsExperience", e.target.value)}
+            />
+            <FieldError message={fieldErrors.minYearsExperience} />
           </div>
           <div className={fieldErrors.qualificationEligibility ? "field has-error" : "field"}>
             <label htmlFor="qualificationEligibility" className="required">

@@ -1,4 +1,4 @@
-import type { EligibilityType } from "@/features/applicant-registration/types";
+import type { EducationLevel, EligibilityType } from "@/features/applicant-registration/types";
 
 export type JobPostingStatus = "OPEN" | "CLOSED";
 
@@ -22,6 +22,12 @@ export interface JobPosting {
   qualificationExperience: string;
   qualificationEligibility: string;
   requiredEligibilityTypes: EligibilityType[];
+  // Structured minimums alongside the free-text qualificationX fields above
+  // - null means no automatic Sifting hint for that criterion. See
+  // qualificationMatch.ts.
+  minEducationLevel: EducationLevel | null;
+  minYearsExperience: number | null;
+  minTrainingHours: number | null;
   duties: string;
   postedAt: string;
   closingAt: string;
@@ -47,6 +53,9 @@ export interface CreateJobPostingInput {
   qualificationExperience: string;
   qualificationEligibility: string;
   requiredEligibilityTypes: EligibilityType[];
+  minEducationLevel?: EducationLevel;
+  minYearsExperience?: number;
+  minTrainingHours?: number;
   duties: string;
 }
 
@@ -65,6 +74,9 @@ export interface UpdateJobPostingInput {
   qualificationExperience?: string;
   qualificationEligibility?: string;
   requiredEligibilityTypes?: EligibilityType[];
+  minEducationLevel?: EducationLevel | null;
+  minYearsExperience?: number | null;
+  minTrainingHours?: number | null;
   duties?: string;
   status?: JobPostingStatus;
 }

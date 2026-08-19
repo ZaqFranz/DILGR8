@@ -1,5 +1,5 @@
 import type { JobPosting } from "@/features/job-postings/types";
-import type { DocumentType } from "@/features/applicant-registration/types";
+import type { DocumentType, EducationLevel, EligibilityType } from "@/features/applicant-registration/types";
 
 export type ApplicationStatus =
   | "SUBMITTED"
@@ -42,6 +42,13 @@ export interface AdminApplication {
     firstName: string;
     lastName: string;
     user: { email: string };
+    // Structured fields used by qualificationMatch.ts to compute the
+    // Sifting "meets/below" hint against jobPosting's minX fields above.
+    educationLevel: EducationLevel;
+    yearsOfExperience: number;
+    hasEligibility: boolean;
+    eligibilityType: EligibilityType;
+    ldInterventions: { numberOfHours: number }[];
   };
 }
 

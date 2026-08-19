@@ -1,6 +1,15 @@
 import { z } from "zod";
+import { EDUCATION_LEVEL_VALUES } from "@/shared/constants/educationLevels";
 
 const eligibilityTypeSchema = z.enum(["RA1080", "CSC_PROFESSIONAL", "CSC_SUBPROFESSIONAL", "BARANGAY", "NONE"]);
+// Custom errorMap so an unselected/invalid <select> value surfaces a plain
+// "Select your highest educational attainment." instead of Zod's default
+// "Invalid enum value. Expected ... , received ''" leaking straight through
+// getFieldErrors() to the UI - see job-postings.dto.ts's salaryGradeSchema
+// for the same fix.
+const educationLevelSchema = z.enum(EDUCATION_LEVEL_VALUES, {
+  errorMap: () => ({ message: "Select your highest educational attainment." }),
+});
 
 export const createApplicantProfileSchema = z
   .object({
@@ -15,6 +24,8 @@ export const createApplicantProfileSchema = z
     contactNumber: z.string().min(7).max(20),
     hasEligibility: z.boolean(),
     eligibilityType: eligibilityTypeSchema.default("NONE"),
+    educationLevel: educationLevelSchema,
+    yearsOfExperience: z.number().int().min(0).max(60),
   })
   .refine((data) => !data.hasEligibility || data.eligibilityType !== "NONE", {
     message: "eligibilityType is required when hasEligibility is true",

@@ -8,6 +8,9 @@ import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
+import { EDUCATION_LEVEL_LABELS } from "@/shared/constants/educationLevels";
+import { ELIGIBILITY_LABELS } from "@/shared/constants/eligibility";
+import { computeQualificationMatch, type MatchStatus } from "@/shared/utils/qualificationMatch";
 import {
   listComplianceItems,
   markHired,
@@ -33,6 +36,15 @@ interface Props {
 
 function canScheduleInterview(application: AdminApplication): boolean {
   return application.status === "QUALIFIED" && application.examinationScore !== null;
+}
+
+// Reuses the existing status-badge color classes (qualified=green,
+// rejected=red, withdrawn=gray) rather than inventing new ones - see
+// index.css's .badge rules.
+function matchBadge(status: MatchStatus): { className: string; label: string } {
+  if (status === "MEETS") return { className: "badge qualified", label: "Meets" };
+  if (status === "BELOW") return { className: "badge rejected", label: "Below minimum" };
+  return { className: "badge withdrawn", label: "No automatic check" };
 }
 
 const emptyScheduleForm = { scheduledAt: "", scheduledEndAt: "", venue: "", attire: "", notes: "" };
@@ -281,6 +293,8 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     }
   }
 
+  const qualificationMatch = computeQualificationMatch(application);
+  const totalTrainingHours = application.applicant.ldInterventions.reduce((sum, entry) => sum + entry.numberOfHours, 0);
   const incompleteScoring = tabulation !== null && tabulation.panelistsSubmitted < tabulation.panelistsAssigned;
   const hasDetails =
     isSiftable ||
@@ -370,6 +384,77 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
         }
       >
         <ErrorBanner message={error} />
+        <div className="card-inset">
+          <p className="field-hint">
+            Qualification Standards vs. this applicant. The badge is an automatic hint from structured profile/posting
+            data only - the free-text standard is still the authoritative wording to weigh when sifting.
+          </p>
+          <ul className="qs-match-list">
+            <li>
+              <div className="qs-match-row">
+                <strong>Education</strong>
+                <span className={matchBadge(qualificationMatch.education).className}>
+                  {matchBadge(qualificationMatch.education).label}
+                </span>
+              </div>
+              <p className="field-hint">{application.jobPosting.qualificationEducation}</p>
+              {application.jobPosting.minEducationLevel && (
+                <p className="field-hint">
+                  Applicant: {EDUCATION_LEVEL_LABELS[application.applicant.educationLevel]} — Minimum required:{" "}
+                  {EDUCATION_LEVEL_LABELS[application.jobPosting.minEducationLevel]}
+                </p>
+              )}
+            </li>
+            <li>
+              <div className="qs-match-row">
+                <strong>Training</strong>
+                <span className={matchBadge(qualificationMatch.training).className}>
+                  {matchBadge(qualificationMatch.training).label}
+                </span>
+              </div>
+              <p className="field-hint">{application.jobPosting.qualificationTraining}</p>
+              {application.jobPosting.minTrainingHours !== null && (
+                <p className="field-hint">
+                  Applicant: {totalTrainingHours} hour(s) total (from Learning &amp; Development entries) — Minimum
+                  required: {application.jobPosting.minTrainingHours} hour(s)
+                </p>
+              )}
+            </li>
+            <li>
+              <div className="qs-match-row">
+                <strong>Experience</strong>
+                <span className={matchBadge(qualificationMatch.experience).className}>
+                  {matchBadge(qualificationMatch.experience).label}
+                </span>
+              </div>
+              <p className="field-hint">{application.jobPosting.qualificationExperience}</p>
+              {application.jobPosting.minYearsExperience !== null && (
+                <p className="field-hint">
+                  Applicant: {application.applicant.yearsOfExperience} year(s) — Minimum required:{" "}
+                  {application.jobPosting.minYearsExperience} year(s)
+                </p>
+              )}
+            </li>
+            <li>
+              <div className="qs-match-row">
+                <strong>Eligibility</strong>
+                <span className={matchBadge(qualificationMatch.eligibility).className}>
+                  {matchBadge(qualificationMatch.eligibility).label}
+                </span>
+              </div>
+              <p className="field-hint">{application.jobPosting.qualificationEligibility}</p>
+              {application.jobPosting.requiredEligibilityTypes.length > 0 && (
+                <p className="field-hint">
+                  Applicant:{" "}
+                  {application.applicant.hasEligibility
+                    ? ELIGIBILITY_LABELS[application.applicant.eligibilityType]
+                    : "No eligibility on file"}{" "}
+                  — Required (any of): {application.jobPosting.requiredEligibilityTypes.map((type) => ELIGIBILITY_LABELS[type]).join(", ")}
+                </p>
+              )}
+            </li>
+          </ul>
+        </div>
         {!isSiftable && application.siftedAt !== null && (
           <div className="card-inset">
             <p className="field-hint">

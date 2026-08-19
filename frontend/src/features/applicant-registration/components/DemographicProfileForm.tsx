@@ -5,8 +5,9 @@ import { FieldError } from "@/shared/components/FieldError";
 import { Spinner } from "@/shared/components/Spinner";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { ELIGIBILITY_OPTIONS } from "@/shared/constants/eligibility";
+import { EDUCATION_LEVEL_OPTIONS } from "@/shared/constants/educationLevels";
 import { createProfile, updateProfile } from "../api/applicantsApi";
-import type { ApplicantProfile, DemographicProfileInput, EligibilityType } from "../types";
+import type { ApplicantProfile, DemographicProfileInput, EducationLevel, EligibilityType } from "../types";
 
 interface Props {
   profile: ApplicantProfile | null;
@@ -27,6 +28,8 @@ function toInputValue(input: DemographicProfileInput, profile: ApplicantProfile 
     contactNumber: profile.contactNumber,
     hasEligibility: profile.hasEligibility,
     eligibilityType: profile.eligibilityType,
+    educationLevel: profile.educationLevel,
+    yearsOfExperience: profile.yearsOfExperience,
   };
 }
 
@@ -42,6 +45,8 @@ const emptyForm: DemographicProfileInput = {
   contactNumber: "",
   hasEligibility: false,
   eligibilityType: "NONE",
+  educationLevel: "BACHELORS",
+  yearsOfExperience: 0,
 };
 
 export function DemographicProfileForm({ profile, onSaved }: Props) {
@@ -67,6 +72,9 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
     if (!form.contactNumber.trim()) errors.contactNumber = "Contact number is required.";
     if (form.hasEligibility && form.eligibilityType === "NONE") {
       errors.eligibilityType = "Choose which eligibility you hold.";
+    }
+    if (!Number.isInteger(form.yearsOfExperience) || form.yearsOfExperience < 0 || form.yearsOfExperience > 60) {
+      errors.yearsOfExperience = "Enter a whole number from 0 to 60.";
     }
     return errors;
   }
@@ -179,6 +187,39 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
               onChange={(e) => update("contactNumber", e.target.value)}
             />
             <FieldError message={fieldErrors.contactNumber} />
+          </div>
+          <div className={fieldClass("educationLevel")}>
+            <label htmlFor="educationLevel" className="required">
+              Highest educational attainment
+            </label>
+            <select
+              id="educationLevel"
+              value={form.educationLevel}
+              onChange={(e) => update("educationLevel", e.target.value as EducationLevel)}
+            >
+              {EDUCATION_LEVEL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <FieldError message={fieldErrors.educationLevel} />
+          </div>
+          <div className={fieldClass("yearsOfExperience")}>
+            <label htmlFor="yearsOfExperience" className="required">
+              Total years of relevant work experience
+            </label>
+            <input
+              id="yearsOfExperience"
+              type="number"
+              min={0}
+              max={60}
+              required
+              value={form.yearsOfExperience}
+              onChange={(e) => update("yearsOfExperience", Number(e.target.value))}
+            />
+            <FieldError message={fieldErrors.yearsOfExperience} />
+            <p className="field-hint">Detailed entries are already covered by your PDS upload - this total is just used to match job postings' experience requirement.</p>
           </div>
         </div>
         <div className={fieldClass("address")}>

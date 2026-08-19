@@ -1,4 +1,4 @@
-import type { EligibilityType, JobPosting, JobPostingStatus, PrismaClient } from "@prisma/client";
+import type { EducationLevel, EligibilityType, JobPosting, JobPostingStatus, PrismaClient } from "@prisma/client";
 
 export interface CreateJobPostingInput {
   title: string;
@@ -16,6 +16,9 @@ export interface CreateJobPostingInput {
   qualificationExperience: string;
   qualificationEligibility: string;
   requiredEligibilityTypes: EligibilityType[];
+  minEducationLevel?: EducationLevel;
+  minYearsExperience?: number;
+  minTrainingHours?: number;
   duties: string;
   postedAt: Date;
   closingAt: Date;
@@ -38,6 +41,9 @@ export interface UpdateJobPostingInput {
   qualificationExperience?: string;
   qualificationEligibility?: string;
   requiredEligibilityTypes?: EligibilityType[];
+  minEducationLevel?: EducationLevel | null;
+  minYearsExperience?: number | null;
+  minTrainingHours?: number | null;
   duties?: string;
   status?: JobPostingStatus;
 }

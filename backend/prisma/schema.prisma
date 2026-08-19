@@ -26,6 +26,26 @@ enum EligibilityType {
   NONE
 }
 
+// Ordered ascending (lowest to highest attainment) - the order itself is
+// meaningful, not just a fixed vocabulary: JobPosting.minEducationLevel is
+// compared against Applicant.educationLevel by ordinal position (see
+// shared/constants/educationLevels.ts on both backend and frontend) to
+// compute an automatic Sifting hint. The free-text qualificationEducation
+// field stays the authoritative wording (e.g. "relevant to the job" can't
+// be captured by an enum) - this only drives the hint, same soft-check
+// pattern EligibilityType already uses via JobPostingRequiredEligibility.
+enum EducationLevel {
+  ELEMENTARY
+  HIGH_SCHOOL
+  VOCATIONAL
+  COLLEGE_LEVEL
+  BACHELORS
+  MASTERS_LEVEL
+  MASTERS
+  DOCTORATE_LEVEL
+  DOCTORATE
+}
+
 // Order mirrors the official application-documents checklist (a-j):
 // letter, PDS, performance rating, eligibility proof, L&D proof,
 // transcript, diploma, PQE notice, designation proof, award proof.
@@ -143,6 +163,18 @@ model Applicant {
   hasEligibility       Boolean         @default(false)
   eligibilityType      EligibilityType @default(NONE)
   eligibilityValidated Boolean         @default(false)
+
+  // Structured counterparts to JobPosting.minEducationLevel/
+  // minYearsExperience, collected on the Demographic Profile step -
+  // enables an automatic Sifting hint the same way eligibilityType already
+  // does. yearsOfExperience is a single self-reported number rather than a
+  // full list of entries: WorkExperience (below) exists in the schema but
+  // is deliberately never collected from applicants (see the comment on
+  // RegistrationPage.tsx) since that would duplicate what's already on the
+  // required PDS upload - this is a lighter-weight structured number for
+  // comparison purposes only, not a replacement for the PDS.
+  educationLevel    EducationLevel
+  yearsOfExperience Int            @default(0)
 
   // Set once the applicant finishes every step of the registration flow
   // (profile, work experience, L&D, awards, documents). Null means the
@@ -276,6 +308,16 @@ model JobPosting {
   qualificationTraining    String           @db.Text
   qualificationExperience  String           @db.Text
   qualificationEligibility String           @db.Text
+  // Structured minimums in parallel with the free-text qualificationX
+  // fields above - null means no automatic check for that criterion (e.g.
+  // an admin who only filled in the free-text description). These never
+  // replace the free text, which stays the authoritative QS wording; they
+  // only drive an automatic "meets/below" hint on the Sifting screen,
+  // computed client-side (frontend/src/shared/utils/qualificationMatch.ts)
+  // from these fields plus the matching Applicant fields.
+  minEducationLevel        EducationLevel?
+  minYearsExperience       Int?
+  minTrainingHours         Int?
   // Free text, one duty per line - rendered as a numbered list on the
   // applicant-facing details view.
   duties                   String           @db.Text
