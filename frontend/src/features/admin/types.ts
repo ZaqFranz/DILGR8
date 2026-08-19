@@ -53,7 +53,7 @@ export interface AdminApplication {
 }
 
 export type ComplianceItemStatus = "PENDING" | "VERIFIED" | "REJECTED";
-export type ComplianceSubmissionType = "SOFTCOPY" | "HARDCOPY";
+export type ComplianceSubmissionType = "SOFTCOPY" | "HARDCOPY" | "BOTH";
 
 export interface ComplianceRequirement {
   id: string;

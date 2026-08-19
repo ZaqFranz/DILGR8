@@ -112,6 +112,8 @@ export function ComplianceChecklistSection({ applicationId, canUpload }: Props) 
           <tbody>
             {items.map((item) => {
               const proof = item.documents[0] ?? null;
+              const needsOnlineProof = item.submissionType !== "HARDCOPY";
+              const needsPhysicalCopy = item.submissionType !== "SOFTCOPY";
               return (
                 <tr key={item.id}>
                   <td>
@@ -132,17 +134,20 @@ export function ComplianceChecklistSection({ applicationId, canUpload }: Props) 
                           </button>
                         )}
                       </div>
-                    ) : canUpload ? (
+                    ) : needsOnlineProof && canUpload ? (
                       <input
                         type="file"
                         accept="application/pdf,image/jpeg,image/png"
                         disabled={uploadingForItemId === item.id}
                         onChange={(e) => handleUpload(item, e.target.files?.[0])}
                       />
-                    ) : (
+                    ) : needsOnlineProof ? (
                       <span className="field-hint">Not submitted</span>
+                    ) : (
+                      <span className="field-hint">No online copy needed</span>
                     )}
                     {uploadingForItemId === item.id && <Spinner size="sm" />}
+                    {needsPhysicalCopy && <p className="field-hint">Also bring a physical copy in person</p>}
                   </td>
                 </tr>
               );

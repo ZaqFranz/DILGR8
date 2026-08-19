@@ -21,6 +21,12 @@ interface Props {
   onClose: () => void;
 }
 
+const SUBMISSION_TYPE_LABELS: Record<ComplianceSubmissionType, string> = {
+  SOFTCOPY: "Softcopy (online)",
+  HARDCOPY: "Hardcopy (physical)",
+  BOTH: "Both (online + physical)",
+};
+
 /**
  * Structurally mirrors ApplicantDocumentsModal (same view/download-by-mime
  * mechanics, via the same fully generic fetchDocumentFileUrl) but is its own
@@ -106,9 +112,7 @@ export function ComplianceReviewModal({ applicationId, applicantName, onClose }:
     try {
       const updated = await setComplianceItemSubmissionType(applicationId, item.id, submissionType);
       setItems((prev) => prev.map((existing) => (existing.id === item.id ? updated : existing)));
-      toast.success(
-        `"${item.requirement.name}" is now expected as ${submissionType === "HARDCOPY" ? "Hardcopy (physical)" : "Softcopy (online)"}.`,
-      );
+      toast.success(`"${item.requirement.name}" is now expected as ${SUBMISSION_TYPE_LABELS[submissionType]}.`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to update submission type");
     } finally {
@@ -194,6 +198,7 @@ export function ComplianceReviewModal({ applicationId, applicantName, onClose }:
             >
               <option value="SOFTCOPY">Softcopy (online upload)</option>
               <option value="HARDCOPY">Hardcopy (physical)</option>
+              <option value="BOTH">Both (online upload + physical)</option>
             </select>
           </div>
           <div className="field" style={{ alignSelf: "end" }}>
@@ -226,10 +231,14 @@ export function ComplianceReviewModal({ applicationId, applicantName, onClose }:
               {items.map((item) => {
                 const document = item.documents[0] ?? null;
                 const isHardcopy = item.submissionType === "HARDCOPY";
-                // A softcopy item needs its online proof uploaded before it
-                // can be Verified - a hardcopy item has no online proof to
-                // wait on, so the admin's own review is the only gate.
-                const canVerify = isHardcopy || document !== null;
+                const isBoth = item.submissionType === "BOTH";
+                // A softcopy (or both) item needs its online proof uploaded
+                // before it can be Verified - a pure hardcopy item has no
+                // online proof to wait on, so the admin's own review is the
+                // only gate; for "both", that same review also stands in
+                // for confirming the physical copy was received.
+                const needsOnlineProof = !isHardcopy;
+                const canVerify = !needsOnlineProof || document !== null;
                 return (
                   <tr key={item.id}>
                     <td>
@@ -248,6 +257,7 @@ export function ComplianceReviewModal({ applicationId, applicantName, onClose }:
                       >
                         <option value="SOFTCOPY">Softcopy (online)</option>
                         <option value="HARDCOPY">Hardcopy (physical)</option>
+                        <option value="BOTH">Both (online + physical)</option>
                       </select>
                     </td>
                     <td>
@@ -266,6 +276,7 @@ export function ComplianceReviewModal({ applicationId, applicantName, onClose }:
                       ) : (
                         <span className="field-hint">Not submitted yet</span>
                       )}
+                      {isBoth && <p className="field-hint">Also requires a physical copy in person</p>}
                     </td>
                     <td>
                       <input
@@ -280,7 +291,11 @@ export function ComplianceReviewModal({ applicationId, applicantName, onClose }:
                         <button
                           type="button"
                           disabled={reviewingId === item.id || !canVerify}
-                          title={canVerify ? undefined : "The applicant hasn't uploaded proof yet - mark it Hardcopy if it was submitted physically instead."}
+                          title={
+                            canVerify
+                              ? undefined
+                              : "The applicant hasn't uploaded proof yet - mark it Hardcopy if it was submitted physically instead."
+                          }
                           onClick={() => handleReview(item, "VERIFIED")}
                         >
                           {reviewingId === item.id && <Spinner size="sm" onDark />}

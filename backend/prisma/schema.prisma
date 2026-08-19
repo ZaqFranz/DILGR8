@@ -116,13 +116,17 @@ enum ComplianceItemStatus {
 // VERIFIED until one exists; HARDCOPY means the applicant hands over a
 // physical copy outside the system (e.g. an original ID shown in person),
 // so there's nothing to upload and an admin can VERIFIED it directly on
-// their own in-person review. An admin sets this per item (see
+// their own in-person review; BOTH requires both - the online upload gates
+// VERIFIED exactly like SOFTCOPY, and the admin's own VERIFIED action is
+// still what records that the physical copy was also received, same as
+// HARDCOPY. An admin sets this per item (see
 // ApplicationsService.setComplianceItemSubmissionType()) - it's not
 // something an applicant chooses, since a hardcopy submission by definition
 // never touches the system for them to declare.
 enum ComplianceSubmissionType {
   SOFTCOPY
   HARDCOPY
+  BOTH
 }
 
 model User {

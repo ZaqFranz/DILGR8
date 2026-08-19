@@ -611,11 +611,13 @@ export class ApplicationsService {
 
   /**
    * Lets an admin declare how one checklist item is expected to reach them:
-   * SOFTCOPY (the online COMPLIANCE_PROOF upload, the default) or HARDCOPY
-   * (handed over physically, outside the system). This is what
+   * SOFTCOPY (the online COMPLIANCE_PROOF upload, the default), HARDCOPY
+   * (handed over physically, outside the system), or BOTH (the applicant
+   * must upload proof online AND hand over a physical copy). This is what
    * reviewComplianceItem()'s "proof required before VERIFIED" gate below
    * checks - flipping an item to HARDCOPY is how an admin unblocks a
-   * requirement that was never going to get an online upload.
+   * requirement that was never going to get an online upload, while BOTH
+   * keeps the online-proof gate but additionally expects a physical copy.
    */
   async setComplianceItemSubmissionType(
     applicationId: string,
@@ -676,11 +678,13 @@ export class ApplicationsService {
    * applicant's submission and the admin's approval of it, never the
    * admin's judgment alone. What counts as "submitted" depends on the
    * item's submissionType (see setComplianceItemSubmissionType()): a
-   * SOFTCOPY item needs an uploaded COMPLIANCE_PROOF document first (400 if
-   * VERIFIED is attempted without one - there's nothing to approve yet); a
-   * HARDCOPY item has no online counterpart to check, so the admin's
-   * VERIFIED here is itself the record that the physical copy was received
-   * and approved. REJECTED carries no such precondition either way - an
+   * SOFTCOPY or BOTH item needs an uploaded COMPLIANCE_PROOF document first
+   * (400 if VERIFIED is attempted without one - there's nothing to approve
+   * yet); a HARDCOPY item has no online counterpart to check, so the
+   * admin's VERIFIED here is itself the record that the physical copy was
+   * received and approved - for BOTH, that same VERIFIED action is also
+   * what records the physical copy was received, on top of the online
+   * proof check. REJECTED carries no such precondition either way - an
    * admin can reject a requirement that was never submitted at all (e.g.
    * past deadline).
    */
@@ -694,7 +698,8 @@ export class ApplicationsService {
     if (!item || item.applicationId !== applicationId) {
       throw new NotFoundError("Compliance item");
     }
-    if (dto.status === "VERIFIED" && item.submissionType === "SOFTCOPY" && item.documents.length === 0) {
+    const needsOnlineProof = item.submissionType === "SOFTCOPY" || item.submissionType === "BOTH";
+    if (dto.status === "VERIFIED" && needsOnlineProof && item.documents.length === 0) {
       throw new ValidationError(
         "The applicant hasn't uploaded proof for this requirement yet - nothing to verify. If it was submitted as a physical copy instead, set it to Hardcopy first.",
       );

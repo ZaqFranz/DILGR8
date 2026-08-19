@@ -50,10 +50,12 @@ export interface ApplicantDocument {
 }
 
 export type ComplianceItemStatus = "PENDING" | "VERIFIED" | "REJECTED";
+export type ComplianceSubmissionType = "SOFTCOPY" | "HARDCOPY" | "BOTH";
 
 export interface ApplicationComplianceItem {
   id: string;
   status: ComplianceItemStatus;
+  submissionType: ComplianceSubmissionType;
   remarks: string | null;
   requirement: { id: string; name: string; description: string | null };
   documents: ApplicantDocument[];
