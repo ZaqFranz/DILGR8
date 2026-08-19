@@ -7,6 +7,9 @@ const publicUserSelect = {
   role: true,
   createdAt: true,
   updatedAt: true,
+  // APPLICANT accounts never set User.name (see the field's comment on the
+  // model) - Users Management derives their display name from here instead.
+  applicant: { select: { firstName: true, lastName: true } },
 } as const;
 
 export type PublicUser = {
@@ -16,6 +19,7 @@ export type PublicUser = {
   role: Role;
   createdAt: Date;
   updatedAt: Date;
+  applicant: { firstName: string; lastName: string } | null;
 };
 
 export interface ListUsersFilters {

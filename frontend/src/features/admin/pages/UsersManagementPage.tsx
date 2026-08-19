@@ -20,6 +20,15 @@ import type { AdminUser, CreateUserInput, UserRole } from "../types";
 // ADMIN/PANEL accounts, so PANEL (not APPLICANT) is the sensible default.
 const emptyForm = { email: "", password: "", role: "PANEL" as UserRole, name: "" };
 
+// User.name is only ever set for ADMIN/PANEL accounts (via this page's own
+// form) - APPLICANT accounts' real name lives on their Applicant profile
+// from registration instead, so it's the fallback here rather than email.
+function getDisplayName(user: AdminUser): string {
+  if (user.name) return user.name;
+  if (user.applicant) return `${user.applicant.firstName} ${user.applicant.lastName}`;
+  return user.email;
+}
+
 export function UsersManagementPage() {
   const { user: currentUser } = useAuth();
   const toast = useToast();
@@ -36,11 +45,12 @@ export function UsersManagementPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "">("");
 
-  const filteredUsers = users.filter(
-    (target) =>
-      (roleFilter === "" || target.role === roleFilter) &&
-      target.email.toLowerCase().includes(search.trim().toLowerCase()),
-  );
+  const filteredUsers = users.filter((target) => {
+    const term = search.trim().toLowerCase();
+    const matchesSearch =
+      term === "" || getDisplayName(target).toLowerCase().includes(term) || target.email.toLowerCase().includes(term);
+    return (roleFilter === "" || target.role === roleFilter) && matchesSearch;
+  });
   const pagination = usePagination(filteredUsers, 10);
 
   useEffect(() => {
@@ -84,7 +94,7 @@ export function UsersManagementPage() {
         const name = form.name.trim() ? form.name.trim() : undefined;
         const updated = await updateUser(editingId, { email: form.email, role: form.role, name });
         setUsers((prev) => prev.map((u) => (u.id === editingId ? updated : u)));
-        toast.success(`Updated ${updated.email}.`);
+        toast.success(`Updated ${getDisplayName(updated)}.`);
       } else {
         const input: CreateUserInput = {
           email: form.email,
@@ -94,7 +104,7 @@ export function UsersManagementPage() {
         };
         const created = await createUser(input);
         setUsers((prev) => [created, ...prev]);
-        toast.success(`Created ${created.role.toLowerCase()} account for ${created.email}.`);
+        toast.success(`Created ${created.role.toLowerCase()} account for ${getDisplayName(created)}.`);
       }
       setModalOpen(false);
       setEditingId(null);
@@ -117,7 +127,7 @@ export function UsersManagementPage() {
     try {
       await deleteUser(pendingDelete.id);
       setUsers((prev) => prev.filter((u) => u.id !== pendingDelete.id));
-      toast.success(`Deleted ${pendingDelete.email}.`);
+      toast.success(`Deleted ${getDisplayName(pendingDelete)}.`);
       setPendingDelete(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to delete user");
@@ -153,7 +163,7 @@ export function UsersManagementPage() {
             <input
               id="user-search"
               type="search"
-              placeholder="Search by email..."
+              placeholder="Search by name or email..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -186,7 +196,6 @@ export function UsersManagementPage() {
           <table>
             <thead>
               <tr>
-                <th>Email</th>
                 <th>Name</th>
                 <th>Role</th>
                 <th>Created</th>
@@ -196,14 +205,14 @@ export function UsersManagementPage() {
             <tbody>
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="table-empty">
+                  <td colSpan={4} className="table-empty">
                     No users yet.
                   </td>
                 </tr>
               )}
               {users.length > 0 && filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="table-empty">
+                  <td colSpan={4} className="table-empty">
                     No users match your search/filter.
                   </td>
                 </tr>
@@ -212,8 +221,7 @@ export function UsersManagementPage() {
                 const isSelf = target.id === currentUser?.id;
                 return (
                   <tr key={target.id}>
-                    <td>{target.email}</td>
-                    <td>{target.name ?? <span className="muted">—</span>}</td>
+                    <td>{getDisplayName(target)}</td>
                     <td>{target.role}</td>
                     <td>{new Date(target.createdAt).toLocaleDateString()}</td>
                     <td>
@@ -328,8 +336,8 @@ export function UsersManagementPage() {
         title="Delete user?"
         description={
           <>
-            <strong>{pendingDelete?.email}</strong> will be permanently deleted, along with their applicant
-            profile and everything under it, if any. This can't be undone.
+            <strong>{pendingDelete ? getDisplayName(pendingDelete) : ""}</strong> will be permanently deleted, along
+            with their applicant profile and everything under it, if any. This can't be undone.
           </>
         }
         confirmLabel="Delete"

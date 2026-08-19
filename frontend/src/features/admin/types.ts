@@ -159,6 +159,7 @@ export interface AdminUser {
   role: UserRole;
   createdAt: string;
   updatedAt: string;
+  applicant: { firstName: string; lastName: string } | null;
 }
 
 export interface CreateUserInput {
