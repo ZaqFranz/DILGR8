@@ -57,9 +57,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {!hideHeader && (
         <header className="app-header">
           <Link to="/" className="brand">
-            <span className="brand-mark" aria-hidden="true">
-              D
-            </span>
+            <img className="brand-mark" src="/dilg-logo.webp" alt="" aria-hidden="true" />
             DILGR8RSP
           </Link>
           <nav>

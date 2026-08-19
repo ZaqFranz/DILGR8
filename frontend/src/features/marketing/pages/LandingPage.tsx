@@ -96,9 +96,7 @@ export function LandingPage() {
     <div className="landing-page">
       <header className="landing-nav">
         <Link to="/" className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            D
-          </span>
+          <img className="brand-mark" src="/dilg-logo.webp" alt="" aria-hidden="true" />
           DILGR8RSP
         </Link>
         <nav>
