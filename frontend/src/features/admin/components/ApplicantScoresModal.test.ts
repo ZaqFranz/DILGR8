@@ -3,7 +3,7 @@ import { rankRows } from "./ApplicantScoresModal";
 import type { ApplicantScoreRow } from "../types";
 
 function row(applicationId: string, total: number | null): ApplicantScoreRow {
-  return { applicationId, applicantName: applicationId, jobPostingTitle: "Test", perCriterion: {}, total, panelistsSubmitted: 1 };
+  return { applicationId, applicantName: applicationId, jobPostingTitle: "Test", perCategory: {}, total, panelistsSubmitted: 1 };
 }
 
 describe("rankRows", () => {
@@ -30,12 +30,12 @@ describe("rankRows", () => {
     expect(ranked.find((r) => r.applicationId === "b")!.rank).toBe(1);
   });
 
-  it("ranks by a specific criterion column instead of overall when requested", () => {
+  it("ranks by a specific category column instead of overall when requested", () => {
     const rows: ApplicantScoreRow[] = [
-      { applicationId: "a", applicantName: "a", jobPostingTitle: "Test", perCriterion: { crit1: 5 }, total: 100, panelistsSubmitted: 1 },
-      { applicationId: "b", applicantName: "b", jobPostingTitle: "Test", perCriterion: { crit1: 9 }, total: 10, panelistsSubmitted: 1 },
+      { applicationId: "a", applicantName: "a", jobPostingTitle: "Test", perCategory: { cat1: 5 }, total: 100, panelistsSubmitted: 1 },
+      { applicationId: "b", applicantName: "b", jobPostingTitle: "Test", perCategory: { cat1: 9 }, total: 10, panelistsSubmitted: 1 },
     ];
-    const ranked = rankRows(rows, "crit1");
+    const ranked = rankRows(rows, "cat1");
     expect(ranked.find((r) => r.applicationId === "b")!.rank).toBe(1);
     expect(ranked.find((r) => r.applicationId === "a")!.rank).toBe(2);
   });

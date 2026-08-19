@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Sent as a plain array of PANEL user ids - the repository always fully
 // replaces a position's panel members (delete + recreate) rather than
-// diffing individual rows, same convention as EvaluationCriterionQuestion.
+// diffing individual rows, same convention as JobPostingRequiredEligibility.
 const panelUserIdsSchema = z.array(z.string().uuid()).max(50).optional();
 
 export const createPositionSchema = z.object({

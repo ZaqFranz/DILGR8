@@ -1,8 +1,9 @@
 import { useState } from "react";
-import type { EvaluationCriterion, InterviewQueueApplication } from "@/features/admin/types";
+import type { Category, InterviewQueueApplication } from "@/features/admin/types";
+import { maxWeightedTotal, weightedTotalScore } from "@/shared/utils/weightedScore";
 
 interface Props {
-  criteria: EvaluationCriterion[];
+  categories: Category[];
   queue: InterviewQueueApplication[];
 }
 
@@ -11,11 +12,13 @@ interface Props {
  * `queue` only ever carries the signed-in panelist's own PanelEvaluation
  * (the backend's my-queue endpoint scopes it that way), so this is
  * inherently self-scores-only - no other panelist's marks or the
- * cross-panel average are exposed here.
+ * cross-panel average are exposed here. Totals shown are weighted (each
+ * category normalized to its own weightPercent), matching what actually
+ * counts toward the overall evaluation - not a raw point sum.
  */
-export function ScoreSummaryPanel({ criteria, queue }: Props) {
+export function ScoreSummaryPanel({ categories, queue }: Props) {
   const [open, setOpen] = useState(false);
-  const maxTotal = criteria.reduce((sum, c) => sum + c.maxScore, 0);
+  const maxTotal = maxWeightedTotal(categories);
   const scored = queue.filter((application) => application.panelEvaluations.length > 0);
 
   return (
@@ -41,7 +44,7 @@ export function ScoreSummaryPanel({ criteria, queue }: Props) {
             <tbody>
               {scored.map((application) => {
                 const evaluation = application.panelEvaluations[0];
-                const total = evaluation.scores.reduce((sum, s) => sum + s.score, 0);
+                const total = weightedTotalScore(categories, evaluation.scores);
                 return (
                   <tr key={application.id}>
                     <td>
@@ -49,7 +52,7 @@ export function ScoreSummaryPanel({ criteria, queue }: Props) {
                     </td>
                     <td>{application.jobPosting.title}</td>
                     <td>
-                      {total} / {maxTotal}
+                      {total.toFixed(1)} / {maxTotal}
                     </td>
                     <td>{new Date(evaluation.submittedAt).toLocaleDateString()}</td>
                   </tr>

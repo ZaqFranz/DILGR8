@@ -33,9 +33,9 @@ import { DashboardRepository } from "@/modules/dashboard/dashboard.repository";
 import { DashboardService } from "@/modules/dashboard/dashboard.service";
 import { DashboardController } from "@/modules/dashboard/dashboard.controller";
 
-import { EvaluationCriteriaRepository } from "@/modules/evaluation-criteria/evaluation-criteria.repository";
-import { EvaluationCriteriaService } from "@/modules/evaluation-criteria/evaluation-criteria.service";
-import { EvaluationCriteriaController } from "@/modules/evaluation-criteria/evaluation-criteria.controller";
+import { CategoriesRepository } from "@/modules/categories/categories.repository";
+import { CategoriesService } from "@/modules/categories/categories.service";
+import { CategoriesController } from "@/modules/categories/categories.controller";
 
 import { PanelAssignmentsRepository } from "@/modules/panel-assignments/panel-assignments.repository";
 import { PanelAssignmentsService } from "@/modules/panel-assignments/panel-assignments.service";
@@ -70,7 +70,7 @@ function buildContainer() {
   const usersRepository = new UsersRepository(prisma);
   const auditLogsRepository = new AuditLogsRepository(prisma);
   const dashboardRepository = new DashboardRepository(prisma);
-  const evaluationCriteriaRepository = new EvaluationCriteriaRepository(prisma);
+  const categoriesRepository = new CategoriesRepository(prisma);
   const panelAssignmentsRepository = new PanelAssignmentsRepository(prisma);
   const panelEvaluationsRepository = new PanelEvaluationsRepository(prisma);
   const positionsRepository = new PositionsRepository(prisma);
@@ -100,7 +100,7 @@ function buildContainer() {
   const usersService = new UsersService(usersRepository, auditLogsRepository, emailService);
   const auditLogsService = new AuditLogsService(auditLogsRepository);
   const dashboardService = new DashboardService(dashboardRepository, auditLogsRepository);
-  const evaluationCriteriaService = new EvaluationCriteriaService(evaluationCriteriaRepository, auditLogsRepository);
+  const categoriesService = new CategoriesService(categoriesRepository, auditLogsRepository);
   const panelAssignmentsService = new PanelAssignmentsService(
     panelAssignmentsRepository,
     jobPostingsRepository,
@@ -110,7 +110,7 @@ function buildContainer() {
   const panelEvaluationsService = new PanelEvaluationsService(
     panelEvaluationsRepository,
     panelAssignmentsRepository,
-    evaluationCriteriaRepository,
+    categoriesRepository,
     auditLogsRepository,
   );
   const positionsService = new PositionsService(positionsRepository, auditLogsRepository, usersRepository);
@@ -128,7 +128,7 @@ function buildContainer() {
     usersController: new UsersController(usersService),
     auditLogsController: new AuditLogsController(auditLogsService),
     dashboardController: new DashboardController(dashboardService),
-    evaluationCriteriaController: new EvaluationCriteriaController(evaluationCriteriaService),
+    categoriesController: new CategoriesController(categoriesService),
     panelAssignmentsController: new PanelAssignmentsController(panelAssignmentsService),
     panelEvaluationsController: new PanelEvaluationsController(panelEvaluationsService),
     positionsController: new PositionsController(positionsService),

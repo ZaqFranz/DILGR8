@@ -20,12 +20,12 @@ function formatScore(value: number | null): string {
 
 /**
  * Ranks every scored, in-evaluation application by whichever column the
- * admin picks (overall average total, or one specific criterion's average
+ * admin picks (overall average total, or one specific category's average
  * score) - a display choice, so the sort/rank happens here rather than in
- * the API, which just returns the raw per-criterion averages.
+ * the API, which just returns the raw per-category averages.
  */
 export function rankRows(rows: ApplicantScoreRow[], rankBy: string): (ApplicantScoreRow & { rank: number | null })[] {
-  const valueOf = (row: ApplicantScoreRow): number | null => (rankBy === OVERALL ? row.total : row.perCriterion[rankBy] ?? null);
+  const valueOf = (row: ApplicantScoreRow): number | null => (rankBy === OVERALL ? row.total : row.perCategory[rankBy] ?? null);
   const sorted = [...rows].sort((a, b) => {
     const aValue = valueOf(a);
     const bValue = valueOf(b);
@@ -101,9 +101,9 @@ export function ApplicantScoresModal({ onClose }: Props) {
             <label htmlFor="rank-by">Rank by</label>
             <select id="rank-by" value={rankBy} onChange={(e) => setRankBy(e.target.value)}>
               <option value={OVERALL}>Overall total (average)</option>
-              {overview.criteria.map((criterion) => (
-                <option key={criterion.id} value={criterion.id}>
-                  {criterion.name}
+              {overview.categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
                 </option>
               ))}
             </select>
@@ -115,9 +115,9 @@ export function ApplicantScoresModal({ onClose }: Props) {
                   <th>Rank</th>
                   <th>Applicant</th>
                   <th>Job posting</th>
-                  {overview.criteria.map((criterion) => (
-                    <th key={criterion.id}>
-                      {criterion.name} (0-{criterion.maxScore})
+                  {overview.categories.map((category) => (
+                    <th key={category.id}>
+                      {category.name} (0-{category.weightPercent})
                     </th>
                   ))}
                   <th>Total (avg)</th>
@@ -130,8 +130,8 @@ export function ApplicantScoresModal({ onClose }: Props) {
                     <td>{row.rank ?? "-"}</td>
                     <td>{row.applicantName}</td>
                     <td>{row.jobPostingTitle}</td>
-                    {overview.criteria.map((criterion) => (
-                      <td key={criterion.id}>{formatScore(row.perCriterion[criterion.id] ?? null)}</td>
+                    {overview.categories.map((category) => (
+                      <td key={category.id}>{formatScore(row.perCategory[category.id] ?? null)}</td>
                     ))}
                     <td>{formatScore(row.total)}</td>
                     <td>{row.panelistsSubmitted}</td>

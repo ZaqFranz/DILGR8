@@ -13,7 +13,7 @@ import { createApplicationsRouter } from "@/modules/applications/applications.ro
 import { createUsersRouter } from "@/modules/users/users.routes";
 import { createAuditLogsRouter } from "@/modules/audit-logs/audit-logs.routes";
 import { createDashboardRouter } from "@/modules/dashboard/dashboard.routes";
-import { createEvaluationCriteriaRouter } from "@/modules/evaluation-criteria/evaluation-criteria.routes";
+import { createCategoriesRouter } from "@/modules/categories/categories.routes";
 import { createPanelAssignmentsRouter } from "@/modules/panel-assignments/panel-assignments.routes";
 import { createPanelEvaluationsRouter } from "@/modules/panel-evaluations/panel-evaluations.routes";
 import { createPositionsRouter } from "@/modules/positions/positions.routes";
@@ -38,7 +38,7 @@ export function createApp(): Express {
   app.use("/api/users", createUsersRouter(container.usersController));
   app.use("/api/audit-logs", createAuditLogsRouter(container.auditLogsController));
   app.use("/api/dashboard", createDashboardRouter(container.dashboardController));
-  app.use("/api/evaluation-criteria", createEvaluationCriteriaRouter(container.evaluationCriteriaController));
+  app.use("/api/categories", createCategoriesRouter(container.categoriesController));
   app.use("/api/panel-assignments", createPanelAssignmentsRouter(container.panelAssignmentsController));
   app.use("/api/panel-evaluations", createPanelEvaluationsRouter(container.panelEvaluationsController));
   app.use("/api/positions", createPositionsRouter(container.positionsController));

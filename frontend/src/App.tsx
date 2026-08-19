@@ -15,7 +15,7 @@ import { PositionsPage } from "@/features/admin/pages/PositionsPage";
 import { UsersManagementPage } from "@/features/admin/pages/UsersManagementPage";
 import { EvaluateApplicantsPage } from "@/features/admin/pages/EvaluateApplicantsPage";
 import { AuditLogsPage } from "@/features/admin/pages/AuditLogsPage";
-import { EvaluationCriteriaPage } from "@/features/admin/pages/EvaluationCriteriaPage";
+import { CategoriesPage } from "@/features/admin/pages/CategoriesPage";
 import { ComplianceRequirementsPage } from "@/features/admin/pages/ComplianceRequirementsPage";
 import { PanelAssignmentsPage } from "@/features/admin/pages/PanelAssignmentsPage";
 import { MyInterviewsPage } from "@/features/panel/pages/MyInterviewsPage";
@@ -136,10 +136,10 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/criteria"
+          path="/admin/categories"
           element={
             <ProtectedRoute role="ADMIN">
-              <EvaluationCriteriaPage />
+              <CategoriesPage />
             </ProtectedRoute>
           }
         />

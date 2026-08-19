@@ -53,6 +53,7 @@ export interface AdminApplication {
 }
 
 export type ComplianceItemStatus = "PENDING" | "VERIFIED" | "REJECTED";
+export type ComplianceSubmissionType = "SOFTCOPY" | "HARDCOPY";
 
 export interface ComplianceRequirement {
   id: string;
@@ -82,11 +83,17 @@ export interface ApplicationComplianceItem {
   applicationId: string;
   requirementId: string;
   status: ComplianceItemStatus;
+  submissionType: ComplianceSubmissionType;
   remarks: string | null;
   reviewedAt: string | null;
   reviewedByUserId: string | null;
   requirement: ComplianceRequirement;
   documents: AdminDocument[];
+}
+
+export interface AddComplianceItemInput {
+  requirementId: string;
+  submissionType?: ComplianceSubmissionType;
 }
 
 export interface ReviewComplianceItemInput {
@@ -192,16 +199,31 @@ export interface AuditLogEntry {
   actor: { email: string } | null;
 }
 
-export interface EvaluationCriterionQuestion {
-  id: string;
-  text: string;
-  sortOrder: number;
-}
-
-export interface EvaluationCriterion {
+// One individually-scored rubric line within a Category - a panelist marks
+// this directly (0-maxScore), not the category as a whole.
+export interface Criterion {
   id: string;
   name: string;
-  questions: EvaluationCriterionQuestion[];
+  maxScore: number;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  // This category's authoritative share of the overall evaluation (e.g.
+  // 25 = 25%) - admin-set, independent of whatever `criteria` sum to. A
+  // panelist's raw subtotal for this category is normalized against
+  // `maxScore` below and scaled to this before it counts toward the
+  // overall score.
+  weightPercent: number;
+  criteria: Criterion[];
+  // Not a stored field - the sum of `criteria`'s (active) maxScore, i.e.
+  // the *raw* scale a panelist actually fills scores in against, computed
+  // server-side so every reader agrees on it without recomputing
+  // themselves. Not the category's real contribution to the overall
+  // evaluation - that's `weightPercent`.
   maxScore: number;
   sortOrder: number;
   isActive: boolean;
@@ -209,17 +231,29 @@ export interface EvaluationCriterion {
   updatedAt: string;
 }
 
-export interface CreateEvaluationCriterionInput {
+// `id` present = update that existing criterion in place; absent = create a
+// new one. Anything already on file but missing from the array is removed,
+// unless it already has recorded scores (409) - same shape the backend's
+// diff-based replaceCriteria() expects.
+export interface CriterionInput {
+  id?: string;
   name: string;
-  questions?: string[];
   maxScore: number;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface CreateCategoryInput {
+  name: string;
+  weightPercent: number;
+  criteria?: CriterionInput[];
   sortOrder?: number;
 }
 
-export interface UpdateEvaluationCriterionInput {
+export interface UpdateCategoryInput {
   name?: string;
-  questions?: string[];
-  maxScore?: number;
+  weightPercent?: number;
+  criteria?: CriterionInput[];
   sortOrder?: number;
   isActive?: boolean;
 }
@@ -282,23 +316,25 @@ export interface TabulationResult {
   rows: TabulationRow[];
 }
 
-export interface ApplicantScoreCriterionColumn {
+export interface ApplicantScoreCategoryColumn {
   id: string;
   name: string;
-  maxScore: number;
+  // The weight (0-100), not a raw point total - the ceiling the weighted
+  // per-category value in each row can actually reach.
+  weightPercent: number;
 }
 
 export interface ApplicantScoreRow {
   applicationId: string;
   applicantName: string;
   jobPostingTitle: string;
-  perCriterion: Record<string, number | null>;
+  perCategory: Record<string, number | null>;
   total: number | null;
   panelistsSubmitted: number;
 }
 
 export interface ApplicantScoresOverview {
-  criteria: ApplicantScoreCriterionColumn[];
+  categories: ApplicantScoreCategoryColumn[];
   rows: ApplicantScoreRow[];
 }
 

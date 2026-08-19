@@ -4,11 +4,13 @@ import { ValidationError } from "@/shared/errors/AppError";
 import type { ApplicationsService } from "./applications.service";
 import { createApplicationSchema } from "./applications.dto";
 import type {
+  AddComplianceItemDto,
   ListApplicationsQueryDto,
   RejectApplicationDto,
   ReviewComplianceItemDto,
   ScheduleInterviewDto,
   ScheduleOathTakingDto,
+  SetComplianceItemSubmissionTypeDto,
   SetExamScoreDto,
   SiftApplicationDto,
 } from "./applications.dto";
@@ -128,6 +130,25 @@ export class ApplicationsController {
       role: req.user!.role,
     });
     res.status(200).json(items);
+  };
+
+  addComplianceItem = async (req: Request, res: Response): Promise<void> => {
+    const item = await this.applicationsService.addComplianceItem(
+      req.params.id as string,
+      req.user!.id,
+      req.body as AddComplianceItemDto,
+    );
+    res.status(201).json(item);
+  };
+
+  setComplianceItemSubmissionType = async (req: Request, res: Response): Promise<void> => {
+    const item = await this.applicationsService.setComplianceItemSubmissionType(
+      req.params.id as string,
+      req.params.itemId as string,
+      req.user!.id,
+      req.body as SetComplianceItemSubmissionTypeDto,
+    );
+    res.status(200).json(item);
   };
 
   reviewComplianceItem = async (req: Request, res: Response): Promise<void> => {

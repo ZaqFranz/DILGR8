@@ -5,21 +5,21 @@ import { FieldError } from "@/shared/components/FieldError";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
-import type { EvaluationCriterion, InterviewQueueApplication, PanelEvaluation } from "@/features/admin/types";
+import type { Category, InterviewQueueApplication, PanelEvaluation } from "@/features/admin/types";
 // Reused as-is from the admin feature: the panel role already depends on
-// admin/types.ts and admin/api/evaluationCriteriaApi.ts for shared rubric
-// data, so this follows the same established cross-feature reuse rather
-// than forking a second copy of a generic, read-only documents modal.
+// admin/types.ts and admin/api/categoriesApi.ts for shared rubric data, so
+// this follows the same established cross-feature reuse rather than
+// forking a second copy of a generic, read-only documents modal.
 import { ApplicantDocumentsModal } from "@/features/admin/components/ApplicantDocumentsModal";
 import { submitEvaluation } from "../api/panelEvaluationsApi";
 
 interface Props {
   application: InterviewQueueApplication;
-  criteria: EvaluationCriterion[];
+  categories: Category[];
   onSubmitted: (applicationId: string, evaluation: PanelEvaluation) => void;
 }
 
-export function InterviewRow({ application, criteria, onSubmitted }: Props) {
+export function InterviewRow({ application, categories, onSubmitted }: Props) {
   const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
@@ -27,9 +27,11 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
   const canScore = application.examinationScore !== null;
   const [scores, setScores] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
-    for (const criterion of criteria) {
-      const existing = ownEvaluation?.scores.find((s) => s.criterionId === criterion.id);
-      initial[criterion.id] = existing ? String(existing.score) : "";
+    for (const category of categories) {
+      for (const criterion of category.criteria) {
+        const existing = ownEvaluation?.scores.find((s) => s.criterionId === criterion.id);
+        initial[criterion.id] = existing ? String(existing.score) : "";
+      }
     }
     return initial;
   });
@@ -45,13 +47,15 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
 
     const nextFieldErrors: Record<string, string> = {};
     const parsedScores: { criterionId: string; score: number }[] = [];
-    for (const criterion of criteria) {
-      const raw = scores[criterion.id] ?? "";
-      const parsed = Number(raw);
-      if (raw === "" || !Number.isInteger(parsed) || parsed < 0 || parsed > criterion.maxScore) {
-        nextFieldErrors[criterion.id] = `Enter a whole number from 0 to ${criterion.maxScore}.`;
-      } else {
-        parsedScores.push({ criterionId: criterion.id, score: parsed });
+    for (const category of categories) {
+      for (const criterion of category.criteria) {
+        const raw = scores[criterion.id] ?? "";
+        const parsed = Number(raw);
+        if (raw === "" || !Number.isInteger(parsed) || parsed < 0 || parsed > criterion.maxScore) {
+          nextFieldErrors[criterion.id] = `Enter a whole number from 0 to ${criterion.maxScore}.`;
+        } else {
+          parsedScores.push({ criterionId: criterion.id, score: parsed });
+        }
       }
     }
     if (Object.keys(nextFieldErrors).length > 0) {
@@ -122,28 +126,35 @@ export function InterviewRow({ application, criteria, onSubmitted }: Props) {
           <td colSpan={6}>
             <ErrorBanner message={error} />
             <form onSubmit={handleSubmit} className="field-grid" noValidate>
-              {criteria.map((criterion) => (
-                <div key={criterion.id} className={fieldErrors[criterion.id] ? "field has-error" : "field"}>
-                  <label htmlFor={`score-${application.id}-${criterion.id}`} className="required">
-                    {criterion.name} (0-{criterion.maxScore})
-                  </label>
-                  {criterion.questions.length > 0 && (
-                    <ul className="field-hint">
-                      {criterion.questions.map((question) => (
-                        <li key={question.id}>{question.text}</li>
-                      ))}
-                    </ul>
+              {categories.map((category) => (
+                <div key={category.id} className="card-inset">
+                  <strong>
+                    {category.name} — {category.weightPercent}% of overall evaluation (raw scoring 0-{category.maxScore})
+                  </strong>
+                  {category.criteria.length === 0 && (
+                    <p className="field-hint">No criteria/questions configured for this category yet.</p>
                   )}
-                  <input
-                    id={`score-${application.id}-${criterion.id}`}
-                    type="number"
-                    min={0}
-                    max={criterion.maxScore}
-                    required
-                    value={scores[criterion.id] ?? ""}
-                    onChange={(e) => setScores((prev) => ({ ...prev, [criterion.id]: e.target.value }))}
-                  />
-                  <FieldError message={fieldErrors[criterion.id]} />
+                  {category.criteria.map((criterion) => (
+                    <div
+                      key={criterion.id}
+                      className={fieldErrors[criterion.id] ? "field has-error" : "field"}
+                      style={{ marginTop: "0.5rem" }}
+                    >
+                      <label htmlFor={`score-${application.id}-${criterion.id}`} className="required">
+                        {criterion.name} (0-{criterion.maxScore})
+                      </label>
+                      <input
+                        id={`score-${application.id}-${criterion.id}`}
+                        type="number"
+                        min={0}
+                        max={criterion.maxScore}
+                        required
+                        value={scores[criterion.id] ?? ""}
+                        onChange={(e) => setScores((prev) => ({ ...prev, [criterion.id]: e.target.value }))}
+                      />
+                      <FieldError message={fieldErrors[criterion.id]} />
+                    </div>
+                  ))}
                 </div>
               ))}
               <div className="field">

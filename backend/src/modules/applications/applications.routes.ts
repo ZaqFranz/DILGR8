@@ -5,12 +5,14 @@ import { validate } from "@/shared/validation/validate";
 import { idParamSchema } from "@/modules/applicants/applicants.dto";
 import type { ApplicationsController } from "./applications.controller";
 import {
+  addComplianceItemSchema,
   applicationComplianceItemParamSchema,
   listApplicationsQuerySchema,
   rejectApplicationSchema,
   reviewComplianceItemSchema,
   scheduleInterviewSchema,
   scheduleOathTakingSchema,
+  setComplianceItemSubmissionTypeSchema,
   setExamScoreSchema,
   siftApplicationSchema,
 } from "./applications.dto";
@@ -79,6 +81,18 @@ export function createApplicationsRouter(controller: ApplicationsController): Ro
     requireRole("ADMIN"),
     validate({ params: idParamSchema, body: rejectApplicationSchema }),
     asyncHandler(controller.rejectAfterInterview),
+  );
+  router.post(
+    "/:id/compliance-items",
+    requireRole("ADMIN"),
+    validate({ params: idParamSchema, body: addComplianceItemSchema }),
+    asyncHandler(controller.addComplianceItem),
+  );
+  router.patch(
+    "/:id/compliance-items/:itemId/submission-type",
+    requireRole("ADMIN"),
+    validate({ params: applicationComplianceItemParamSchema, body: setComplianceItemSubmissionTypeSchema }),
+    asyncHandler(controller.setComplianceItemSubmissionType),
   );
   router.patch(
     "/:id/compliance-items/:itemId",

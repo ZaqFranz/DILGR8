@@ -1,7 +1,9 @@
 import { apiRequest, apiRequestBlob } from "@/shared/api/apiClient";
 import type {
+  AddComplianceItemInput,
   AdminApplication,
   ApplicationComplianceItem,
+  ComplianceSubmissionType,
   ExamScoreImportResult,
   RejectApplicationInput,
   ReviewComplianceItemInput,
@@ -62,6 +64,13 @@ export function listComplianceItems(applicationId: string): Promise<ApplicationC
   return apiRequest<ApplicationComplianceItem[]>(`/applications/${applicationId}/compliance-items`);
 }
 
+export function addComplianceItem(applicationId: string, input: AddComplianceItemInput): Promise<ApplicationComplianceItem> {
+  return apiRequest<ApplicationComplianceItem>(`/applications/${applicationId}/compliance-items`, {
+    method: "POST",
+    body: input,
+  });
+}
+
 export function reviewComplianceItem(
   applicationId: string,
   itemId: string,
@@ -70,6 +79,17 @@ export function reviewComplianceItem(
   return apiRequest<ApplicationComplianceItem>(`/applications/${applicationId}/compliance-items/${itemId}`, {
     method: "PATCH",
     body: input,
+  });
+}
+
+export function setComplianceItemSubmissionType(
+  applicationId: string,
+  itemId: string,
+  submissionType: ComplianceSubmissionType,
+): Promise<ApplicationComplianceItem> {
+  return apiRequest<ApplicationComplianceItem>(`/applications/${applicationId}/compliance-items/${itemId}/submission-type`, {
+    method: "PATCH",
+    body: { submissionType },
   });
 }
 

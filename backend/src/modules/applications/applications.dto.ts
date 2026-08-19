@@ -60,6 +60,29 @@ export const reviewComplianceItemSchema = z.object({
 });
 export type ReviewComplianceItemDto = z.infer<typeof reviewComplianceItemSchema>;
 
+// Lets an admin manually attach a requirement from the Compliance
+// Requirements catalog to one application's checklist, on top of the
+// snapshot moveToCompliance() takes automatically - see
+// ApplicationsService.addComplianceItem(). submissionType defaults to
+// SOFTCOPY (the schema's own default) when omitted - a manually-added item
+// behaves exactly like a snapshotted one unless the admin already knows at
+// add time that it'll be a hardcopy submission.
+export const addComplianceItemSchema = z.object({
+  requirementId: z.string().uuid(),
+  submissionType: z.enum(["SOFTCOPY", "HARDCOPY"]).optional(),
+});
+export type AddComplianceItemDto = z.infer<typeof addComplianceItemSchema>;
+
+// Lets an admin declare how one checklist item is expected to reach them -
+// SOFTCOPY (the online Document(type=COMPLIANCE_PROOF) upload) or HARDCOPY
+// (a physical copy handed over outside the system) - see
+// ApplicationsService.setComplianceItemSubmissionType(). This is what
+// reviewComplianceItem()'s "proof required before VERIFIED" gate checks.
+export const setComplianceItemSubmissionTypeSchema = z.object({
+  submissionType: z.enum(["SOFTCOPY", "HARDCOPY"]),
+});
+export type SetComplianceItemSubmissionTypeDto = z.infer<typeof setComplianceItemSubmissionTypeSchema>;
+
 // Bundles the FOR_COMPLIANCE -> FOR_OATH_TAKING transition with the
 // ceremony's schedule itself, the same shape scheduleInterviewSchema uses
 // for FOR_INTERVIEW - one admin action rather than a bare status flip

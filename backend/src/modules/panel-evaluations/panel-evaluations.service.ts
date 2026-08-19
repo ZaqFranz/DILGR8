@@ -1,5 +1,5 @@
 import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
-import type { EvaluationCriteriaRepository } from "@/modules/evaluation-criteria/evaluation-criteria.repository";
+import type { CategoriesRepository, CategoryWithCriteria } from "@/modules/categories/categories.repository";
 import type { PanelAssignmentsRepository } from "@/modules/panel-assignments/panel-assignments.repository";
 import type { AuditLogsRepository } from "@/modules/audit-logs/audit-logs.repository";
 import { AuditAction, AuditEntityType } from "@/modules/audit-logs/audit-actions";
@@ -26,33 +26,77 @@ export interface TabulationResult {
   rows: TabulationRow[];
 }
 
-export interface ApplicantScoreCriterionColumn {
+export interface ApplicantScoreCategoryColumn {
   id: string;
   name: string;
-  maxScore: number;
+  // The weight (0-100), not the raw point total - this is the ceiling the
+  // weighted per-category number below can actually reach.
+  weightPercent: number;
 }
 
 export interface ApplicantScoreRow {
   applicationId: string;
   applicantName: string;
   jobPostingTitle: string;
-  perCriterion: Record<string, number | null>;
+  perCategory: Record<string, number | null>;
   total: number | null;
   panelistsSubmitted: number;
 }
 
 export interface ApplicantScoresOverview {
-  criteria: ApplicantScoreCriterionColumn[];
+  categories: ApplicantScoreCategoryColumn[];
   rows: ApplicantScoreRow[];
-}
-
-function totalScore(evaluation: PanelEvaluationWithScores): number {
-  return evaluation.scores.reduce((sum, s) => sum + s.score, 0);
 }
 
 function average(values: number[]): number | null {
   if (values.length === 0) return null;
   return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+/**
+ * A category is worth exactly `weightPercent` of the overall evaluation,
+ * no matter how many criteria it has or what their point values sum to
+ * (client requirement: "even I have many criteria max point should still
+ * be 25% of the overall evaluation"). A panelist's raw subtotal for the
+ * category - the sum of their scores across just that category's own
+ * criteria - is normalized against the category's raw max (the sum of its
+ * active criteria's own `maxScore`, i.e. `category.maxScore`) and then
+ * scaled to `weightPercent`. A category with no active criteria (nothing
+ * to normalize against) contributes 0 regardless of its weight.
+ */
+export function weightedCategoryScore(rawSubtotal: number, rawMax: number, weightPercent: number): number {
+  return rawMax > 0 ? (rawSubtotal / rawMax) * weightPercent : 0;
+}
+
+function rawSubtotalForCriteria(evaluation: PanelEvaluationWithScores, criterionIds: ReadonlySet<string>): number {
+  return evaluation.scores.filter((s) => criterionIds.has(s.criterionId)).reduce((sum, s) => sum + s.score, 0);
+}
+
+/** categoryId -> the set of that category's own criterion ids, precomputed once per request rather than per evaluation/category pair. */
+export function buildCriterionIdsByCategory(categories: CategoryWithCriteria[]): Map<string, Set<string>> {
+  return new Map(categories.map((category) => [category.id, new Set(category.criteria.map((c) => c.id))]));
+}
+
+/**
+ * A panelist's overall score for one application: the sum of their
+ * weighted per-category contributions (see weightedCategoryScore above),
+ * not a flat sum of every raw PanelScore - a category with a high raw
+ * point total no longer outweighs one with a low raw total just because it
+ * has more/bigger criteria, as long as both carry the same weightPercent.
+ * If every active category's weightPercent adds up to 100, this is a
+ * score out of 100; the app doesn't enforce that sum (a soft-check UI hint
+ * only), so it's on the admin to keep weights meaningful together.
+ */
+export function weightedTotalScore(
+  evaluation: PanelEvaluationWithScores,
+  categories: CategoryWithCriteria[],
+  criterionIdsByCategory: Map<string, Set<string>>,
+): number {
+  return categories.reduce((sum, category) => {
+    const criterionIds = criterionIdsByCategory.get(category.id) ?? new Set<string>();
+    const rawSubtotal = rawSubtotalForCriteria(evaluation, criterionIds);
+    return sum + weightedCategoryScore(rawSubtotal, category.maxScore, category.weightPercent);
+  }, 0);
 }
 
 /**
@@ -80,7 +124,7 @@ export class PanelEvaluationsService {
   constructor(
     private readonly panelEvaluationsRepository: PanelEvaluationsRepository,
     private readonly panelAssignmentsRepository: PanelAssignmentsRepository,
-    private readonly evaluationCriteriaRepository: EvaluationCriteriaRepository,
+    private readonly categoriesRepository: CategoriesRepository,
     private readonly auditLogsRepository: AuditLogsRepository,
   ) {}
 
@@ -114,20 +158,25 @@ export class PanelEvaluationsService {
       throw new ForbiddenError("You are not assigned to this posting's interview panel");
     }
 
-    const activeCriteria = await this.evaluationCriteriaRepository.findMany(true);
+    // A panelist scores every active Criterion (the scored leaf), not the
+    // Category it belongs to - a category is never scored directly.
+    const activeCategories = await this.categoriesRepository.findMany(true);
+    const activeCriteria = activeCategories.flatMap((category) =>
+      category.criteria.map((criterion) => ({ ...criterion, categoryName: category.name })),
+    );
     const criteriaById = new Map(activeCriteria.map((c) => [c.id, c]));
 
     const missing = activeCriteria.filter((c) => !dto.scores.some((s) => s.criterionId === c.id));
     if (missing.length > 0) {
-      throw new ValidationError(`Missing score(s) for: ${missing.map((c) => c.name).join(", ")}`);
+      throw new ValidationError(`Missing score(s) for: ${missing.map((c) => `${c.categoryName} - ${c.name}`).join(", ")}`);
     }
     for (const score of dto.scores) {
       const criterion = criteriaById.get(score.criterionId);
       if (!criterion) {
-        throw new ValidationError("Score submitted for an unknown or inactive criterion");
+        throw new ValidationError("Score submitted for an unknown or inactive criterion/question");
       }
       if (score.score > criterion.maxScore) {
-        throw new ValidationError(`Score for "${criterion.name}" cannot exceed ${criterion.maxScore}`);
+        throw new ValidationError(`Score for "${criterion.categoryName} - ${criterion.name}" cannot exceed ${criterion.maxScore}`);
       }
     }
 
@@ -136,25 +185,28 @@ export class PanelEvaluationsService {
       scores: dto.scores,
     });
 
+    const weightedTotal = weightedTotalScore(evaluation, activeCategories, buildCriterionIdsByCategory(activeCategories));
     await this.auditLogsRepository.record({
       actorUserId: panelUserId,
       action: AuditAction.PANEL_EVALUATION_SUBMITTED,
       entityType: AuditEntityType.PANEL_EVALUATION,
       entityId: evaluation.id,
-      details: `Submitted interview scores for application ${applicationId}: ${totalScore(evaluation)} total`,
+      details: `Submitted interview scores for application ${applicationId}: ${weightedTotal.toFixed(1)} weighted total`,
     });
 
     return evaluation;
   }
 
   async tabulation(jobPostingId: string): Promise<TabulationResult> {
-    const [assignments, applications] = await Promise.all([
+    const [assignments, applications, categories] = await Promise.all([
       this.panelAssignmentsRepository.findMany(jobPostingId),
       this.panelEvaluationsRepository.findApplicationsForTabulation(jobPostingId),
+      this.categoriesRepository.findMany(true),
     ]);
 
     const panelists = assignments.map((a) => a.panelUser);
     const panelUserIds = panelists.map((p) => p.id);
+    const criterionIdsByCategory = buildCriterionIdsByCategory(categories);
 
     const rows: TabulationRow[] = applications.map((application) => {
       const perPanelist: Record<string, number | null> = {};
@@ -163,7 +215,7 @@ export class PanelEvaluationsService {
       for (const panelUserId of panelUserIds) {
         const evaluation = application.panelEvaluations.find((e) => e.panelUserId === panelUserId);
         if (evaluation) {
-          const total = totalScore(evaluation);
+          const total = weightedTotalScore(evaluation, categories, criterionIdsByCategory);
           perPanelist[panelUserId] = total;
           sum += total;
           submitted += 1;
@@ -188,40 +240,49 @@ export class PanelEvaluationsService {
   }
 
   /**
-   * Cross-posting, per-criterion view for the admin's "Applicant Scores"
-   * modal (Evaluation Criteria page): every scored application's average
-   * score on each active criterion, plus its overall average total -
-   * "average" because more than one panelist may have scored the same
-   * criterion differently. Ranking by any one of these columns (criterion
-   * or overall) is left to the frontend, since which column to rank by is
-   * a display choice, not fixed data.
+   * Cross-posting view for the admin's "Applicant Scores" modal (Categories
+   * page): every scored application's average *weighted* score per active
+   * Category, plus its overall average weighted total - "average" because
+   * more than one panelist may have scored the same application
+   * differently, and a missing panelist just means fewer values going into
+   * that average rather than blocking it (see PanelScore/Criterion docs).
+   * A category's per-panelist value here is their weighted contribution
+   * (their raw subtotal across the category's own criteria, normalized to
+   * the category's weightPercent) - never a raw point sum, so a category
+   * with many high-point criteria doesn't outrank one with a single
+   * low-point criterion at the same weight. Ranking by any one of these
+   * columns (category or overall) is left to the frontend, since which
+   * column to rank by is a display choice, not fixed data.
    */
   async applicantScoresOverview(): Promise<ApplicantScoresOverview> {
-    const [criteria, applications] = await Promise.all([
-      this.evaluationCriteriaRepository.findMany(true),
+    const [categories, applications] = await Promise.all([
+      this.categoriesRepository.findMany(true),
       this.panelEvaluationsRepository.findApplicationsWithScores(),
     ]);
 
+    const criterionIdsByCategory = buildCriterionIdsByCategory(categories);
+
     const rows: ApplicantScoreRow[] = applications.map((application: ApplicationForScoresOverview) => {
-      const perCriterion: Record<string, number | null> = {};
-      for (const criterion of criteria) {
-        const scoresForCriterion = application.panelEvaluations
-          .map((evaluation) => evaluation.scores.find((s) => s.criterionId === criterion.id)?.score)
-          .filter((score): score is number => score !== undefined);
-        perCriterion[criterion.id] = average(scoresForCriterion);
+      const perCategory: Record<string, number | null> = {};
+      for (const category of categories) {
+        const criterionIds = criterionIdsByCategory.get(category.id) ?? new Set<string>();
+        const weightedScores = application.panelEvaluations.map((evaluation) =>
+          weightedCategoryScore(rawSubtotalForCriteria(evaluation, criterionIds), category.maxScore, category.weightPercent),
+        );
+        perCategory[category.id] = average(weightedScores);
       }
       return {
         applicationId: application.id,
         applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
         jobPostingTitle: application.jobPosting.title,
-        perCriterion,
-        total: average(application.panelEvaluations.map(totalScore)),
+        perCategory,
+        total: average(application.panelEvaluations.map((e) => weightedTotalScore(e, categories, criterionIdsByCategory))),
         panelistsSubmitted: application.panelEvaluations.length,
       };
     });
 
     return {
-      criteria: criteria.map((c) => ({ id: c.id, name: c.name, maxScore: c.maxScore })),
+      categories: categories.map((c) => ({ id: c.id, name: c.name, weightPercent: c.weightPercent })),
       rows,
     };
   }

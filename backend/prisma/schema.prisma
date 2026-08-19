@@ -110,6 +110,21 @@ enum ComplianceItemStatus {
   REJECTED
 }
 
+// How a requirement is expected to reach the admin for this one applicant -
+// SOFTCOPY (default) means through the existing online
+// Document(type=COMPLIANCE_PROOF) upload, and reviewComplianceItem() blocks
+// VERIFIED until one exists; HARDCOPY means the applicant hands over a
+// physical copy outside the system (e.g. an original ID shown in person),
+// so there's nothing to upload and an admin can VERIFIED it directly on
+// their own in-person review. An admin sets this per item (see
+// ApplicationsService.setComplianceItemSubmissionType()) - it's not
+// something an applicant chooses, since a hardcopy submission by definition
+// never touches the system for them to declare.
+enum ComplianceSubmissionType {
+  SOFTCOPY
+  HARDCOPY
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -365,7 +380,7 @@ model Position {
 
 /// One PANEL user in a Position's default panel group. Always fully
 /// replaced (delete + recreate) on save rather than diffed - same
-/// convention as EvaluationCriterionQuestion under EvaluationCriterion.
+/// convention as JobPostingRequiredEligibility under JobPosting.
 model PositionPanelMember {
   id          String @id @default(uuid())
   positionId  String
@@ -473,44 +488,60 @@ model Application {
 }
 
 /// Admin-managed interview rubric (spec: "Administrator can edit/update
-/// evaluation forms"). maxScore doubles as the criterion's weight - a
-/// panelist's total for one application is the sum of their per-criterion
-/// scores. isActive lets a criterion be retired without breaking historical
-/// PanelScore rows (see the delete guard in EvaluationCriteriaService).
-model EvaluationCriterion {
-  id        String   @id @default(uuid())
-  name      String
-  maxScore  Int
-  sortOrder Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+/// evaluation forms"), top-level grouping - e.g. "Communication Skills" set
+/// to weightPercent: 25, meaning this category is worth exactly 25% of the
+/// overall evaluation no matter how many criteria it has or what they sum
+/// to. weightPercent is the admin-set, authoritative share; it is NOT
+/// derived from the category's criteria the way its raw point total is.
+/// Carries no *raw* maxScore of its own: that number (the scale a panelist
+/// actually fills in scores against, criterion by criterion) is the sum of
+/// its active Criterion rows' maxScore, computed at read time
+/// (CategoriesRepository) rather than stored, so it can't drift out of sync
+/// with its own children. A panelist's raw subtotal for this category is
+/// normalized against that raw total and then scaled to weightPercent
+/// before it counts toward the overall score - see
+/// PanelEvaluationsService's weighted-scoring helpers - so a category with
+/// many high-point criteria contributes exactly as much as one with a
+/// single low-point criterion, provided both carry the same weightPercent.
+/// isActive lets a category be retired without breaking historical
+/// PanelScore rows still attached to its criteria.
+model Category {
+  id            String   @id @default(uuid())
+  name          String
+  weightPercent Int
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  scores    PanelScore[]
-  questions EvaluationCriterionQuestion[]
+  criteria Criterion[]
 
-  @@map("evaluation_criteria")
+  @@map("categories")
 }
 
-/// One guiding question a panelist should ask/consider when scoring its
-/// parent criterion (e.g. "Ask the applicant to describe a challenging
-/// situation they've handled at work") - a criterion can have any number of
-/// these, shown alongside the score input on the panel's evaluation form.
-/// See docs/rsp-domain-spec.md's Evaluation Forms phase ("boards'
-/// consumption"). Always fully replaced (delete + recreate) on save rather
-/// than diffed - same convention as PanelScore under a PanelEvaluation - so
-/// there's no per-question update endpoint to keep in sync with reordering.
-model EvaluationCriterionQuestion {
-  id          String   @id @default(uuid())
-  criterionId String
-  text        String   @db.Text
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
+/// One individually-scored rubric line within a Category (e.g. "Clarity of
+/// response" under "Communication Skills") - each panelist gives this one
+/// its own 0-maxScore mark (PanelScore), not the category as a whole. Unlike
+/// the old free-replace EvaluationCriterionQuestion this replaced, a
+/// Criterion can carry real historical PanelScore rows, so
+/// CategoriesService.update() diffs the incoming criteria list against
+/// what's on file instead of blindly deleting and recreating it - removing
+/// one that already has scores is blocked (409) the same way deleting a
+/// whole Category is, directing the admin to set isActive: false instead.
+model Criterion {
+  id         String   @id @default(uuid())
+  categoryId String
+  name       String   @db.Text
+  maxScore   Int
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
 
-  criterion EvaluationCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  category Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  scores   PanelScore[]
 
-  @@index([criterionId])
-  @@map("evaluation_criterion_questions")
+  @@index([categoryId])
+  @@map("criteria")
 }
 
 /// Which PANEL users sit on which job posting's interview board. Pure
@@ -549,18 +580,20 @@ model PanelEvaluation {
   @@map("panel_evaluations")
 }
 
-/// One criterion's score within a PanelEvaluation. criterionId has no
-/// onDelete override (defaults to Restrict) - EvaluationCriteriaService
-/// blocks deleting a criterion that already has scores, directing the admin
-/// to deactivate it instead (see EvaluationCriterion.isActive).
+/// One Criterion's score within a PanelEvaluation - the fine-grained unit
+/// scoring happens at (a Category is never scored directly, only reported
+/// as the sum of its criteria). criterionId has no onDelete override
+/// (defaults to Restrict) - CategoriesService blocks removing a criterion
+/// that already has scores, directing the admin to deactivate it instead
+/// (see Criterion.isActive).
 model PanelScore {
   id                String @id @default(uuid())
   panelEvaluationId String
   criterionId       String
   score             Int
 
-  panelEvaluation PanelEvaluation     @relation(fields: [panelEvaluationId], references: [id], onDelete: Cascade)
-  criterion       EvaluationCriterion @relation(fields: [criterionId], references: [id])
+  panelEvaluation PanelEvaluation @relation(fields: [panelEvaluationId], references: [id], onDelete: Cascade)
+  criterion       Criterion       @relation(fields: [criterionId], references: [id])
 
   @@unique([panelEvaluationId, criterionId])
   @@map("panel_scores")
@@ -568,10 +601,10 @@ model PanelScore {
 
 /// Admin-managed catalog of CSC-mandated documentary requirements for the
 /// Compliance to Requirements phase (docs/rsp-domain-spec.md §6). Global,
-/// not per-posting - same simplification already accepted for
-/// EvaluationCriterion (see docs/project-memory.md Known Limitations).
-/// isActive retires a requirement without breaking historical
-/// ApplicationComplianceItem rows, same convention as EvaluationCriterion.
+/// not per-posting - same simplification already accepted for Category
+/// (see docs/project-memory.md Known Limitations). isActive retires a
+/// requirement without breaking historical ApplicationComplianceItem rows,
+/// same convention as Category.
 model ComplianceRequirement {
   id          String   @id @default(uuid())
   name        String
@@ -586,26 +619,33 @@ model ComplianceRequirement {
   @@map("compliance_requirements")
 }
 
-/// One requirement's checklist row for one application - a snapshot taken
-/// of the then-active ComplianceRequirement list at
-/// ApplicationsService.moveToCompliance() time, not a live join (see
-/// docs/decisions.md). The applicant's proof upload is a
-/// Document(type=COMPLIANCE_PROOF, complianceItemId=this row's id);
-/// reviewing requires that document to already exist (see
+/// One requirement's checklist row for one application - usually a
+/// snapshot taken of the then-active ComplianceRequirement list at
+/// ApplicationsService.moveToCompliance() time (not a live join, see
+/// docs/decisions.md), but an admin can also attach one more requirement to
+/// a single application via ApplicationsService.addComplianceItem() when
+/// that snapshot came up short. Verifying an item requires both the
+/// applicant's submission and an admin's approval of it - what counts as
+/// "the submission" depends on submissionType: a SOFTCOPY item needs an
+/// uploaded Document(type=COMPLIANCE_PROOF, complianceItemId=this row's id)
+/// before VERIFIED is allowed, while a HARDCOPY item has no online
+/// counterpart to require - the admin's VERIFIED is itself the record that
+/// the physical copy was received and approved (see
 /// ApplicationsService.reviewComplianceItem()). requirementId has no
 /// onDelete override (defaults to Restrict) - same convention as
 /// PanelScore.criterionId - ComplianceRequirementsService blocks deleting a
 /// requirement that already has items, directing the admin to deactivate it
 /// instead.
 model ApplicationComplianceItem {
-  id               String               @id @default(uuid())
+  id               String                   @id @default(uuid())
   applicationId    String
   requirementId    String
-  status           ComplianceItemStatus @default(PENDING)
-  remarks          String?              @db.Text
+  status           ComplianceItemStatus     @default(PENDING)
+  submissionType   ComplianceSubmissionType @default(SOFTCOPY)
+  remarks          String?                  @db.Text
   reviewedAt       DateTime?
   reviewedByUserId String?
-  createdAt        DateTime             @default(now())
+  createdAt        DateTime                 @default(now())
 
   application Application           @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   requirement ComplianceRequirement @relation(fields: [requirementId], references: [id])

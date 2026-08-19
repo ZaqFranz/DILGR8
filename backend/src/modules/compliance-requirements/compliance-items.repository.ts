@@ -1,4 +1,11 @@
-import type { ApplicationComplianceItem, ComplianceItemStatus, ComplianceRequirement, Document, PrismaClient } from "@prisma/client";
+import type {
+  ApplicationComplianceItem,
+  ComplianceItemStatus,
+  ComplianceRequirement,
+  ComplianceSubmissionType,
+  Document,
+  PrismaClient,
+} from "@prisma/client";
 
 export type ApplicationComplianceItemWithDetails = ApplicationComplianceItem & {
   requirement: ComplianceRequirement;
@@ -35,6 +42,28 @@ export class ComplianceItemsRepository {
     return this.db.applicationComplianceItem.findUnique({ where: { id }, include: detailsInclude });
   }
 
+  findByApplicationAndRequirement(
+    applicationId: string,
+    requirementId: string,
+  ): Promise<ApplicationComplianceItemWithDetails | null> {
+    return this.db.applicationComplianceItem.findUnique({
+      where: { applicationId_requirementId: { applicationId, requirementId } },
+      include: detailsInclude,
+    });
+  }
+
+  /** The admin-initiated counterpart to createManyForApplication() - attaches one requirement the automatic snapshot missed. */
+  create(
+    applicationId: string,
+    requirementId: string,
+    submissionType?: ComplianceSubmissionType,
+  ): Promise<ApplicationComplianceItemWithDetails> {
+    return this.db.applicationComplianceItem.create({
+      data: { applicationId, requirementId, ...(submissionType ? { submissionType } : {}) },
+      include: detailsInclude,
+    });
+  }
+
   countUnverified(applicationId: string): Promise<number> {
     return this.db.applicationComplianceItem.count({
       where: { applicationId, status: { not: "VERIFIED" } },
@@ -50,6 +79,14 @@ export class ComplianceItemsRepository {
         reviewedByUserId: input.reviewedByUserId,
         reviewedAt: new Date(),
       },
+      include: detailsInclude,
+    });
+  }
+
+  updateSubmissionType(id: string, submissionType: ComplianceSubmissionType): Promise<ApplicationComplianceItemWithDetails> {
+    return this.db.applicationComplianceItem.update({
+      where: { id },
+      data: { submissionType },
       include: detailsInclude,
     });
   }

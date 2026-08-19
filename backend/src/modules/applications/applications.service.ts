@@ -27,10 +27,12 @@ import {
 } from "@/shared/email/applicationEmailTemplates";
 import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
 import type {
+  AddComplianceItemDto,
   RejectApplicationDto,
   ReviewComplianceItemDto,
   ScheduleInterviewDto,
   ScheduleOathTakingDto,
+  SetComplianceItemSubmissionTypeDto,
   SetExamScoreDto,
   SiftApplicationDto,
 } from "./applications.dto";
@@ -559,6 +561,87 @@ export class ApplicationsService {
   }
 
   /**
+   * Manual counterpart to the automatic snapshot moveToCompliance() takes:
+   * lets an admin attach a requirement from the Compliance Requirements
+   * catalog to this one application's checklist. Exists so an admin isn't
+   * stuck when the catalog was empty (or missing the right requirement) at
+   * the moment the applicant moved to Compliance - the admin picks which
+   * requirement applies here instead of only ever relying on that snapshot.
+   */
+  async addComplianceItem(
+    applicationId: string,
+    actorUserId: string,
+    dto: AddComplianceItemDto,
+  ): Promise<PublicComplianceItem> {
+    const application = await this.applicationsRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundError("Application");
+    }
+    if (application.status !== "FOR_COMPLIANCE") {
+      throw new ValidationError(
+        `Cannot add a compliance requirement to an application with status ${application.status}`,
+      );
+    }
+
+    const requirement = await this.complianceRequirementsRepository.findById(dto.requirementId);
+    if (!requirement) {
+      throw new NotFoundError("Compliance requirement");
+    }
+
+    const existing = await this.complianceItemsRepository.findByApplicationAndRequirement(
+      applicationId,
+      dto.requirementId,
+    );
+    if (existing) {
+      throw new ConflictError("This requirement is already on the applicant's compliance checklist");
+    }
+
+    const created = await this.complianceItemsRepository.create(applicationId, dto.requirementId, dto.submissionType);
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_COMPLIANCE_ITEM_ADDED,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Added compliance requirement "${requirement.name}" to ${application.applicant.firstName} ${application.applicant.lastName}'s checklist for "${application.jobPosting.title}" (${created.submissionType})`,
+    });
+
+    return toPublicComplianceItem(created);
+  }
+
+  /**
+   * Lets an admin declare how one checklist item is expected to reach them:
+   * SOFTCOPY (the online COMPLIANCE_PROOF upload, the default) or HARDCOPY
+   * (handed over physically, outside the system). This is what
+   * reviewComplianceItem()'s "proof required before VERIFIED" gate below
+   * checks - flipping an item to HARDCOPY is how an admin unblocks a
+   * requirement that was never going to get an online upload.
+   */
+  async setComplianceItemSubmissionType(
+    applicationId: string,
+    itemId: string,
+    actorUserId: string,
+    dto: SetComplianceItemSubmissionTypeDto,
+  ): Promise<PublicComplianceItem> {
+    const item = await this.complianceItemsRepository.findById(itemId);
+    if (!item || item.applicationId !== applicationId) {
+      throw new NotFoundError("Compliance item");
+    }
+
+    const updated = await this.complianceItemsRepository.updateSubmissionType(itemId, dto.submissionType);
+
+    await this.auditLogsRepository.record({
+      actorUserId,
+      action: AuditAction.APPLICATION_COMPLIANCE_ITEM_SUBMISSION_TYPE_SET,
+      entityType: AuditEntityType.APPLICATION,
+      entityId: applicationId,
+      details: `Set "${item.requirement.name}" to ${dto.submissionType} for application ${applicationId}`,
+    });
+
+    return toPublicComplianceItem(updated);
+  }
+
+  /**
    * APPLICANT can only read their own application's checklist; ADMIN can
    * read any. PANEL has no legitimate reason to see Compliance to
    * Requirements at all (that stage comes after their part of the pipeline,
@@ -588,7 +671,19 @@ export class ApplicationsService {
     return items.map(toPublicComplianceItem);
   }
 
-  /** Verifying/rejecting requires the applicant to have already uploaded a COMPLIANCE_PROOF document for this item - there's nothing to review otherwise. */
+  /**
+   * The admin's per-requirement verdict - VERIFIED requires both the
+   * applicant's submission and the admin's approval of it, never the
+   * admin's judgment alone. What counts as "submitted" depends on the
+   * item's submissionType (see setComplianceItemSubmissionType()): a
+   * SOFTCOPY item needs an uploaded COMPLIANCE_PROOF document first (400 if
+   * VERIFIED is attempted without one - there's nothing to approve yet); a
+   * HARDCOPY item has no online counterpart to check, so the admin's
+   * VERIFIED here is itself the record that the physical copy was received
+   * and approved. REJECTED carries no such precondition either way - an
+   * admin can reject a requirement that was never submitted at all (e.g.
+   * past deadline).
+   */
   async reviewComplianceItem(
     applicationId: string,
     itemId: string,
@@ -599,8 +694,10 @@ export class ApplicationsService {
     if (!item || item.applicationId !== applicationId) {
       throw new NotFoundError("Compliance item");
     }
-    if (item.documents.length === 0) {
-      throw new ValidationError("The applicant hasn't submitted proof for this requirement yet");
+    if (dto.status === "VERIFIED" && item.submissionType === "SOFTCOPY" && item.documents.length === 0) {
+      throw new ValidationError(
+        "The applicant hasn't uploaded proof for this requirement yet - nothing to verify. If it was submitted as a physical copy instead, set it to Hardcopy first.",
+      );
     }
 
     const updated = await this.complianceItemsRepository.update(itemId, {
