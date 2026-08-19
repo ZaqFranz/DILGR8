@@ -792,6 +792,26 @@ body.admin-account button:not(:disabled):not(.modal-close):not(.user-menu-trigge
   flex-shrink: 0;
 }
 
+/* button.secondary's default text/border is navy (--color-primary), meant
+   for a light card background - unreadable against this hero's navy
+   gradient. Recolor for white-on-navy, keeping the same "fills solid navy
+   with white text" hover every other admin button uses (see the
+   body.admin-account rule below) so User Manual/Refresh match the rest of
+   the panel; that global rule only targets <button>, so it's restated here
+   to also cover the User Manual <a>. */
+.dashboard-hero-actions a.button.secondary,
+.dashboard-hero-actions button.secondary {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.dashboard-hero-actions a.button.secondary:hover,
+.dashboard-hero-actions button.secondary:not(:disabled):hover {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: #fff;
+}
+
 .dashboard-hero h1 {
   margin: 0;
   color: white;
