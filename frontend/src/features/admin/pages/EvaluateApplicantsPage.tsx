@@ -263,7 +263,6 @@ export function EvaluateApplicantsPage() {
               <thead>
                 <tr>
                   <th>Applicant</th>
-                  <th>Email</th>
                   <th>Job Posting</th>
                   <th>Submitted</th>
                   <th>Status</th>
@@ -276,14 +275,14 @@ export function EvaluateApplicantsPage() {
               <tbody>
                 {applications.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="table-empty">
+                    <td colSpan={8} className="table-empty">
                       No applications submitted yet.
                     </td>
                   </tr>
                 )}
                 {applications.length > 0 && filteredApplications.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="table-empty">
+                    <td colSpan={8} className="table-empty">
                       No applicants match your search/filter.
                     </td>
                   </tr>

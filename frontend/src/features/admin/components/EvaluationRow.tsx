@@ -309,7 +309,6 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
         <td>
           {application.applicant.firstName} {application.applicant.lastName}
         </td>
-        <td>{application.applicant.user.email}</td>
         <td>{application.jobPosting.title}</td>
         <td>{new Date(application.submittedAt).toLocaleDateString()}</td>
         <td>
