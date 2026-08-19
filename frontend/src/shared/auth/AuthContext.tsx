@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { setAuthToken } from "@/shared/api/apiClient";
+import { useNavigate } from "react-router-dom";
+import { setAuthToken, setSessionExpiredHandler } from "@/shared/api/apiClient";
 import { login as loginApi, register as registerApi } from "@/features/auth/api/authApi";
 import type { AuthUser } from "@/features/auth/types";
 import { getMyProfile } from "@/features/applicant-registration/api/applicantsApi";
+import { useToast } from "@/shared/components/ToastProvider";
 
 const STORAGE_KEY = "dilgr8rsp.auth";
 
@@ -48,6 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [registrationComplete, setRegistrationComplete] = useState<boolean | null>(null);
+  const navigate = useNavigate();
+  const toast = useToast();
 
   async function syncRegistrationStatus(u: AuthUser) {
     if (u.role !== "APPLICANT") {
@@ -96,6 +100,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setRegistrationComplete(null);
   }
+
+  // Any authenticated request that comes back 401 means this session's
+  // token is dead (expired or invalidated) - drop it and bounce to /login
+  // instead of leaving the user stranded on a page that can't load data.
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      logout();
+      toast.info("Your session has expired. Please log in again.");
+      navigate("/login", { replace: true });
+    });
+    return () => setSessionExpiredHandler(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate, toast]);
 
   async function refreshRegistrationStatus() {
     if (user) {

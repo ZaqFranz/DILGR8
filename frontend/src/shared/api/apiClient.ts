@@ -18,6 +18,26 @@ export function setAuthToken(token: string | null): void {
   authToken = token;
 }
 
+/**
+ * Fires when an authenticated request (one that carried a Bearer token)
+ * comes back 401 - the token expired or was invalidated server-side.
+ * AuthContext registers this to clear the session and redirect to /login,
+ * so any page holding a stale token bounces out instead of sitting on a
+ * broken screen. Never fires for unauthenticated requests (e.g. a login
+ * attempt with bad credentials also returns 401) since no token was sent.
+ */
+let onSessionExpired: (() => void) | null = null;
+
+export function setSessionExpiredHandler(handler: (() => void) | null): void {
+  onSessionExpired = handler;
+}
+
+function handleUnauthorized(hadToken: boolean): void {
+  if (hadToken) {
+    onSessionExpired?.();
+  }
+}
+
 interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
@@ -32,6 +52,7 @@ interface RequestOptions {
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {};
+  const hadToken = authToken !== null;
   if (authToken) {
     headers.Authorization = `Bearer ${authToken}`;
   }
@@ -59,6 +80,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const data = await response.json().catch(() => undefined);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized(hadToken);
+    }
     const errorPayload = data?.error ?? { code: "UNKNOWN", message: "Request failed" };
     throw new ApiError(errorPayload.message, response.status, errorPayload.code, errorPayload.details);
   }
@@ -74,6 +98,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
  */
 export async function apiRequestBlob(path: string): Promise<Blob> {
   const headers: Record<string, string> = {};
+  const hadToken = authToken !== null;
   if (authToken) {
     headers.Authorization = `Bearer ${authToken}`;
   }
@@ -81,6 +106,9 @@ export async function apiRequestBlob(path: string): Promise<Blob> {
   const response = await fetch(`${API_URL}${path}`, { headers });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized(hadToken);
+    }
     const data = await response.json().catch(() => undefined);
     const errorPayload = data?.error ?? { code: "UNKNOWN", message: "Request failed" };
     throw new ApiError(errorPayload.message, response.status, errorPayload.code, errorPayload.details);
