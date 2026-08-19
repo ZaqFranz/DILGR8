@@ -271,6 +271,38 @@ export interface BulkAssignPanelResult {
   skippedCount: number;
 }
 
+export interface ApplicantGroupMember {
+  id: string;
+  applicationId: string;
+  createdAt: string;
+  application: {
+    id: string;
+    jobPosting: { id: string; title: string };
+    applicant: { id: string; firstName: string; lastName: string; user: { email: string } };
+  };
+}
+
+export interface ApplicantGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  members: ApplicantGroupMember[];
+}
+
+export interface CreateApplicantGroupInput {
+  name: string;
+  description?: string;
+  applicationIds: string[];
+}
+
+export interface UpdateApplicantGroupInput {
+  name?: string;
+  description?: string | null;
+  applicationIds?: string[];
+}
+
 export interface PanelScore {
   criterionId: string;
   score: number;

@@ -18,6 +18,7 @@ import { createPanelAssignmentsRouter } from "@/modules/panel-assignments/panel-
 import { createPanelEvaluationsRouter } from "@/modules/panel-evaluations/panel-evaluations.routes";
 import { createPositionsRouter } from "@/modules/positions/positions.routes";
 import { createComplianceRequirementsRouter } from "@/modules/compliance-requirements/compliance-requirements.routes";
+import { createApplicantGroupsRouter } from "@/modules/applicant-groups/applicant-groups.routes";
 
 export function createApp(): Express {
   const app = express();
@@ -43,6 +44,7 @@ export function createApp(): Express {
   app.use("/api/panel-evaluations", createPanelEvaluationsRouter(container.panelEvaluationsController));
   app.use("/api/positions", createPositionsRouter(container.positionsController));
   app.use("/api/compliance-requirements", createComplianceRequirementsRouter(container.complianceRequirementsController));
+  app.use("/api/applicant-groups", createApplicantGroupsRouter(container.applicantGroupsController));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -18,6 +18,7 @@ import { AuditLogsPage } from "@/features/admin/pages/AuditLogsPage";
 import { CategoriesPage } from "@/features/admin/pages/CategoriesPage";
 import { ComplianceRequirementsPage } from "@/features/admin/pages/ComplianceRequirementsPage";
 import { PanelAssignmentsPage } from "@/features/admin/pages/PanelAssignmentsPage";
+import { GroupsPage } from "@/features/admin/pages/GroupsPage";
 import { MyInterviewsPage } from "@/features/panel/pages/MyInterviewsPage";
 
 const HOME_BY_ROLE: Record<"ADMIN" | "APPLICANT" | "PANEL", string> = {
@@ -88,10 +89,10 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/jobs"
+          path="/admin/users"
           element={
             <ProtectedRoute role="ADMIN">
-              <JobManagementPage />
+              <UsersManagementPage />
             </ProtectedRoute>
           }
         />
@@ -104,34 +105,10 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/users"
+          path="/admin/jobs"
           element={
             <ProtectedRoute role="ADMIN">
-              <UsersManagementPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/evaluations"
-          element={
-            <ProtectedRoute role="ADMIN">
-              <EvaluateApplicantsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/logs"
-          element={
-            <ProtectedRoute role="ADMIN">
-              <AuditLogsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/panel-interviews"
-          element={
-            <ProtectedRoute role="ADMIN">
-              <PanelAssignmentsPage />
+              <JobManagementPage />
             </ProtectedRoute>
           }
         />
@@ -148,6 +125,38 @@ export default function App() {
           element={
             <ProtectedRoute role="ADMIN">
               <ComplianceRequirementsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/panel-interviews"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <PanelAssignmentsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/groups"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <GroupsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/evaluations"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <EvaluateApplicantsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/logs"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <AuditLogsPage />
             </ProtectedRoute>
           }
         />

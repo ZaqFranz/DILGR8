@@ -1,9 +1,20 @@
+// Kept in sync with the ApplicationStatus enum (schema.prisma) - this list
+// was never updated when the Compliance to Requirements/Oath-Taking phases
+// added FOR_COMPLIANCE/NOT_SELECTED/DISQUALIFIED/FOR_OATH_TAKING/HIRED, so
+// tally() (dashboard.service.ts) silently dropped every application in one
+// of those 5 statuses from both the total and the byStatus breakdown - see
+// docs/decisions.md.
 export const APPLICATION_STATUSES = [
   "SUBMITTED",
   "UNDER_SIFTING",
   "FOR_INTERVIEW",
   "QUALIFIED",
   "NOT_QUALIFIED",
+  "FOR_COMPLIANCE",
+  "NOT_SELECTED",
+  "DISQUALIFIED",
+  "FOR_OATH_TAKING",
+  "HIRED",
   "WITHDRAWN",
 ] as const;
 export const JOB_POSTING_STATUSES = ["OPEN", "CLOSED"] as const;

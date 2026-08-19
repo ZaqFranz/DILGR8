@@ -155,6 +155,11 @@ export class ApplicationsRepository {
     return (rows as RawApplicationWithApplicant[]).map(toApplicationWithApplicant);
   }
 
+  findByIds(ids: string[]): Promise<Application[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.db.application.findMany({ where: { id: { in: ids } } });
+  }
+
   async sift(id: string, input: SiftApplicationInput): Promise<ApplicationWithApplicant> {
     const row = await this.db.application.update({
       where: { id },

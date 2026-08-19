@@ -54,6 +54,10 @@ import { ComplianceItemsRepository } from "@/modules/compliance-requirements/com
 import { ComplianceRequirementsService } from "@/modules/compliance-requirements/compliance-requirements.service";
 import { ComplianceRequirementsController } from "@/modules/compliance-requirements/compliance-requirements.controller";
 
+import { ApplicantGroupsRepository } from "@/modules/applicant-groups/applicant-groups.repository";
+import { ApplicantGroupsService } from "@/modules/applicant-groups/applicant-groups.service";
+import { ApplicantGroupsController } from "@/modules/applicant-groups/applicant-groups.controller";
+
 /**
  * Composition root: the one place that wires concrete repositories into
  * services into controllers. Every class up the chain takes its
@@ -76,6 +80,7 @@ function buildContainer() {
   const positionsRepository = new PositionsRepository(prisma);
   const complianceRequirementsRepository = new ComplianceRequirementsRepository(prisma);
   const complianceItemsRepository = new ComplianceItemsRepository(prisma);
+  const applicantGroupsRepository = new ApplicantGroupsRepository(prisma);
   const emailService = new EmailService();
 
   const authService = new AuthService(authRepository, auditLogsRepository, emailService);
@@ -118,6 +123,11 @@ function buildContainer() {
     complianceRequirementsRepository,
     auditLogsRepository,
   );
+  const applicantGroupsService = new ApplicantGroupsService(
+    applicantGroupsRepository,
+    applicationsRepository,
+    auditLogsRepository,
+  );
 
   return {
     authController: new AuthController(authService),
@@ -133,6 +143,7 @@ function buildContainer() {
     panelEvaluationsController: new PanelEvaluationsController(panelEvaluationsService),
     positionsController: new PositionsController(positionsService),
     complianceRequirementsController: new ComplianceRequirementsController(complianceRequirementsService),
+    applicantGroupsController: new ApplicantGroupsController(applicantGroupsService),
   };
 }
 

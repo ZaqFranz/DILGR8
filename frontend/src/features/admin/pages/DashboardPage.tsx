@@ -11,6 +11,15 @@ import type { ApplicationStatus, DashboardSummary } from "../types";
 
 const USER_MANUAL_URL = "/DILGR8RSP-User-Manual.docx";
 
+// Job postings are arbitrary identities (unlike application status, which
+// reuses the app's existing semantic badge colors) - this is the dataviz
+// skill's validated 8-hue categorical theme, first 5 slots (matches
+// TOP_JOB_POSTINGS_LIMIT on the backend). Past 3 slots the theme's own
+// adjacent-pair CVD guarantee needs the "relief rule" mitigation - satisfied
+// here since PieChart always renders a text legend alongside the chart, so
+// no posting is ever identified by color alone.
+const CATEGORICAL_CHART_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"];
+
 // Label text is the single shared APPLICATION_STATUS_LABELS source (kept in
 // sync with the admin Evaluate Applicants table and the applicant-facing My
 // Applications page) - only the per-status bar color is specific to this chart.
@@ -86,34 +95,95 @@ function UsersIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-interface BarRow {
+interface ChartRow {
   key: string;
   label: string;
   value: number;
   color: string;
 }
 
-function BarChart({ rows, emptyLabel }: { rows: BarRow[]; emptyLabel: string }) {
-  if (rows.every((row) => row.value === 0)) {
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number): { x: number; y: number } {
+  const angleRad = (angleDeg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(angleRad), y: cy + r * Math.sin(angleRad) };
+}
+
+const PIE_SIZE = 160;
+const PIE_RADIUS = PIE_SIZE / 2;
+// Below this share, a slice gets a legend entry but no in-chart percentage
+// label - direct-labeling every one of up to 11 statuses would collide and
+// clutter a slice this small; the legend (always shown alongside, itself
+// the exact-numbers table view) is the source of truth for it.
+const PIE_DIRECT_LABEL_MIN_SHARE = 0.08;
+
+/**
+ * Only statuses with at least one application become a slice - most of the
+ * 11 possible statuses are empty at any given time, and rendering those as
+ * zero-width slices would add nothing but legend/label clutter (see
+ * dataviz skill's "more than ~7 classes -> table, not more colors": this
+ * keeps the chart at whatever the data actually spans, which is usually
+ * well under that).
+ */
+function PieChart({ rows, emptyLabel, ariaLabel }: { rows: ChartRow[]; emptyLabel: string; ariaLabel: string }) {
+  const nonZero = rows.filter((row) => row.value > 0);
+  const total = nonZero.reduce((sum, row) => sum + row.value, 0);
+  if (total === 0) {
     return <p className="chart-empty">{emptyLabel}</p>;
   }
-  const max = Math.max(1, ...rows.map((row) => row.value));
+
+  let cumulativeAngle = -90; // 12 o'clock start, clockwise
+  const slices = nonZero.map((row) => {
+    const share = row.value / total;
+    // Capped just under a full turn so a single 100% slice still traces a
+    // valid arc (identical start/end points make the arc command degenerate).
+    const sweep = Math.min(share * 360, 359.999);
+    const startAngle = cumulativeAngle;
+    const endAngle = startAngle + sweep;
+    cumulativeAngle = endAngle;
+    const start = polarToCartesian(PIE_RADIUS, PIE_RADIUS, PIE_RADIUS, startAngle);
+    const end = polarToCartesian(PIE_RADIUS, PIE_RADIUS, PIE_RADIUS, endAngle);
+    const largeArcFlag = sweep > 180 ? 1 : 0;
+    const path = `M ${PIE_RADIUS} ${PIE_RADIUS} L ${start.x} ${start.y} A ${PIE_RADIUS} ${PIE_RADIUS} 0 ${largeArcFlag} 1 ${end.x} ${end.y} Z`;
+    const midAngle = startAngle + sweep / 2;
+    const labelPos = polarToCartesian(PIE_RADIUS, PIE_RADIUS, PIE_RADIUS * 0.66, midAngle);
+    return { ...row, path, share, labelPos };
+  });
+
   return (
-    <div className="bar-chart">
-      {rows.map((row) => (
-        <div className="bar-row" key={row.key}>
-          <span className="bar-row-label" title={row.label}>
-            {row.label}
-          </span>
-          <div className="bar-track">
-            <div
-              className="bar-fill"
-              style={{ width: `${(row.value / max) * 100}%`, background: row.color }}
-            />
-          </div>
-          <span className="bar-value">{row.value}</span>
-        </div>
-      ))}
+    <div className="pie-chart">
+      <svg viewBox={`0 0 ${PIE_SIZE} ${PIE_SIZE}`} className="pie-chart-svg" role="img" aria-label={ariaLabel}>
+        {slices.map((slice) => (
+          <path key={slice.key} d={slice.path} fill={slice.color} stroke="var(--color-surface)" strokeWidth={2}>
+            <title>
+              {slice.label}: {slice.value} ({(slice.share * 100).toFixed(1)}%)
+            </title>
+          </path>
+        ))}
+        {slices
+          .filter((slice) => slice.share >= PIE_DIRECT_LABEL_MIN_SHARE)
+          .map((slice) => (
+            <text
+              key={`${slice.key}-label`}
+              x={slice.labelPos.x}
+              y={slice.labelPos.y}
+              className="pie-chart-slice-label"
+              textAnchor="middle"
+              dominantBaseline="middle"
+            >
+              {Math.round(slice.share * 100)}%
+            </text>
+          ))}
+      </svg>
+      <ul className="pie-chart-legend">
+        {nonZero.map((row) => (
+          <li key={row.key}>
+            <span className="pie-chart-swatch" style={{ background: row.color }} />
+            <span className="pie-chart-legend-label" title={row.label}>
+              {row.label}
+            </span>
+            <span className="pie-chart-legend-value">{row.value}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -250,7 +320,8 @@ export function DashboardPage() {
           <div className="dashboard-grid">
             <div className="card">
               <h2>Applications by status</h2>
-              <BarChart
+              <PieChart
+                ariaLabel="Applications by status"
                 emptyLabel="No applications submitted yet."
                 rows={APPLICATION_STATUS_ORDER.map((status) => ({
                   key: status,
@@ -263,13 +334,14 @@ export function DashboardPage() {
 
             <div className="card">
               <h2>Top job postings by applications</h2>
-              <BarChart
+              <PieChart
+                ariaLabel="Top job postings by applications"
                 emptyLabel="No applications submitted yet."
-                rows={summary.topJobPostings.map((posting) => ({
+                rows={summary.topJobPostings.map((posting, index) => ({
                   key: posting.jobPostingId,
                   label: posting.title,
                   value: posting.applicationCount,
-                  color: "var(--color-accent-hover)",
+                  color: CATEGORICAL_CHART_COLORS[index % CATEGORICAL_CHART_COLORS.length]!,
                 }))}
               />
             </div>

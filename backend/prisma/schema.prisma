@@ -481,6 +481,7 @@ model Application {
   documents        Document[]
   panelEvaluations PanelEvaluation[]
   complianceItems  ApplicationComplianceItem[]
+  groupMemberships ApplicantGroupMember[]
 
   @@unique([applicantId, jobPostingId])
   @@index([jobPostingId])
@@ -597,6 +598,43 @@ model PanelScore {
 
   @@unique([panelEvaluationId, criterionId])
   @@map("panel_scores")
+}
+
+/// Admin-defined ad hoc grouping of applicants for Group Dynamics Evaluation -
+/// a distinct, non-scored assessment activity, separate from the individual
+/// interview rubric (Category/Criterion/PanelScore above). Just a name,
+/// optional description, and a member list; carries no jobPostingId of its
+/// own since a single group exercise can mix applicants from different
+/// postings (unlike PanelAssignment, which is keyed to one posting's board).
+model ApplicantGroup {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members ApplicantGroupMember[]
+
+  @@map("applicant_groups")
+}
+
+/// Membership join: which Application belongs to which ApplicantGroup.
+/// Keyed to the Application (a specific candidacy for one posting), not the
+/// Applicant directly - the same scoping PanelEvaluation uses - so grouping
+/// an applicant for one posting's Group Dynamics Evaluation doesn't imply
+/// anything about their other applications.
+model ApplicantGroupMember {
+  id            String   @id @default(uuid())
+  groupId       String
+  applicationId String
+  createdAt     DateTime @default(now())
+
+  group       ApplicantGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  application Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, applicationId])
+  @@index([applicationId])
+  @@map("applicant_group_members")
 }
 
 /// Admin-managed catalog of CSC-mandated documentary requirements for the

@@ -33,6 +33,9 @@ export const AuditAction = {
   POSITION_CREATED: "POSITION_CREATED",
   POSITION_UPDATED: "POSITION_UPDATED",
   POSITION_DELETED: "POSITION_DELETED",
+  APPLICANT_GROUP_CREATED: "APPLICANT_GROUP_CREATED",
+  APPLICANT_GROUP_UPDATED: "APPLICANT_GROUP_UPDATED",
+  APPLICANT_GROUP_DELETED: "APPLICANT_GROUP_DELETED",
 } as const;
 
 export const AuditEntityType = {
@@ -44,4 +47,5 @@ export const AuditEntityType = {
   PANEL_ASSIGNMENT: "PanelAssignment",
   PANEL_EVALUATION: "PanelEvaluation",
   POSITION: "Position",
+  APPLICANT_GROUP: "ApplicantGroup",
 } as const;

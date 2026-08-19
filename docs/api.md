@@ -224,13 +224,13 @@ Response shape:
   applicants: { total, registrationComplete },
   users: { total, byRole: { ADMIN, APPLICANT, PANEL } },
   jobPostings: { total, byStatus: { OPEN, CLOSED } },
-  applications: { total, byStatus: { SUBMITTED, UNDER_SIFTING, FOR_INTERVIEW, QUALIFIED, NOT_QUALIFIED, FOR_COMPLIANCE, FOR_OATH_TAKING, HIRED, WITHDRAWN } },
+  applications: { total, byStatus: { SUBMITTED, UNDER_SIFTING, FOR_INTERVIEW, QUALIFIED, NOT_QUALIFIED, FOR_COMPLIANCE, NOT_SELECTED, DISQUALIFIED, FOR_OATH_TAKING, HIRED, WITHDRAWN } },
   topJobPostings: [{ jobPostingId, title, applicationCount }],  // top 5, by application count
   recentActivity: AuditLogEntry[]  // same shape as GET /api/audit-logs, limit 8
 }
 ```
 
-Every status/role key is always present with a count of `0` rather than omitted - `groupBy` only returns rows for combinations that exist, so the service fills every known enum value before responding, letting the frontend render a fixed set of chart rows without a presence check per key.
+Every status/role key is always present with a count of `0` rather than omitted - `groupBy` only returns rows for combinations that exist, so the service fills every known enum value (`APPLICATION_STATUSES`/`JOB_POSTING_STATUSES`/`USER_ROLES`, `dashboard.dto.ts`) before responding, letting the frontend render a fixed set of chart rows without a presence check per key. These lists are hand-maintained, not derived from the Prisma enums at compile time - `dashboard.dto.test.ts` guards against them drifting out of sync again (see [decisions.md](./decisions.md)'s 2026-08-19 entry: `APPLICATION_STATUSES` previously omitted `FOR_COMPLIANCE`/`NOT_SELECTED`/`DISQUALIFIED`/`FOR_OATH_TAKING`/`HIRED`, silently excluding every application in one of those 5 statuses from both `applications.total` and `byStatus`).
 
 ## Categories — `/api/categories` (was `/api/evaluation-criteria`, renamed 2026-08-19 - see `docs/decisions.md`)
 
@@ -267,6 +267,17 @@ The app never validates that active categories' `weightPercent` values sum to 10
 | POST | `/` | `{ jobPostingId, panelUserId }` | Assigns a `PANEL`-role user to a posting's interview board. 400 if `panelUserId` isn't role `PANEL`; 409 if already assigned to that posting. |
 | POST | `/bulk` | `{ jobPostingIds: string[], panelUserIds: string[] }` (max 200 × 50) | Assigns every listed panelist to every listed posting's board in one call — the Interview Panel page's "select multiple applicants, assign a panel to all of them" bulk action, resolved to postings since that's what `PanelAssignment` is keyed on. Add-only: pairs already assigned are silently skipped, never removed. 404 if any posting/panel-user id doesn't exist; 400 if any `panelUserId` isn't role `PANEL`. Returns `{ created: PanelAssignmentWithPanelUser[], skippedCount: number }`. See `docs/decisions.md`'s 2026-08-11 entry. |
 | DELETE | `/:id` | — | Unassigns. Any scores that panelist already submitted for that posting's applications are kept. |
+
+## Applicant Groups — `/api/applicant-groups` (all ADMIN only)
+
+Ad hoc groupings of applicants for Group Dynamics Evaluation - not part of `docs/rsp-domain-spec.md`, and unrelated to the interview rubric (Categories) or `panel-assignments` above. A group carries no `jobPostingId` — membership is a set of `Application` ids, which may span different postings.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `/` | — | Every group, each with its `members[]` (`{ id, applicationId, application: { id, jobPosting: { id, title }, applicant: { id, firstName, lastName, user: { email } } } }`). |
+| POST | `/` | `{ name, description?, applicationIds: string[] }` (2-100 ids) | Creates a group from the given applications — the "Group" button on `GroupsPage`'s bulk action bar, taking the place of Interview Panel's panel-member picker. 400 if fewer than 2 ids given (a group of one isn't a group) or any application id doesn't exist. |
+| PATCH | `/:id` | `{ name?, description?, applicationIds?: string[] }` (2-100 ids if given) | Renames/redescribes a group and/or replaces its membership. `applicationIds`, when present, is the group's new full member list — diffed against what's on file (remove what's missing, add what's new) rather than an add/remove delta. Backs `GroupsPage`'s "Members" action, which seeds the applicant table's checkbox selection with the group's current members so the admin edits it with the same checkboxes used to create a group. 404 if the group doesn't exist; 400 if `applicationIds` has fewer than 2 entries or any id doesn't exist. |
+| DELETE | `/:id` | — | Deletes the group and cascade-deletes its members. No usage guard (unlike Categories/Compliance Requirements) — a group has no historical scores or other rows referencing it. |
 
 ## Panel Evaluations — `/api/panel-evaluations`
 
