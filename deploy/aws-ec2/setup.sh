@@ -55,6 +55,12 @@ if [ ! -d "$APP_DIR/.git" ]; then
 else
   echo "    $APP_DIR already exists - skipping clone (deploy.sh will git pull)"
 fi
+# git on Windows (where these scripts were authored) commonly has
+# core.fileMode=false, so a local `chmod +x` never makes it into the
+# commit's file mode - the clone above can come out non-executable
+# regardless of what's in the repo. Setting it explicitly here means this
+# doesn't depend on that being fixed upstream.
+chmod +x "$APP_DIR/deploy/aws-ec2/setup.sh" "$APP_DIR/deploy/aws-ec2/deploy.sh"
 
 echo "==> MySQL: creating the dilgr8rsp database and a dedicated app user"
 echo "    (not reusing root - see backend.env.production.example)"
@@ -69,7 +75,11 @@ SQL
 
 echo "==> Writing backend/.env (generated JWT secret + your DB password)"
 JWT_SECRET="$(openssl rand -hex 48)"
-PUBLIC_IP="$(curl -fsS --max-time 3 http://169.254.169.254/latest/meta-data/public-ipv4 || echo "REPLACE_WITH_YOUR_EC2_PUBLIC_IP")"
+# IMDSv2: a plain GET against the metadata service now 401s on instances
+# launched with IMDSv2 required (the default for new instances) - a
+# session token has to be requested first and passed back as a header.
+IMDS_TOKEN="$(curl -fsS --max-time 3 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" || true)"
+PUBLIC_IP="$(curl -fsS --max-time 3 -H "X-aws-ec2-metadata-token: ${IMDS_TOKEN}" http://169.254.169.254/latest/meta-data/public-ipv4 || echo "REPLACE_WITH_YOUR_EC2_PUBLIC_IP")"
 if [ ! -f "$APP_DIR/backend/.env" ]; then
   sed \
     -e "s#REPLACE_WITH_A_STRONG_PASSWORD#${DB_PASSWORD}#" \
