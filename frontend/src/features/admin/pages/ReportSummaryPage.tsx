@@ -110,8 +110,10 @@ export function ReportSummaryPage() {
           <table className="report-summary-table">
             <thead>
               <tr>
-                <th className="sticky-col">Applicant</th>
-                <th>Job posting</th>
+                <th rowSpan={2} className="sticky-col">
+                  Applicant
+                </th>
+                <th rowSpan={2}>Job posting</th>
                 {overview.categories.map((category, index) => (
                   <th
                     key={category.id}
@@ -125,13 +127,12 @@ export function ReportSummaryPage() {
                 <th className="total-col">Total (avg)</th>
                 <th className="panelists-col">Panelists submitted</th>
               </tr>
-              {/* Applicant/Job posting/Total/Panelists submitted have no sub-column of
-                  their own, but still need a cell on this row - without one, a border
-                  drawn at this row's height would stop at the category columns instead
-                  of running the full width of the header. */}
+              {/* Applicant/Job posting span both header rows (rowSpan above) since they
+                  have no sub-column of their own. Total/Panelists submitted don't span -
+                  they get an explicit empty cell here instead - so the header's row1/row2
+                  divider line still runs underneath them instead of stopping at the last
+                  category column. */}
               <tr>
-                <th className="sticky-col" aria-hidden="true" />
-                <th aria-hidden="true" />
                 {overview.categories.map((category, index) => (
                   <Fragment key={category.id}>
                     {(criteriaByCategory.get(category.id) ?? []).map((criterion, criterionIndex) => (
