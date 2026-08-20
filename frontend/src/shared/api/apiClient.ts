@@ -1,4 +1,22 @@
-const API_URL = import.meta.env.VITE_API_URL;
+// devtunnels forwards each port under its own subdomain
+// (<id>-<port>.<region>.devtunnels.ms) - when this page is loaded through
+// the frontend's tunnel URL, VITE_API_URL (baked in at dev-server start,
+// always pointing at one fixed backend address) would otherwise force
+// every visitor through that same fixed address even when they're on
+// plain localhost, making local dev depend on the tunnel staying up. Instead,
+// derive the backend's tunnel URL from whatever host this page is currently
+// on, so localhost keeps using VITE_API_URL/localhost regardless of what
+// that env var happens to be set to for a demo.
+function resolveApiUrl(): string {
+  const { hostname, protocol } = window.location;
+  const tunnelMatch = hostname.match(/^(.+)-5173(\.[a-z0-9.-]+\.devtunnels\.ms)$/);
+  if (tunnelMatch) {
+    return `${protocol}//${tunnelMatch[1]}-4000${tunnelMatch[2]}/api`;
+  }
+  return import.meta.env.VITE_API_URL;
+}
+
+const API_URL = resolveApiUrl();
 
 export class ApiError extends Error {
   constructor(
