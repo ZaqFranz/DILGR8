@@ -376,6 +376,9 @@ export interface ApplicantScoreRow {
   perCriterion: Record<string, number | null>;
   total: number | null;
   panelistsSubmitted: number;
+  // How many panelists are assigned to this application's job posting -
+  // the denominator for Report Summary's "submitted/assigned" figure.
+  panelistsAssigned: number;
 }
 
 export interface ApplicantScoresOverview {

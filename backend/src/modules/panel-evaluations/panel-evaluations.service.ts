@@ -56,6 +56,12 @@ export interface ApplicantScoreRow {
   perCriterion: Record<string, number | null>;
   total: number | null;
   panelistsSubmitted: number;
+  // How many panelists are assigned to this application's job posting
+  // (cross-posting, so unlike tabulation() this is looked up per-row via
+  // its own jobPostingId rather than being a single fixed count) - the
+  // denominator Report Summary's "submitted/assigned" figure needs, since
+  // panelistsSubmitted alone doesn't say whether scoring is complete.
+  panelistsAssigned: number;
 }
 
 export interface ApplicantScoresOverview {
@@ -287,10 +293,19 @@ export class PanelEvaluationsService {
    * tabulation() above, which is the CompAss ranking view, not this one.
    */
   async applicantScoresOverview(): Promise<ApplicantScoresOverview> {
-    const [categories, applications] = await Promise.all([
+    const [categories, applications, assignments] = await Promise.all([
       this.categoriesRepository.findMany(true),
       this.panelEvaluationsRepository.findApplicationsWithScores(),
+      this.panelAssignmentsRepository.findMany(),
     ]);
+
+    const assignedCountByJobPosting = new Map<string, number>();
+    for (const assignment of assignments) {
+      assignedCountByJobPosting.set(
+        assignment.jobPostingId,
+        (assignedCountByJobPosting.get(assignment.jobPostingId) ?? 0) + 1,
+      );
+    }
 
     const criterionIdsByCategory = buildCriterionIdsByCategory(categories);
     const allCriteria = categories.flatMap((category) =>
@@ -321,6 +336,7 @@ export class PanelEvaluationsService {
         perCriterion,
         total: average(application.panelEvaluations.map((e) => weightedTotalScore(e, categories, criterionIdsByCategory))),
         panelistsSubmitted: application.panelEvaluations.length,
+        panelistsAssigned: assignedCountByJobPosting.get(application.jobPostingId) ?? 0,
       };
     });
 

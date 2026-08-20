@@ -1096,10 +1096,6 @@ tbody tr:last-child td {
   background: var(--color-primary-light);
 }
 
-.report-summary-table thead tr:first-child th {
-  border-bottom: 1px solid var(--color-border);
-}
-
 .report-summary-table .category-group-header,
 .report-summary-table .criterion-header,
 .report-summary-table .score-col {

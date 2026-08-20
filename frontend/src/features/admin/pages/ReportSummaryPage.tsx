@@ -110,10 +110,8 @@ export function ReportSummaryPage() {
           <table className="report-summary-table">
             <thead>
               <tr>
-                <th rowSpan={2} className="sticky-col">
-                  Applicant
-                </th>
-                <th rowSpan={2}>Job posting</th>
+                <th className="sticky-col">Applicant</th>
+                <th>Job posting</th>
                 {overview.categories.map((category, index) => (
                   <th
                     key={category.id}
@@ -124,14 +122,16 @@ export function ReportSummaryPage() {
                     {category.name} (0-{category.weightPercent})
                   </th>
                 ))}
-                <th rowSpan={2} className="total-col">
-                  Total (avg)
-                </th>
-                <th rowSpan={2} className="panelists-col">
-                  Panelists submitted
-                </th>
+                <th className="total-col">Total (avg)</th>
+                <th className="panelists-col">Panelists submitted</th>
               </tr>
+              {/* Applicant/Job posting/Total/Panelists submitted have no sub-column of
+                  their own, but still need a cell on this row - without one, a border
+                  drawn at this row's height would stop at the category columns instead
+                  of running the full width of the header. */}
               <tr>
+                <th className="sticky-col" aria-hidden="true" />
+                <th aria-hidden="true" />
                 {overview.categories.map((category, index) => (
                   <Fragment key={category.id}>
                     {(criteriaByCategory.get(category.id) ?? []).map((criterion, criterionIndex) => (
@@ -148,6 +148,8 @@ export function ReportSummaryPage() {
                     </th>
                   </Fragment>
                 ))}
+                <th className="total-col" aria-hidden="true" />
+                <th className="panelists-col" aria-hidden="true" />
               </tr>
             </thead>
             <tbody>
@@ -167,7 +169,9 @@ export function ReportSummaryPage() {
                   ))}
                   <td className="total-col">{formatScore(row.total)}</td>
                   <td className="panelists-col">
-                    <span className="panelists-badge">{row.panelistsSubmitted}</span>
+                    <span className="panelists-badge">
+                      {row.panelistsSubmitted}/{row.panelistsAssigned}
+                    </span>
                   </td>
                 </tr>
               ))}
