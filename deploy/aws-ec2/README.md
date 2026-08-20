@@ -127,6 +127,14 @@ the service, in one command.
   but a second one running concurrently would burn through the monthly
   hours faster.
 - **EBS storage**: 30GB free (gp2/gp3) - default 8GB is well under that.
+- **RAM: t2/t3.micro only has ~1GB, and no swap by default.** MySQL alone,
+  plus the `npm ci`/build step, can exceed that and get killed by the
+  kernel's OOM killer (confirmed on a real run - `systemctl status mysql`
+  showed `Failed with result 'oom-kill'` in a restart loop). `setup.sh`
+  now creates a 2GB swap file automatically to cover this - if you ever
+  see a service crash-looping for no obvious reason, check
+  `sudo systemctl status <service> --no-pager` for `oom-kill` in the
+  output and `free -h` to confirm swap is actually active.
 - **Data transfer out**: 100GB/month free - plenty for demo/testing traffic.
 - Set a [billing alarm](https://console.aws.amazon.com/billing/home#/preferences)
   (Billing preferences → Alert me when my spend exceeds a threshold) so

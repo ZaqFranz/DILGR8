@@ -27,6 +27,22 @@ REPO_URL="${REPO_URL:-https://github.com/ZaqFranz/DILGR8.git}"
 APP_DIR="/var/www/dilgr8rsp"
 SERVICE_USER="dilgr8rsp"
 
+# t2/t3.micro only has ~1GB RAM and no swap by default - MySQL alone,
+# plus the npm/vite build deploy.sh runs later, is enough to trigger the
+# kernel's OOM killer without this (confirmed the hard way: mysqld got
+# OOM-killed in a restart loop on a real run). 2GB swap gives enough
+# headroom for both without needing a bigger (non-free-tier) instance.
+if [ ! -f /swapfile ]; then
+  echo "==> Creating 2GB swap file (this instance's RAM alone isn't enough for MySQL + the build step)"
+  sudo fallocate -l 2G /swapfile
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile
+  sudo swapon /swapfile
+  if ! grep -q '^/swapfile ' /etc/fstab; then
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+  fi
+fi
+
 echo "==> Updating system packages"
 sudo apt-get update -y
 sudo apt-get upgrade -y
