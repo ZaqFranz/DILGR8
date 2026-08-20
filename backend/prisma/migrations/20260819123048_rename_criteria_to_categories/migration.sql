@@ -39,9 +39,11 @@ ALTER TABLE `criteria` ADD CONSTRAINT `criteria_categoryId_fkey` FOREIGN KEY (`c
 -- file against a genuinely fresh database (every future deployment) hits
 -- "Duplicate foreign key constraint name" on the ADD below, since the
 -- original FK (from whichever earlier migration first created this column)
--- is still there. DROP FOREIGN KEY IF EXISTS first makes this correct
--- either way - confirmed live via a real `prisma migrate deploy` against an
--- empty database (AWS EC2 free-tier test deployment) that failed with
--- exactly this error before this line was added.
-ALTER TABLE `panel_scores` DROP FOREIGN KEY IF EXISTS `panel_scores_criterionId_fkey`;
+-- is still there and will always exist at this point in a fresh replay
+-- (created by an earlier migration in the sequence), so an unconditional
+-- DROP is correct here - no IF EXISTS needed (and, confirmed live: MySQL
+-- 8 on Ubuntu rejects "DROP FOREIGN KEY IF EXISTS" as a syntax error, even
+-- though it silently accepted it against local dev's MariaDB - this
+-- migration is now verified against real MySQL 8, not just MariaDB).
+ALTER TABLE `panel_scores` DROP FOREIGN KEY `panel_scores_criterionId_fkey`;
 ALTER TABLE `panel_scores` ADD CONSTRAINT `panel_scores_criterionId_fkey` FOREIGN KEY (`criterionId`) REFERENCES `criteria`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
