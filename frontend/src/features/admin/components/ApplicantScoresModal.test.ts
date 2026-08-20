@@ -3,7 +3,15 @@ import { rankRows } from "./ApplicantScoresModal";
 import type { ApplicantScoreRow } from "../types";
 
 function row(applicationId: string, total: number | null): ApplicantScoreRow {
-  return { applicationId, applicantName: applicationId, jobPostingTitle: "Test", perCategory: {}, total, panelistsSubmitted: 1 };
+  return {
+    applicationId,
+    applicantName: applicationId,
+    jobPostingTitle: "Test",
+    perCategory: {},
+    perCriterion: {},
+    total,
+    panelistsSubmitted: 1,
+  };
 }
 
 describe("rankRows", () => {
@@ -32,8 +40,8 @@ describe("rankRows", () => {
 
   it("ranks by a specific category column instead of overall when requested", () => {
     const rows: ApplicantScoreRow[] = [
-      { applicationId: "a", applicantName: "a", jobPostingTitle: "Test", perCategory: { cat1: 5 }, total: 100, panelistsSubmitted: 1 },
-      { applicationId: "b", applicantName: "b", jobPostingTitle: "Test", perCategory: { cat1: 9 }, total: 10, panelistsSubmitted: 1 },
+      { applicationId: "a", applicantName: "a", jobPostingTitle: "Test", perCategory: { cat1: 5 }, perCriterion: {}, total: 100, panelistsSubmitted: 1 },
+      { applicationId: "b", applicantName: "b", jobPostingTitle: "Test", perCategory: { cat1: 9 }, perCriterion: {}, total: 10, panelistsSubmitted: 1 },
     ];
     const ranked = rankRows(rows, "cat1");
     expect(ranked.find((r) => r.applicationId === "b")!.rank).toBe(1);

@@ -356,17 +356,31 @@ export interface ApplicantScoreCategoryColumn {
   weightPercent: number;
 }
 
+export interface ApplicantScoreCriterionColumn {
+  id: string;
+  categoryId: string;
+  name: string;
+  // Raw max (0-maxScore) - a criterion has no weight of its own, it only
+  // ever feeds into its parent category's weighted figure.
+  maxScore: number;
+}
+
 export interface ApplicantScoreRow {
   applicationId: string;
   applicantName: string;
   jobPostingTitle: string;
   perCategory: Record<string, number | null>;
+  // Raw (not weighted) average score per criterion, combined across
+  // however many panelists actually scored this application - never any
+  // one panelist's individual number.
+  perCriterion: Record<string, number | null>;
   total: number | null;
   panelistsSubmitted: number;
 }
 
 export interface ApplicantScoresOverview {
   categories: ApplicantScoreCategoryColumn[];
+  criteria: ApplicantScoreCriterionColumn[];
   rows: ApplicantScoreRow[];
 }
 

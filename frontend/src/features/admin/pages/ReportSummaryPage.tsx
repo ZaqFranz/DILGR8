@@ -13,14 +13,15 @@ function formatScore(value: number | null): string {
 }
 
 /**
- * Every scored application's combined interview result, by Category - never
- * broken down by individual panelist. "Combined" here means the same thing
- * it does everywhere else panel scores are aggregated in this app (see
- * PanelEvaluationsService.applicantScoresOverview()): the average across
- * however many panelists actually scored this application, not a sum and
- * not any one panelist's own number. An admin who needs the per-panelist
- * breakdown instead has that in the CompAss tabulation view (Evaluate
- * Applicants), which this page deliberately doesn't duplicate.
+ * Every scored application's combined interview result, by Category and by
+ * Criterion, as columns in one table - no prose/breakdown section, just
+ * the scores. "Combined" here means the same thing it does everywhere else
+ * panel scores are aggregated in this app (see PanelEvaluationsService.
+ * applicantScoresOverview()): the average across however many panelists
+ * actually scored this application, not a sum and not any one panelist's
+ * own number. An admin who needs the per-panelist breakdown instead has
+ * that in the CompAss tabulation view (Evaluate Applicants), which this
+ * page deliberately doesn't duplicate.
  */
 export function ReportSummaryPage() {
   const [overview, setOverview] = useState<ApplicantScoresOverview | null>(null);
@@ -53,9 +54,9 @@ export function ReportSummaryPage() {
         <h1>Report Summary</h1>
       </div>
       <p>
-        Every scored application&apos;s combined interview result by Category, averaged across however many
-        panelists actually scored it. Individual panelist scores aren&apos;t shown here; that breakdown lives in
-        Evaluate Applicants&apos; tabulation view.
+        Every scored application&apos;s combined interview result by Category and Criterion, averaged across
+        however many panelists actually scored it. Individual panelist scores aren&apos;t shown here; that
+        breakdown lives in Evaluate Applicants&apos; tabulation view.
       </p>
       <ErrorBanner message={error} />
 
@@ -73,6 +74,11 @@ export function ReportSummaryPage() {
                     {category.name} (0-{category.weightPercent})
                   </th>
                 ))}
+                {overview.criteria.map((criterion) => (
+                  <th key={criterion.id}>
+                    {criterion.name} (0-{criterion.maxScore})
+                  </th>
+                ))}
                 <th>Total (avg)</th>
                 <th>Panelists submitted</th>
               </tr>
@@ -84,6 +90,9 @@ export function ReportSummaryPage() {
                   <td>{row.jobPostingTitle}</td>
                   {overview.categories.map((category) => (
                     <td key={category.id}>{formatScore(row.perCategory[category.id] ?? null)}</td>
+                  ))}
+                  {overview.criteria.map((criterion) => (
+                    <td key={criterion.id}>{formatScore(row.perCriterion[criterion.id] ?? null)}</td>
                   ))}
                   <td>{formatScore(row.total)}</td>
                   <td>{row.panelistsSubmitted}</td>
