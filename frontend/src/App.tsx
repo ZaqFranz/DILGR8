@@ -14,6 +14,7 @@ import { JobManagementPage } from "@/features/admin/pages/JobManagementPage";
 import { PositionsPage } from "@/features/admin/pages/PositionsPage";
 import { UsersManagementPage } from "@/features/admin/pages/UsersManagementPage";
 import { EvaluateApplicantsPage } from "@/features/admin/pages/EvaluateApplicantsPage";
+import { ReportSummaryPage } from "@/features/admin/pages/ReportSummaryPage";
 import { AuditLogsPage } from "@/features/admin/pages/AuditLogsPage";
 import { CategoriesPage } from "@/features/admin/pages/CategoriesPage";
 import { ComplianceRequirementsPage } from "@/features/admin/pages/ComplianceRequirementsPage";
@@ -149,6 +150,14 @@ export default function App() {
           element={
             <ProtectedRoute role="ADMIN">
               <EvaluateApplicantsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/report-summary"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <ReportSummaryPage />
             </ProtectedRoute>
           }
         />

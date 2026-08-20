@@ -22,6 +22,8 @@ import { Link, useLocation } from "react-router-dom";
 //     applied, so it needs Applications (postings + submissions) too.
 //   -> Evaluate Applicants: the pipeline hub - sifting/PQE/interview/
 //     compliance actions here depend on everything above already existing.
+//   -> Report Summary: reads the interview scores Evaluate Applicants'
+//     panel-scoring step produces, so it comes right after.
 const NAV_ITEMS = [
   { to: "/admin/dashboard", label: "Dashboard" },
   { to: "/admin/users", label: "Users Management" },
@@ -32,6 +34,7 @@ const NAV_ITEMS = [
   { to: "/admin/panel-interviews", label: "Interview Panel" },
   { to: "/admin/groups", label: "Group" },
   { to: "/admin/evaluations", label: "Evaluate Applicants" },
+  { to: "/admin/report-summary", label: "Report Summary" },
   { to: "/admin/logs", label: "History of Logs" },
 ];
 

@@ -8,6 +8,13 @@
 // on, so localhost keeps using VITE_API_URL/localhost regardless of what
 // that env var happens to be set to for a demo.
 function resolveApiUrl(): string {
+  // No `window` outside a real browser (e.g. vitest's default "node" test
+  // environment, which several test files reach transitively just by
+  // importing a component that imports this module) - nothing to derive a
+  // tunnel host from there, so just fall through to the env var.
+  if (typeof window === "undefined") {
+    return import.meta.env.VITE_API_URL;
+  }
   const { hostname, protocol } = window.location;
   const tunnelMatch = hostname.match(/^(.+)-5173(\.[a-z0-9.-]+\.devtunnels\.ms)$/);
   if (tunnelMatch) {
