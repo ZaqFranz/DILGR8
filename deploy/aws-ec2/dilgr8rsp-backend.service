@@ -1,0 +1,23 @@
+[Unit]
+Description=DILGR8RSP backend (Express API)
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+# Dedicated non-login service user, not root or ubuntu - see setup.sh.
+User=dilgr8rsp
+WorkingDirectory=/var/www/dilgr8rsp/backend
+EnvironmentFile=/var/www/dilgr8rsp/backend/.env
+ExecStart=/usr/bin/node dist/server.js
+Restart=on-failure
+RestartSec=5
+
+# Minimal hardening - the service only needs to read its own app directory
+# and write to its own uploads/ subdirectory.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/www/dilgr8rsp/backend/uploads
+
+[Install]
+WantedBy=multi-user.target

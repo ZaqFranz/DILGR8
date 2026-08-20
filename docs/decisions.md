@@ -832,3 +832,19 @@ The frontend deliberately does **not** get a new picker widget. `GroupsPage` alr
 **Future impact:** Any new admin section should be inserted at the point in `NAV_ITEMS` matching its own prerequisites, per the reasoning above, rather than appended at the end.
 
 **Reference:** [architecture.md § Admin panel layering](./architecture.md#frontend-layering), `frontend/src/features/admin/components/AdminShell.tsx`, `frontend/src/App.tsx`.
+
+---
+
+## 2026-08-20 — AWS free-tier test deployment: single EC2 instance, not RDS or S3
+
+**Context:** The user wants to test/demo the system on AWS free tier. No AWS account existed yet at the time this was prepared. Candidates: (a) one EC2 instance running nginx + the Node backend + MySQL together, (b) EC2 for nginx/backend split from an RDS MySQL instance, (c) a more "real" split (S3+CloudFront for the frontend, EC2/ECS for the backend, RDS for the database).
+
+**Decision:** Single EC2 instance (t2.micro/t3.micro), everything on one box - nginx reverse-proxies `/api` to a systemd-managed Node backend and serves the built frontend as static files; MySQL runs locally on the same instance. Scaffolded under `deploy/aws-ec2/` (`README.md`, `setup.sh`, `deploy.sh`, `nginx.conf`, `dilgr8rsp-backend.service`, `.env.production.example` templates for both workspaces).
+
+**Pros:** Closest match to what already runs locally (XAMPP MySQL + `npm run dev:backend`/`dev:frontend`, just swapped for nginx + systemd) - minimal new concepts to reason about. Free-tier friendly: EC2's 750 hrs/month covers one instance running continuously; RDS's separate 750 hrs/month never comes into play since there's no RDS. Fewest moving parts to tear down when testing is done (one instance to terminate).
+
+**Cons:** Doesn't mirror a real production split (frontend/backend/database on physically separate, independently-scalable tiers) - if this ever needs to become the actual production deployment rather than a test, it should be revisited toward RDS (managed backups/failover) and S3 (durable file storage, resolving the existing local-disk-storage limitation - see the 2026-08-07 entry above) rather than extended in place. A single instance is also a single point of failure with no automated backups (documented in the guide's "Known limitations" section, alongside the pre-existing local-disk-storage caveat).
+
+**Future impact:** If this moves from "test/demo" to "real deployment the DILG relies on," treat this scaffold as a starting point to replace, not extend - particularly the local MySQL (→ RDS) and local file storage (→ S3) pieces, both flagged as the two biggest gaps in `deploy/aws-ec2/README.md`.
+
+**Reference:** [project-memory.md § Outstanding Tasks](./project-memory.md), `deploy/aws-ec2/README.md`.

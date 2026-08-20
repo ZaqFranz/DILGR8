@@ -65,6 +65,11 @@ npm run dev
 
 Frontend runs on `http://localhost:5173` by default.
 
+## Deployment
+
+For a free-tier AWS test deployment (single EC2 instance running nginx +
+the backend + MySQL), see [deploy/aws-ec2/README.md](./deploy/aws-ec2/README.md).
+
 ## Documentation
 
 - [Architecture](./docs/architecture.md)
