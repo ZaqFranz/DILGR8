@@ -15,6 +15,8 @@
   --color-primary-light: #e8eff8;
   --color-accent: #f2b705;
   --color-accent-hover: #d9a300;
+  --color-accent-bg: #fef6dc;
+  --color-accent-border: #f2d675;
 
   /* Semantic */
   --color-success: #157347;
@@ -1048,7 +1050,12 @@ tbody tr:last-child td {
 /* Report Summary: applicant column stays put while Category/Criterion
    columns scroll horizontally underneath it, and Criterion columns render
    as CR1, CR2, ... nested under their own Category's group header - see
-   ReportSummaryPage.tsx's two-row <thead>. */
+   ReportSummaryPage.tsx's two-row <thead>. Each category gets its own
+   accent color (cycled via the --rs-accent-* custom properties
+   ReportSummaryPage.tsx sets inline per category, categoryAccent()) so a
+   group's header, its Score column, and its data column are visually tied
+   together at a glance instead of the whole table reading as one flat
+   grid of numbers. */
 .report-summary-table th,
 .report-summary-table td {
   white-space: nowrap;
@@ -1059,16 +1066,38 @@ tbody tr:last-child td {
   left: 0;
   z-index: 1;
   background: var(--color-surface);
-  box-shadow: 1px 0 0 var(--color-border);
+  box-shadow: 2px 0 4px -2px rgba(22, 32, 46, 0.25);
 }
 
 .report-summary-table thead .sticky-col {
-  z-index: 2;
+  z-index: 3;
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.report-summary-table tbody .sticky-col {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.report-summary-table tbody tr:nth-child(even) {
   background: var(--color-surface-alt);
 }
 
-.report-summary-table tbody tr:hover .sticky-col {
+.report-summary-table tbody tr:nth-child(even) .sticky-col {
   background: var(--color-surface-alt);
+}
+
+.report-summary-table tbody tr:hover {
+  background: var(--color-primary-light);
+}
+
+.report-summary-table tbody tr:hover .sticky-col {
+  background: var(--color-primary-light);
+}
+
+.report-summary-table thead tr:first-child th {
+  border-bottom: 1px solid var(--color-border);
 }
 
 .report-summary-table .category-group-header,
@@ -1078,17 +1107,49 @@ tbody tr:last-child td {
 }
 
 .report-summary-table .category-group-header {
-  border-left: 1px solid var(--color-border);
+  border-left: 3px solid var(--rs-accent-border, var(--color-border-strong));
+  background: var(--rs-accent-bg, var(--color-surface-alt));
+  color: var(--rs-accent-text, var(--color-text-secondary));
+  font-weight: 800;
 }
 
 .report-summary-table .criterion-header {
   cursor: help;
   text-decoration: underline dotted;
   text-underline-offset: 0.2em;
+  font-size: 0.7rem;
 }
 
 .report-summary-table .score-col {
+  background: var(--rs-accent-bg, var(--color-surface-alt));
+  color: var(--rs-accent-text, var(--color-text));
   font-weight: 700;
+}
+
+.report-summary-table .total-col {
+  background: var(--color-accent-bg);
+  color: var(--color-primary-hover);
+  font-weight: 800;
+}
+
+.report-summary-table thead .total-col {
+  color: var(--color-primary);
+}
+
+.report-summary-table .panelists-col {
+  text-align: center;
+}
+
+.report-summary-table .panelists-badge {
+  display: inline-block;
+  min-width: 1.6rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-secondary);
+  font-weight: 700;
+  font-size: 0.78rem;
 }
 
 .pagination {

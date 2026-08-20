@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type CSSProperties } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
@@ -10,6 +10,29 @@ import type { ApplicantScoreCriterionColumn, ApplicantScoresOverview } from "../
 
 function formatScore(value: number | null): string {
   return value === null ? "-" : Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+// One accent per category, cycled by position - ties a category's group
+// header, its own "Score" sub-column, and nothing else (raw criterion cells
+// stay neutral) together at a glance without recoloring the whole table.
+// Consumed as CSS custom properties by .category-group-header/.score-col in
+// index.css, since the actual category count/order is only known at render
+// time.
+const CATEGORY_ACCENTS = [
+  { bg: "var(--color-primary-light)", border: "var(--color-primary)", text: "var(--color-primary)" },
+  { bg: "var(--color-success-bg)", border: "var(--color-success-border)", text: "var(--color-success)" },
+  { bg: "var(--color-info-bg)", border: "var(--color-info-border)", text: "var(--color-info)" },
+  { bg: "var(--color-warning-bg)", border: "var(--color-warning-border)", text: "var(--color-warning)" },
+  { bg: "var(--color-danger-bg)", border: "var(--color-danger-border)", text: "var(--color-danger)" },
+];
+
+function categoryAccentStyle(index: number): CSSProperties {
+  const accent = CATEGORY_ACCENTS[index % CATEGORY_ACCENTS.length];
+  return {
+    "--rs-accent-bg": accent.bg,
+    "--rs-accent-border": accent.border,
+    "--rs-accent-text": accent.text,
+  } as CSSProperties;
 }
 
 // Criteria arrive as one flat, category-grouped list (see
@@ -91,31 +114,38 @@ export function ReportSummaryPage() {
                   Applicant
                 </th>
                 <th rowSpan={2}>Job posting</th>
-                {overview.categories.map((category) => (
+                {overview.categories.map((category, index) => (
                   <th
                     key={category.id}
                     colSpan={(criteriaByCategory.get(category.id)?.length ?? 0) + 1}
                     className="category-group-header"
+                    style={categoryAccentStyle(index)}
                   >
                     {category.name} (0-{category.weightPercent})
                   </th>
                 ))}
-                <th rowSpan={2}>Total (avg)</th>
-                <th rowSpan={2}>Panelists submitted</th>
+                <th rowSpan={2} className="total-col">
+                  Total (avg)
+                </th>
+                <th rowSpan={2} className="panelists-col">
+                  Panelists submitted
+                </th>
               </tr>
               <tr>
-                {overview.categories.map((category) => (
+                {overview.categories.map((category, index) => (
                   <Fragment key={category.id}>
-                    {(criteriaByCategory.get(category.id) ?? []).map((criterion, index) => (
+                    {(criteriaByCategory.get(category.id) ?? []).map((criterion, criterionIndex) => (
                       <th
                         key={criterion.id}
                         className="criterion-header"
                         title={`${criterion.name} (0-${criterion.maxScore})`}
                       >
-                        CR{index + 1}
+                        CR{criterionIndex + 1}
                       </th>
                     ))}
-                    <th className="score-col">Score</th>
+                    <th className="score-col" style={categoryAccentStyle(index)}>
+                      Score
+                    </th>
                   </Fragment>
                 ))}
               </tr>
@@ -125,16 +155,20 @@ export function ReportSummaryPage() {
                 <tr key={row.applicationId}>
                   <td className="sticky-col">{row.applicantName}</td>
                   <td>{row.jobPostingTitle}</td>
-                  {overview.categories.map((category) => (
+                  {overview.categories.map((category, index) => (
                     <Fragment key={category.id}>
                       {(criteriaByCategory.get(category.id) ?? []).map((criterion) => (
                         <td key={criterion.id}>{formatScore(row.perCriterion[criterion.id] ?? null)}</td>
                       ))}
-                      <td className="score-col">{formatScore(row.perCategory[category.id] ?? null)}</td>
+                      <td className="score-col" style={categoryAccentStyle(index)}>
+                        {formatScore(row.perCategory[category.id] ?? null)}
+                      </td>
                     </Fragment>
                   ))}
-                  <td>{formatScore(row.total)}</td>
-                  <td>{row.panelistsSubmitted}</td>
+                  <td className="total-col">{formatScore(row.total)}</td>
+                  <td className="panelists-col">
+                    <span className="panelists-badge">{row.panelistsSubmitted}</span>
+                  </td>
                 </tr>
               ))}
             </tbody>
