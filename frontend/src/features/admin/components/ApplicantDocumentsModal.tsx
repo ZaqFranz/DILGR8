@@ -14,8 +14,8 @@ import type { DocumentType } from "@/features/applicant-registration/types";
 // and SINGLE_INSTANCE_TYPES elsewhere in this app.
 const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   APPLICATION_LETTER: "Application Letter",
-  PDS: "Personal Data Sheet (PDS) — PDF copy",
-  PDS_EXCEL: "Personal Data Sheet (PDS) — Excel (CS Form 212) copy",
+  PDS: "Personal Data Sheet (PDS), PDF copy",
+  PDS_EXCEL: "Personal Data Sheet (PDS), Excel (CS Form 212) copy",
   IPCR: "Performance Rating (Last Rating Period)",
   ELIGIBILITY_PROOF: "Certificate of Eligibility / Rating / License",
   LD_PROOF: "Learning & Development Proof",
@@ -100,7 +100,7 @@ export function ApplicantDocumentsModal({ applicantId, applicantName, onClose }:
     <Modal
       open
       wide
-      title={`Documents — ${applicantName}`}
+      title={`Documents: ${applicantName}`}
       onClose={onClose}
       footer={
         <button type="button" className="secondary" onClick={onClose}>

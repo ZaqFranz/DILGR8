@@ -59,8 +59,8 @@ function validateFileType(type: DocumentType, file: File): string | null {
 
 const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   APPLICATION_LETTER: "Application Letter",
-  PDS: "Personal Data Sheet (PDS) — PDF copy",
-  PDS_EXCEL: "Personal Data Sheet (PDS) — Excel (CS Form 212) copy",
+  PDS: "Personal Data Sheet (PDS), PDF copy",
+  PDS_EXCEL: "Personal Data Sheet (PDS), Excel (CS Form 212) copy",
   IPCR: "Performance Rating (Last Rating Period)",
   ELIGIBILITY_PROOF: "Certificate of Eligibility / Rating / License",
   LD_PROOF: "Learning & Development Proof",
@@ -145,7 +145,7 @@ export function DocumentsSection({ items, onChange }: Props) {
       return;
     }
     if (file.size > MAX_UPLOAD_SIZE_BYTES) {
-      setFileError("File is too large — the maximum size is 5MB.");
+      setFileError("File is too large. The maximum size is 5MB.");
       return;
     }
     const typeError = validateFileType(type, file);
@@ -211,7 +211,7 @@ export function DocumentsSection({ items, onChange }: Props) {
               {entry.required ? (
                 <span className="badge pending">Required</span>
               ) : (
-                <span className="badge">Optional{entry.note ? ` — ${entry.note}` : ""}</span>
+                <span className="badge">Optional{entry.note ? ` (${entry.note})` : ""}</span>
               )}
             </li>
           ))}

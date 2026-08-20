@@ -490,7 +490,7 @@ export function JobManagementPage() {
             <FieldError message={fieldErrors.qualificationEducation} />
           </div>
           <div className={fieldErrors.minEducationLevel ? "field has-error" : "field"}>
-            <label htmlFor="minEducationLevel">Minimum education level (optional — enables an automatic Sifting hint)</label>
+            <label htmlFor="minEducationLevel">Minimum education level (optional: enables an automatic Sifting hint)</label>
             <select
               id="minEducationLevel"
               value={form.minEducationLevel}
@@ -518,7 +518,7 @@ export function JobManagementPage() {
             <FieldError message={fieldErrors.qualificationTraining} />
           </div>
           <div className={fieldErrors.minTrainingHours ? "field has-error" : "field"}>
-            <label htmlFor="minTrainingHours">Minimum training hours (optional — enables an automatic Sifting hint)</label>
+            <label htmlFor="minTrainingHours">Minimum training hours (optional: enables an automatic Sifting hint)</label>
             <input
               id="minTrainingHours"
               type="number"
@@ -543,7 +543,7 @@ export function JobManagementPage() {
             <FieldError message={fieldErrors.qualificationExperience} />
           </div>
           <div className={fieldErrors.minYearsExperience ? "field has-error" : "field"}>
-            <label htmlFor="minYearsExperience">Minimum years of experience (optional — enables an automatic Sifting hint)</label>
+            <label htmlFor="minYearsExperience">Minimum years of experience (optional: enables an automatic Sifting hint)</label>
             <input
               id="minYearsExperience"
               type="number"
@@ -568,7 +568,7 @@ export function JobManagementPage() {
             <FieldError message={fieldErrors.qualificationEligibility} />
           </div>
           <div className={fieldErrors.requiredEligibilityTypes ? "field has-error" : "field"}>
-            <label>Required eligibility (optional — leave unchecked if none is required)</label>
+            <label>Required eligibility (optional: leave unchecked if none is required)</label>
             <div className="checkbox-group">
               {ELIGIBILITY_OPTIONS.map((option) => (
                 <label key={option.value} className="checkbox-option">

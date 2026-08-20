@@ -27,7 +27,7 @@ const PIPELINE = [
   },
   {
     label: "Evaluation of Applicants",
-    blurb: "An interview panel scores you against a fixed rubric — never a single evaluator deciding alone.",
+    blurb: "An interview panel scores you against a fixed rubric, never a single evaluator deciding alone.",
   },
   {
     label: "Compliance to Requirements",
@@ -35,7 +35,7 @@ const PIPELINE = [
   },
   {
     label: "Oath-Taking",
-    blurb: "Once every requirement is verified, your oath-taking is scheduled — the final step before you're hired.",
+    blurb: "Once every requirement is verified, your oath-taking is scheduled as the final step before you're hired.",
   },
 ];
 
@@ -46,7 +46,7 @@ const FAQS = [
   },
   {
     q: "Can I track my application after I submit it?",
-    a: "Yes — My Applications shows a live stage tracker for every application you submit, from Submitted through Hired.",
+    a: "Yes. My Applications shows a live stage tracker for every application you submit, from Submitted through Hired.",
   },
   {
     q: "What if I don't qualify at Sifting or the interview?",
@@ -54,7 +54,7 @@ const FAQS = [
   },
   {
     q: "Do I need to redo my profile for every posting?",
-    a: "No — your profile and documents are set up once at registration and reused for every posting you apply to. Only the Application Letter is submitted per posting.",
+    a: "No. Your profile and documents are set up once at registration and reused for every posting you apply to. Only the Application Letter is submitted per posting.",
   },
   {
     q: "Is my information secure?",
@@ -113,8 +113,8 @@ export function LandingPage() {
           <p className="landing-eyebrow">Department of the Interior and Local Government</p>
           <h1>Your next role at the DILG starts here</h1>
           <p className="landing-lede">
-            Register once, apply to any open posting, and track every stage of your application &mdash; sifting,
-            examination, interview, compliance, oath-taking &mdash; from one account.
+            Register once, apply to any open posting, and track every stage of your application (sifting,
+            examination, interview, compliance, oath-taking) from one account.
           </p>
           <div className="landing-cta-row">
             <Link to="/register" className="button accent">
@@ -142,7 +142,7 @@ export function LandingPage() {
               ? "Loading current openings…"
               : postings.length > 0
                 ? `${postings.length} position${postings.length === 1 ? "" : "s"} currently accepting applications.`
-                : "No positions are open right now — register so you're ready to apply the moment one posts."}
+                : "No positions are open right now. Register so you're ready to apply the moment one posts."}
           </p>
         </Reveal>
 

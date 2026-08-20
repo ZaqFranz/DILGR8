@@ -171,7 +171,7 @@ export function RegistrationPage() {
     try {
       await completeRegistration();
       await refreshRegistrationStatus();
-      toast.success(alreadyRegistered ? "Profile saved." : "Registration complete — welcome to DILGR8RSP!");
+      toast.success(alreadyRegistered ? "Profile saved." : "Registration complete. Welcome to DILGR8RSP!");
       navigate("/jobs");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to complete registration");
@@ -191,7 +191,7 @@ export function RegistrationPage() {
           <h1>Applicant Registration</h1>
           <p className="muted">
             Step {stepIndex + 1} of {STEPS.length}
-            {alreadyRegistered ? " — editing your completed registration" : ""}
+            {alreadyRegistered ? " (editing your completed registration)" : ""}
           </p>
         </>
       )}
@@ -323,8 +323,8 @@ export function RegistrationPage() {
             <div className="field-warning">
               <p>Upload the following required document(s) before finishing registration:</p>
               <ul>
-                {missingPds && <li>Personal Data Sheet (PDS) — PDF copy</li>}
-                {missingPdsExcel && <li>Personal Data Sheet (PDS) — Excel (CS Form 212) copy</li>}
+                {missingPds && <li>Personal Data Sheet (PDS), PDF copy</li>}
+                {missingPdsExcel && <li>Personal Data Sheet (PDS), Excel (CS Form 212) copy</li>}
                 {missingEligibilityProof && (
                   <li>Certificate of Eligibility / Rating / License (you indicated you have a civil service eligibility)</li>
                 )}

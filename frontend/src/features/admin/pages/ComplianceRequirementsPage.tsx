@@ -152,7 +152,7 @@ export function ComplianceRequirementsPage() {
               {pagination.pageItems.map((requirement) => (
                 <tr key={requirement.id}>
                   <td>{requirement.name}</td>
-                  <td>{requirement.description ?? "—"}</td>
+                  <td>{requirement.description ?? "-"}</td>
                   <td>
                     <span className={`badge ${requirement.isActive ? "open" : "closed"}`}>
                       {requirement.isActive ? "Active" : "Inactive"}

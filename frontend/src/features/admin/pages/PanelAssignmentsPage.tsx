@@ -292,7 +292,7 @@ export function PanelAssignmentsPage() {
             {selectedApplicationIds.size > 0 ? (
               <span>
                 {selectedApplicationIds.size} applicant{selectedApplicationIds.size === 1 ? "" : "s"} selected
-                {" — "}
+                {" across "}
                 {selectedJobPostingIds.length} job posting{selectedJobPostingIds.length === 1 ? "" : "s"}
               </span>
             ) : (
@@ -404,7 +404,7 @@ export function PanelAssignmentsPage() {
         open={assigningApplication !== null}
         title={
           assigningApplication
-            ? `Assign Panel — ${assigningApplication.applicant.firstName} ${assigningApplication.applicant.lastName}`
+            ? `Assign Panel: ${assigningApplication.applicant.firstName} ${assigningApplication.applicant.lastName}`
             : "Assign Panel"
         }
         onClose={closeAssignModal}

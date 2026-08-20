@@ -87,7 +87,7 @@ export function JobPostingsListPage() {
       return;
     }
     if (applyFile.size > MAX_UPLOAD_SIZE_BYTES) {
-      setApplyFileError("File is too large — the maximum size is 5MB.");
+      setApplyFileError("File is too large. The maximum size is 5MB.");
       return;
     }
     if (!APPLICATION_LETTER_MIME_TYPES.has(applyFile.type)) {

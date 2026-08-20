@@ -287,7 +287,7 @@ export function CategoriesPage() {
             </p>
             {projectedWeightTotal !== 100 && (
               <p className="field-hint">
-                Active categories would total {projectedWeightTotal}% with this value — usually expected to add up to
+                Active categories would total {projectedWeightTotal}% with this value, usually expected to add up to
                 100%.
               </p>
             )}
@@ -359,7 +359,7 @@ export function CategoriesPage() {
 
       <Modal
         open={viewingCriteriaFor !== null}
-        title={`Criteria / Questions — ${viewingCriteriaFor?.name ?? ""}`}
+        title={`Criteria / Questions: ${viewingCriteriaFor?.name ?? ""}`}
         onClose={() => setViewingCriteriaFor(null)}
         footer={
           <button type="button" className="secondary" onClick={() => setViewingCriteriaFor(null)}>
@@ -374,7 +374,7 @@ export function CategoriesPage() {
           <ol>
             {viewingCriteriaFor.criteria.map((criterion) => (
               <li key={criterion.id} style={{ marginBottom: "0.5rem" }}>
-                {criterion.name} (0-{criterion.maxScore}){!criterion.isActive && " — inactive"}
+                {criterion.name} (0-{criterion.maxScore}){!criterion.isActive && " (inactive)"}
               </li>
             ))}
           </ol>

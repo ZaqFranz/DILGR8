@@ -167,7 +167,7 @@ export function PositionsPage() {
                   <td>{position.title}</td>
                   <td>
                     {position.panelMembers.length === 0 ? (
-                      <span className="muted">—</span>
+                      <span className="muted">-</span>
                     ) : (
                       position.panelMembers.map((member) => formatUserDisplayName(member.panelUser)).join(", ")
                     )}

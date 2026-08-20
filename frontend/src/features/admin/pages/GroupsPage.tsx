@@ -317,7 +317,7 @@ export function GroupsPage() {
           <div>
             {membershipEditingGroup ? (
               <span>
-                Editing members of <strong>{membershipEditingGroup.name}</strong> — {selectedApplicationIds.size}{" "}
+                Editing members of <strong>{membershipEditingGroup.name}</strong>: {selectedApplicationIds.size}{" "}
                 applicant{selectedApplicationIds.size === 1 ? "" : "s"} selected
               </span>
             ) : selectedApplicationIds.size > 0 ? (
@@ -451,7 +451,7 @@ export function GroupsPage() {
             {groupsPagination.pageItems.map((group) => (
               <tr key={group.id}>
                 <td>{group.name}</td>
-                <td>{group.description || "—"}</td>
+                <td>{group.description || "-"}</td>
                 <td>
                   {group.members
                     .map((member) => `${member.application.applicant.firstName} ${member.application.applicant.lastName}`)

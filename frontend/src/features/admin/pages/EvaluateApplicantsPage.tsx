@@ -250,7 +250,7 @@ export function EvaluateApplicantsPage() {
                   {importResult.unmatched.map((row, i) => (
                     <li key={i}>
                       {row.name}
-                      {row.jobTitle ? ` (${row.jobTitle})` : ""} — {row.score}
+                      {row.jobTitle ? ` (${row.jobTitle})` : ""}: {row.score}
                     </li>
                   ))}
                 </ul>

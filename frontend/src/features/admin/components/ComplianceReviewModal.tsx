@@ -158,7 +158,7 @@ export function ComplianceReviewModal({ applicationId, applicantName, onClose }:
     <Modal
       open
       wide
-      title={`Compliance Requirements — ${applicantName}`}
+      title={`Compliance Requirements: ${applicantName}`}
       onClose={onClose}
       footer={
         <button type="button" className="secondary" onClick={onClose}>

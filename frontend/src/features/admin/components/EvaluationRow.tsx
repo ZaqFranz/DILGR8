@@ -118,7 +118,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
       });
       onSifted(updated);
       toast.success(
-        `Sifting decision saved for ${application.applicant.firstName} ${application.applicant.lastName} — ${
+        `Sifting decision saved for ${application.applicant.firstName} ${application.applicant.lastName}: ${
           decision === "QUALIFIED" ? "Qualified" : "Not qualified"
         }.`,
       );
@@ -375,7 +375,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
       <Modal
         open={showDetailsModal}
         wide
-        title={`${detailsButtonLabel()} — ${application.applicant.firstName} ${application.applicant.lastName}`}
+        title={`${detailsButtonLabel()}: ${application.applicant.firstName} ${application.applicant.lastName}`}
         onClose={() => setShowDetailsModal(false)}
         footer={
           <button type="button" className="secondary" onClick={() => setShowDetailsModal(false)}>
@@ -400,7 +400,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
               <p className="field-hint">{application.jobPosting.qualificationEducation}</p>
               {application.jobPosting.minEducationLevel && (
                 <p className="field-hint">
-                  Applicant: {EDUCATION_LEVEL_LABELS[application.applicant.educationLevel]} — Minimum required:{" "}
+                  Applicant: {EDUCATION_LEVEL_LABELS[application.applicant.educationLevel]}. Minimum required:{" "}
                   {EDUCATION_LEVEL_LABELS[application.jobPosting.minEducationLevel]}
                 </p>
               )}
@@ -415,7 +415,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
               <p className="field-hint">{application.jobPosting.qualificationTraining}</p>
               {application.jobPosting.minTrainingHours !== null && (
                 <p className="field-hint">
-                  Applicant: {totalTrainingHours} hour(s) total (from Learning &amp; Development entries) — Minimum
+                  Applicant: {totalTrainingHours} hour(s) total (from Learning &amp; Development entries). Minimum
                   required: {application.jobPosting.minTrainingHours} hour(s)
                 </p>
               )}
@@ -430,7 +430,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
               <p className="field-hint">{application.jobPosting.qualificationExperience}</p>
               {application.jobPosting.minYearsExperience !== null && (
                 <p className="field-hint">
-                  Applicant: {application.applicant.yearsOfExperience} year(s) — Minimum required:{" "}
+                  Applicant: {application.applicant.yearsOfExperience} year(s). Minimum required:{" "}
                   {application.jobPosting.minYearsExperience} year(s)
                 </p>
               )}
@@ -448,8 +448,8 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                   Applicant:{" "}
                   {application.applicant.hasEligibility
                     ? ELIGIBILITY_LABELS[application.applicant.eligibilityType]
-                    : "No eligibility on file"}{" "}
-                  — Required (any of): {application.jobPosting.requiredEligibilityTypes.map((type) => ELIGIBILITY_LABELS[type]).join(", ")}
+                    : "No eligibility on file"}
+                  . Required (any of): {application.jobPosting.requiredEligibilityTypes.map((type) => ELIGIBILITY_LABELS[type]).join(", ")}
                 </p>
               )}
             </li>
@@ -458,7 +458,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
         {!isSiftable && application.siftedAt !== null && (
           <div className="card-inset">
             <p className="field-hint">
-              Sifted {new Date(application.siftedAt).toLocaleString()} — {application.status === "QUALIFIED" ? "Qualified" : "Not qualified"}
+              Sifted {new Date(application.siftedAt).toLocaleString()}: {application.status === "QUALIFIED" ? "Qualified" : "Not qualified"}
             </p>
             {application.siftingRemarks && <p>{application.siftingRemarks}</p>}
           </div>
@@ -511,7 +511,7 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
             <p className="field-hint">
               Moved to Compliance to Requirements {new Date(application.complianceRequestedAt).toLocaleString()}
               {complianceItems !== null &&
-                ` — ${complianceItems.filter((item) => item.status === "VERIFIED").length}/${complianceItems.length} requirement(s) verified`}
+                ` (${complianceItems.filter((item) => item.status === "VERIFIED").length}/${complianceItems.length} requirement(s) verified)`}
               .
             </p>
           </div>

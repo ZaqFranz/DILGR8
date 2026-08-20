@@ -30,7 +30,7 @@ export function CriteriaReferencePanel({ categories }: Props) {
           {categories.map((category) => (
             <div key={category.id} className="card-inset">
               <strong>
-                {category.name} — {category.weightPercent}% of overall evaluation (raw scoring 0-{category.maxScore})
+                {category.name}: {category.weightPercent}% of overall evaluation (raw scoring 0-{category.maxScore})
               </strong>
               {category.criteria.length > 0 ? (
                 <ul className="field-hint">

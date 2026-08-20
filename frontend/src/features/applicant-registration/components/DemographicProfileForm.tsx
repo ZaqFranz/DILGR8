@@ -278,7 +278,7 @@ export function DemographicProfileForm({ profile, onSaved }: Props) {
           </div>
         ) : (
           <p className="flag-manual-validation">
-            No eligibility on file — this application is subject to manual validation by the administrator.
+            No eligibility on file. This application is subject to manual validation by the administrator.
           </p>
         )}
 

@@ -144,7 +144,7 @@ export function MyApplicationsPage() {
         description={
           <>
             Your application for <strong>{pendingWithdraw?.jobPosting.title}</strong> will be withdrawn. This can't
-            be undone — you'd need to submit a new application if you change your mind.
+            be undone. You'd need to submit a new application if you change your mind.
           </>
         }
         confirmLabel="Withdraw"

@@ -60,7 +60,7 @@ export function ComplianceChecklistSection({ applicationId, canUpload }: Props) 
     if (!file) return;
     setError(null);
     if (file.size > MAX_UPLOAD_SIZE_BYTES) {
-      setError("File is too large — the maximum size is 5MB.");
+      setError("File is too large. The maximum size is 5MB.");
       return;
     }
     setUploadingForItemId(item.id);
