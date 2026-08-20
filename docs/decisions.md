@@ -848,3 +848,19 @@ The frontend deliberately does **not** get a new picker widget. `GroupsPage` alr
 **Future impact:** If this moves from "test/demo" to "real deployment the DILG relies on," treat this scaffold as a starting point to replace, not extend - particularly the local MySQL (→ RDS) and local file storage (→ S3) pieces, both flagged as the two biggest gaps in `deploy/aws-ec2/README.md`.
 
 **Reference:** [project-memory.md § Outstanding Tasks](./project-memory.md), `deploy/aws-ec2/README.md`.
+
+---
+
+## 2026-08-20 — Fixed `20260819123048_rename_criteria_to_categories`'s root cause instead of continuing to work around it
+
+**Context:** This migration was known to fail when replayed against a fresh empty database (see the 2026-08-19 "New 'Group' admin page" and same-day member-editing entries above, and `docs/project-memory.md`'s prior note) - "Duplicate foreign key constraint name 'panel_scores_criterionId_fkey'" on its final `ADD CONSTRAINT`. Previously worked around per-affected-migration (hand-write the new one, apply via `prisma db execute` + `prisma migrate resolve --applied`) rather than fixed, because the actual local dev database had already had this migration applied via an undocumented manual pre-migration script that dropped the old FK first; that drop was never itself a migration step, so it only ever happened on that one database. First real deployment attempt (the AWS EC2 free-tier test in the entry above) replayed the full migration history against a genuinely empty database and hit this directly via `prisma migrate deploy` - not a shadow-database quirk, a real blocker for anyone standing up a fresh environment from this repo.
+
+**Decision:** Fixed the migration file itself: added `ALTER TABLE panel_scores DROP FOREIGN KEY IF EXISTS panel_scores_criterionId_fkey;` immediately before the `ADD CONSTRAINT` that was colliding with it.
+
+**Pros:** Fixes the actual bug for every future fresh deployment (and `prisma migrate dev`'s shadow-database replay, unblocking that going forward too) instead of leaving another workaround for the next person to rediscover. Verified for real: dropped a throwaway local database, ran `prisma migrate deploy` against it from scratch (all 32 migrations, including this one), confirmed clean.
+
+**Cons:** Edits a migration file that's already `_prisma_migrations`-recorded as applied on the existing local dev database - in principle this risks a checksum mismatch there. Verified in practice this doesn't happen: `prisma migrate deploy`/`migrate status` against the existing local database both still report clean/up-to-date after the edit (empirically confirmed, not just assumed) - `IF EXISTS` requires MySQL 8.0.29+ (fine for this deploy path, which always installs real `mysql-server` via `setup.sh`, but would need a different form if ever targeting MariaDB <10.5.2, which is what local dev's XAMPP bundle actually is - the drop itself only ever needs to execute on a fresh MySQL 8 target in practice).
+
+**Future impact:** Any future migration file with a similar "this assumes a manual step that happened out-of-band" comment (grep for "pre-migration script" in `backend/prisma/migrations/`) should get the same treatment - fix it to be correct from empty, rather than adding another one-off resolve workaround.
+
+**Reference:** `backend/prisma/migrations/20260819123048_rename_criteria_to_categories/migration.sql`, `deploy/aws-ec2/README.md`.

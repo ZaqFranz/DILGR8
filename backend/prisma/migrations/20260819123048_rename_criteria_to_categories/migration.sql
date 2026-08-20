@@ -32,9 +32,16 @@ ALTER TABLE `criteria` ADD CONSTRAINT `criteria_categoryId_fkey` FOREIGN KEY (`c
 
 -- PanelScore.criterionId now points at the leaf `criteria` table instead of
 -- the old top-level `evaluation_criteria` (categories) table. Its FK was
--- already dropped by the pre-migration script (so panel_scores.criterionId
--- could be repointed to a criteria.id without violating the old
--- constraint); this re-adds it against the new target, restricted (not
--- cascading) so a scored criterion can't be deleted out from under a
--- historical score - only deactivated (see CategoriesService).
+-- already dropped by the pre-migration script on the one database this was
+-- originally authored/applied against (so panel_scores.criterionId could be
+-- repointed to a criteria.id without violating the old constraint) - but
+-- that drop was never itself a committed migration step, so replaying this
+-- file against a genuinely fresh database (every future deployment) hits
+-- "Duplicate foreign key constraint name" on the ADD below, since the
+-- original FK (from whichever earlier migration first created this column)
+-- is still there. DROP FOREIGN KEY IF EXISTS first makes this correct
+-- either way - confirmed live via a real `prisma migrate deploy` against an
+-- empty database (AWS EC2 free-tier test deployment) that failed with
+-- exactly this error before this line was added.
+ALTER TABLE `panel_scores` DROP FOREIGN KEY IF EXISTS `panel_scores_criterionId_fkey`;
 ALTER TABLE `panel_scores` ADD CONSTRAINT `panel_scores_criterionId_fkey` FOREIGN KEY (`criterionId`) REFERENCES `criteria`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
