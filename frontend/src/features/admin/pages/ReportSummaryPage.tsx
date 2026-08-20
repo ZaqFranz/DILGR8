@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
@@ -6,10 +6,29 @@ import { Pagination } from "@/shared/components/Pagination";
 import { usePagination } from "@/shared/utils/usePagination";
 import { AdminShell } from "../components/AdminShell";
 import { getApplicantScoresOverview } from "../api/panelEvaluationsApi";
-import type { ApplicantScoresOverview } from "../types";
+import type { ApplicantScoreCriterionColumn, ApplicantScoresOverview } from "../types";
 
 function formatScore(value: number | null): string {
   return value === null ? "-" : Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+// Criteria arrive as one flat, category-grouped list (see
+// applicantScoresOverview() on the backend) - re-group them by categoryId so
+// the table can render each category's own criteria as CR1, CR2, ... under
+// that category's header, independent of every other category's numbering.
+function groupCriteriaByCategory(
+  criteria: ApplicantScoreCriterionColumn[],
+): Map<string, ApplicantScoreCriterionColumn[]> {
+  const byCategory = new Map<string, ApplicantScoreCriterionColumn[]>();
+  for (const criterion of criteria) {
+    const list = byCategory.get(criterion.categoryId);
+    if (list) {
+      list.push(criterion);
+    } else {
+      byCategory.set(criterion.categoryId, [criterion]);
+    }
+  }
+  return byCategory;
 }
 
 /**
@@ -47,6 +66,7 @@ export function ReportSummaryPage() {
 
   const rows = overview?.rows ?? [];
   const pagination = usePagination(rows, 10);
+  const criteriaByCategory = groupCriteriaByCategory(overview?.criteria ?? []);
 
   return (
     <AdminShell>
@@ -64,35 +84,54 @@ export function ReportSummaryPage() {
       {!loading && rows.length === 0 && <p>No applicants have been scored yet.</p>}
       {!loading && overview && rows.length > 0 && (
         <div className="table-wrap">
-          <table>
+          <table className="report-summary-table">
             <thead>
               <tr>
-                <th>Applicant</th>
-                <th>Job posting</th>
+                <th rowSpan={2} className="sticky-col">
+                  Applicant
+                </th>
+                <th rowSpan={2}>Job posting</th>
                 {overview.categories.map((category) => (
-                  <th key={category.id}>
+                  <th
+                    key={category.id}
+                    colSpan={(criteriaByCategory.get(category.id)?.length ?? 0) + 1}
+                    className="category-group-header"
+                  >
                     {category.name} (0-{category.weightPercent})
                   </th>
                 ))}
-                {overview.criteria.map((criterion) => (
-                  <th key={criterion.id}>
-                    {criterion.name} (0-{criterion.maxScore})
-                  </th>
+                <th rowSpan={2}>Total (avg)</th>
+                <th rowSpan={2}>Panelists submitted</th>
+              </tr>
+              <tr>
+                {overview.categories.map((category) => (
+                  <Fragment key={category.id}>
+                    {(criteriaByCategory.get(category.id) ?? []).map((criterion, index) => (
+                      <th
+                        key={criterion.id}
+                        className="criterion-header"
+                        title={`${criterion.name} (0-${criterion.maxScore})`}
+                      >
+                        CR{index + 1}
+                      </th>
+                    ))}
+                    <th className="score-col">Score</th>
+                  </Fragment>
                 ))}
-                <th>Total (avg)</th>
-                <th>Panelists submitted</th>
               </tr>
             </thead>
             <tbody>
               {pagination.pageItems.map((row) => (
                 <tr key={row.applicationId}>
-                  <td>{row.applicantName}</td>
+                  <td className="sticky-col">{row.applicantName}</td>
                   <td>{row.jobPostingTitle}</td>
                   {overview.categories.map((category) => (
-                    <td key={category.id}>{formatScore(row.perCategory[category.id] ?? null)}</td>
-                  ))}
-                  {overview.criteria.map((criterion) => (
-                    <td key={criterion.id}>{formatScore(row.perCriterion[criterion.id] ?? null)}</td>
+                    <Fragment key={category.id}>
+                      {(criteriaByCategory.get(category.id) ?? []).map((criterion) => (
+                        <td key={criterion.id}>{formatScore(row.perCriterion[criterion.id] ?? null)}</td>
+                      ))}
+                      <td className="score-col">{formatScore(row.perCategory[category.id] ?? null)}</td>
+                    </Fragment>
                   ))}
                   <td>{formatScore(row.total)}</td>
                   <td>{row.panelistsSubmitted}</td>

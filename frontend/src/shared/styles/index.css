@@ -1045,6 +1045,52 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 
+/* Report Summary: applicant column stays put while Category/Criterion
+   columns scroll horizontally underneath it, and Criterion columns render
+   as CR1, CR2, ... nested under their own Category's group header - see
+   ReportSummaryPage.tsx's two-row <thead>. */
+.report-summary-table th,
+.report-summary-table td {
+  white-space: nowrap;
+}
+
+.report-summary-table .sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-surface);
+  box-shadow: 1px 0 0 var(--color-border);
+}
+
+.report-summary-table thead .sticky-col {
+  z-index: 2;
+  background: var(--color-surface-alt);
+}
+
+.report-summary-table tbody tr:hover .sticky-col {
+  background: var(--color-surface-alt);
+}
+
+.report-summary-table .category-group-header,
+.report-summary-table .criterion-header,
+.report-summary-table .score-col {
+  text-align: center;
+}
+
+.report-summary-table .category-group-header {
+  border-left: 1px solid var(--color-border);
+}
+
+.report-summary-table .criterion-header {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+
+.report-summary-table .score-col {
+  font-weight: 700;
+}
+
 .pagination {
   display: flex;
   align-items: center;
