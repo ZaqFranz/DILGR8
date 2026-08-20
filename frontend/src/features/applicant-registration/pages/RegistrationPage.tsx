@@ -219,7 +219,9 @@ export function RegistrationPage() {
       {step === "account" && !isAuthenticated && (
         <div className="auth-page">
           <div className="card auth-form">
-            <img className="auth-logo" src="/dilg-logo.webp" alt="DILG logo" />
+            <Link to="/" className="auth-logo-link">
+              <img className="auth-logo" src="/dilg-logo.webp" alt="DILG logo" />
+            </Link>
             <h2>Create an applicant account</h2>
             <p className="muted">
               This is step 1 of {STEPS.length} - the rest of your applicant information follows immediately after.

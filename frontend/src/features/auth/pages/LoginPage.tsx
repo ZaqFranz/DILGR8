@@ -35,7 +35,9 @@ export function LoginPage() {
   return (
     <div className="auth-page">
       <div className="card auth-form">
-        <img className="auth-logo" src="/dilg-logo.webp" alt="DILG logo" />
+        <Link to="/" className="auth-logo-link">
+          <img className="auth-logo" src="/dilg-logo.webp" alt="DILG logo" />
+        </Link>
         <h2>Log in</h2>
         <p className="muted">Welcome back to DILGR8RSP.</p>
         <ErrorBanner message={error} />

@@ -1359,6 +1359,14 @@ tbody tr:last-child td {
   box-shadow: var(--shadow-lg);
 }
 
+/* Login/Register's only way back to the landing page - the logo itself is
+   the link, so it needs to behave like the block element it's wrapping
+   (an <a> is inline by default) without disturbing that element's own
+   centering. */
+.auth-logo-link {
+  display: block;
+}
+
 .auth-form {
   /* .auth-page is a flex container, and flex items default to shrink-to-fit
      their own content rather than filling available width the way a normal
