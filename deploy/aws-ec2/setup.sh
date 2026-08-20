@@ -16,6 +16,13 @@
 
 set -euo pipefail
 
+# Ubuntu's apt (dpkg config prompts) and needrestart (which services to
+# restart after a package upgrade) can otherwise pause waiting for
+# interactive input mid-install - easy to mistake for the script hanging.
+# This forces both to run fully non-interactively/automatically instead.
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+
 REPO_URL="${REPO_URL:-https://github.com/ZaqFranz/DILGR8.git}"
 APP_DIR="/var/www/dilgr8rsp"
 SERVICE_USER="dilgr8rsp"
