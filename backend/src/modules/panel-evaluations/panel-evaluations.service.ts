@@ -34,17 +34,33 @@ export interface ApplicantScoreCategoryColumn {
   weightPercent: number;
 }
 
+export interface ApplicantScoreCriterionColumn {
+  id: string;
+  categoryId: string;
+  name: string;
+  // Raw max (0-maxScore), not a weighted figure - unlike a category, a
+  // criterion has no weightPercent of its own; it only ever contributes to
+  // its parent category's weighted total (see weightedCategoryScore).
+  maxScore: number;
+}
+
 export interface ApplicantScoreRow {
   applicationId: string;
   applicantName: string;
   jobPostingTitle: string;
   perCategory: Record<string, number | null>;
+  // Raw (not weighted) average score per criterion, across however many
+  // panelists actually scored this application - combined across every
+  // panelist, never any one panelist's individual number (see Report
+  // Summary page).
+  perCriterion: Record<string, number | null>;
   total: number | null;
   panelistsSubmitted: number;
 }
 
 export interface ApplicantScoresOverview {
   categories: ApplicantScoreCategoryColumn[];
+  criteria: ApplicantScoreCriterionColumn[];
   rows: ApplicantScoreRow[];
 }
 
@@ -70,6 +86,17 @@ export function weightedCategoryScore(rawSubtotal: number, rawMax: number, weigh
 
 function rawSubtotalForCriteria(evaluation: PanelEvaluationWithScores, criterionIds: ReadonlySet<string>): number {
   return evaluation.scores.filter((s) => criterionIds.has(s.criterionId)).reduce((sum, s) => sum + s.score, 0);
+}
+
+/**
+ * One panelist's raw score for one criterion, or null if they never scored
+ * it - normally unreachable for an active criterion (submit() requires
+ * every active criterion to be scored), but a criterion activated after an
+ * older evaluation was already submitted would leave exactly this gap, so
+ * it's treated as "no data" here rather than assumed to be 0.
+ */
+function rawScoreForCriterion(evaluation: PanelEvaluationWithScores, criterionId: string): number | null {
+  return evaluation.scores.find((s) => s.criterionId === criterionId)?.score ?? null;
 }
 
 /** categoryId -> the set of that category's own criterion ids, precomputed once per request rather than per evaluation/category pair. */
@@ -242,19 +269,22 @@ export class PanelEvaluationsService {
   /**
    * Cross-posting view for the admin's "Applicant Scores" modal (Categories
    * page) and the Report Summary page: every scored application's average
-   * *weighted* score per active Category, plus its overall average weighted
-   * total - "average" because more than one panelist may have scored the
-   * same application differently, and a missing panelist just means fewer
-   * values going into that average rather than blocking it (see
-   * PanelScore/Criterion docs). A category's value here is the panelists'
-   * weighted contribution (raw subtotal across the category's own criteria,
-   * normalized to the category's weightPercent) - never a raw point sum, so
-   * a category with many high-point criteria doesn't outrank one with a
-   * single low-point criterion at the same weight. Deliberately never
-   * broken down by individual panelist here (see Report Summary page: an
-   * admin sees the combined result, not who scored what) - that
-   * per-panelist detail exists only in tabulation() above, which is the
-   * CompAss ranking view, not this one.
+   * *weighted* score per active Category, its average *raw* score per
+   * active Criterion, and its overall average weighted total - "average"
+   * because more than one panelist may have scored the same application
+   * differently, and a missing panelist just means fewer values going into
+   * that average rather than blocking it (see PanelScore/Criterion docs).
+   * A category's value here is the panelists' weighted contribution (raw
+   * subtotal across the category's own criteria, normalized to the
+   * category's weightPercent) - never a raw point sum, so a category with
+   * many high-point criteria doesn't outrank one with a single low-point
+   * criterion at the same weight. A criterion's value is its raw average
+   * score instead (0-maxScore) - a criterion has no weight of its own to
+   * normalize against, it only ever feeds into its parent category's
+   * weighted figure. Deliberately never broken down by individual
+   * panelist here (see Report Summary page: an admin sees the combined
+   * result, not who scored what) - that per-panelist detail exists only in
+   * tabulation() above, which is the CompAss ranking view, not this one.
    */
   async applicantScoresOverview(): Promise<ApplicantScoresOverview> {
     const [categories, applications] = await Promise.all([
@@ -263,6 +293,9 @@ export class PanelEvaluationsService {
     ]);
 
     const criterionIdsByCategory = buildCriterionIdsByCategory(categories);
+    const allCriteria = categories.flatMap((category) =>
+      category.criteria.map((criterion) => ({ ...criterion, categoryId: category.id })),
+    );
 
     const rows: ApplicantScoreRow[] = applications.map((application: ApplicationForScoresOverview) => {
       const perCategory: Record<string, number | null> = {};
@@ -273,11 +306,19 @@ export class PanelEvaluationsService {
         );
         perCategory[category.id] = average(weightedScores);
       }
+      const perCriterion: Record<string, number | null> = {};
+      for (const criterion of allCriteria) {
+        const scores = application.panelEvaluations
+          .map((evaluation) => rawScoreForCriterion(evaluation, criterion.id))
+          .filter((score): score is number => score !== null);
+        perCriterion[criterion.id] = average(scores);
+      }
       return {
         applicationId: application.id,
         applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
         jobPostingTitle: application.jobPosting.title,
         perCategory,
+        perCriterion,
         total: average(application.panelEvaluations.map((e) => weightedTotalScore(e, categories, criterionIdsByCategory))),
         panelistsSubmitted: application.panelEvaluations.length,
       };
@@ -285,6 +326,7 @@ export class PanelEvaluationsService {
 
     return {
       categories: categories.map((c) => ({ id: c.id, name: c.name, weightPercent: c.weightPercent })),
+      criteria: allCriteria.map((c) => ({ id: c.id, categoryId: c.categoryId, name: c.name, maxScore: c.maxScore })),
       rows,
     };
   }
