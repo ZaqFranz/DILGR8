@@ -1,3 +1,4 @@
+import type { ApplicationStatus } from "@prisma/client";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/AppError";
 import type { CategoriesRepository, CategoryWithCriteria } from "@/modules/categories/categories.repository";
 import type { PanelAssignmentsRepository } from "@/modules/panel-assignments/panel-assignments.repository";
@@ -48,6 +49,12 @@ export interface ApplicantScoreRow {
   applicationId: string;
   applicantName: string;
   jobPostingTitle: string;
+  // The application's current pipeline status (not necessarily still
+  // FOR_INTERVIEW - it may have moved on to Compliance, Oath-Taking, HIRED,
+  // or a rejected/withdrawn status since it was scored). Report Summary is
+  // a historical record of interview results, not a worklist, so it
+  // deliberately doesn't filter these out - see findApplicationsWithScores().
+  status: ApplicationStatus;
   perCategory: Record<string, number | null>;
   // Raw (not weighted) average score per criterion, across however many
   // panelists actually scored this application - combined across every
@@ -332,6 +339,7 @@ export class PanelEvaluationsService {
         applicationId: application.id,
         applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
         jobPostingTitle: application.jobPosting.title,
+        status: application.status,
         perCategory,
         perCriterion,
         total: average(application.panelEvaluations.map((e) => weightedTotalScore(e, categories, criterionIdsByCategory))),

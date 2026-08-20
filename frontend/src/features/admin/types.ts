@@ -369,6 +369,11 @@ export interface ApplicantScoreRow {
   applicationId: string;
   applicantName: string;
   jobPostingTitle: string;
+  // The application's current pipeline status - not necessarily still
+  // FOR_INTERVIEW, since Report Summary is a historical record and keeps
+  // showing an application's interview scores after it moves on to
+  // Compliance, Oath-Taking, HIRED, or a rejected/withdrawn status.
+  status: ApplicationStatus;
   perCategory: Record<string, number | null>;
   // Raw (not weighted) average score per criterion, combined across
   // however many panelists actually scored this application - never any

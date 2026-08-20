@@ -4,9 +4,12 @@ import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { Pagination } from "@/shared/components/Pagination";
 import { usePagination } from "@/shared/utils/usePagination";
+import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
 import { AdminShell } from "../components/AdminShell";
 import { getApplicantScoresOverview } from "../api/panelEvaluationsApi";
-import type { ApplicantScoreCriterionColumn, ApplicantScoresOverview } from "../types";
+import type { ApplicantScoreCriterionColumn, ApplicantScoresOverview, ApplicationStatus } from "../types";
+
+const STATUS_FILTER_OPTIONS = Object.entries(APPLICATION_STATUS_LABELS) as [ApplicationStatus, string][];
 
 function formatScore(value: number | null): string {
   return value === null ? "-" : Number.isInteger(value) ? String(value) : value.toFixed(1);
@@ -69,6 +72,7 @@ export function ReportSummaryPage() {
   const [overview, setOverview] = useState<ApplicantScoresOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "">("");
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +92,8 @@ export function ReportSummaryPage() {
   }, []);
 
   const rows = overview?.rows ?? [];
-  const pagination = usePagination(rows, 10);
+  const filteredRows = statusFilter === "" ? rows : rows.filter((row) => row.status === statusFilter);
+  const pagination = usePagination(filteredRows, 10);
   const criteriaByCategory = groupCriteriaByCategory(overview?.criteria ?? []);
 
   return (
@@ -106,86 +111,117 @@ export function ReportSummaryPage() {
       {loading && <LoadingBlock label="Loading report summary..." />}
       {!loading && rows.length === 0 && <p>No applicants have been scored yet.</p>}
       {!loading && overview && rows.length > 0 && (
-        <div className="table-wrap">
-          <table className="report-summary-table">
-            <thead>
-              <tr>
-                <th rowSpan={2} className="sticky-col">
-                  Applicant
-                </th>
-                <th rowSpan={2}>Job posting</th>
-                {overview.categories.map((category, index) => (
-                  <th
-                    key={category.id}
-                    colSpan={(criteriaByCategory.get(category.id)?.length ?? 0) + 1}
-                    className="category-group-header"
-                    style={categoryAccentStyle(index)}
-                  >
-                    {category.name} (0-{category.weightPercent})
-                  </th>
+        <>
+          <div className="filters-row">
+            <div className="field">
+              <label htmlFor="status-filter">Status</label>
+              <select
+                id="status-filter"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as ApplicationStatus | "");
+                  pagination.setPage(1);
+                }}
+              >
+                <option value="">All statuses</option>
+                {STATUS_FILTER_OPTIONS.map(([status, label]) => (
+                  <option key={status} value={status}>
+                    {label}
+                  </option>
                 ))}
-                <th className="total-col">Total (avg)</th>
-                <th className="panelists-col">Panelists submitted</th>
-              </tr>
-              {/* Applicant/Job posting span both header rows (rowSpan above) since they
-                  have no sub-column of their own. Total/Panelists submitted don't span -
-                  they get an explicit empty cell here instead - so the header's row1/row2
-                  divider line still runs underneath them instead of stopping at the last
-                  category column. */}
-              <tr>
-                {overview.categories.map((category, index) => (
-                  <Fragment key={category.id}>
-                    {(criteriaByCategory.get(category.id) ?? []).map((criterion, criterionIndex) => (
+              </select>
+            </div>
+          </div>
+          {filteredRows.length === 0 && <p>No applicants match the selected status.</p>}
+          {filteredRows.length > 0 && (
+            <div className="table-wrap">
+              <table className="report-summary-table">
+                <thead>
+                  <tr>
+                    <th rowSpan={2} className="sticky-col">
+                      Applicant
+                    </th>
+                    <th rowSpan={2}>Job posting</th>
+                    <th rowSpan={2}>Status</th>
+                    {overview.categories.map((category, index) => (
                       <th
-                        key={criterion.id}
-                        className="criterion-header"
-                        title={`${criterion.name} (0-${criterion.maxScore})`}
+                        key={category.id}
+                        colSpan={(criteriaByCategory.get(category.id)?.length ?? 0) + 1}
+                        className="category-group-header"
+                        style={categoryAccentStyle(index)}
                       >
-                        CR{criterionIndex + 1}
+                        {category.name} (0-{category.weightPercent})
                       </th>
                     ))}
-                    <th className="score-col" style={categoryAccentStyle(index)}>
-                      Score
-                    </th>
-                  </Fragment>
-                ))}
-                <th className="total-col" aria-hidden="true" />
-                <th className="panelists-col" aria-hidden="true" />
-              </tr>
-            </thead>
-            <tbody>
-              {pagination.pageItems.map((row) => (
-                <tr key={row.applicationId}>
-                  <td className="sticky-col">{row.applicantName}</td>
-                  <td>{row.jobPostingTitle}</td>
-                  {overview.categories.map((category, index) => (
-                    <Fragment key={category.id}>
-                      {(criteriaByCategory.get(category.id) ?? []).map((criterion) => (
-                        <td key={criterion.id}>{formatScore(row.perCriterion[criterion.id] ?? null)}</td>
-                      ))}
-                      <td className="score-col" style={categoryAccentStyle(index)}>
-                        {formatScore(row.perCategory[category.id] ?? null)}
+                    <th className="total-col">Total (avg)</th>
+                    <th className="panelists-col">Panelists submitted</th>
+                  </tr>
+                  {/* Applicant/Job posting/Status span both header rows (rowSpan above)
+                      since they have no sub-column of their own. Total/Panelists
+                      submitted don't span - they get an explicit empty cell here instead
+                      - so the header's row1/row2 divider line still runs underneath them
+                      instead of stopping at the last category column. */}
+                  <tr>
+                    {overview.categories.map((category, index) => (
+                      <Fragment key={category.id}>
+                        {(criteriaByCategory.get(category.id) ?? []).map((criterion, criterionIndex) => (
+                          <th
+                            key={criterion.id}
+                            className="criterion-header"
+                            title={`${criterion.name} (0-${criterion.maxScore})`}
+                          >
+                            CR{criterionIndex + 1}
+                          </th>
+                        ))}
+                        <th className="score-col" style={categoryAccentStyle(index)}>
+                          Score
+                        </th>
+                      </Fragment>
+                    ))}
+                    <th className="total-col" aria-hidden="true" />
+                    <th className="panelists-col" aria-hidden="true" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagination.pageItems.map((row) => (
+                    <tr key={row.applicationId}>
+                      <td className="sticky-col">{row.applicantName}</td>
+                      <td>{row.jobPostingTitle}</td>
+                      <td>
+                        <span className={`badge ${row.status.toLowerCase()}`}>
+                          {APPLICATION_STATUS_LABELS[row.status]}
+                        </span>
                       </td>
-                    </Fragment>
+                      {overview.categories.map((category, index) => (
+                        <Fragment key={category.id}>
+                          {(criteriaByCategory.get(category.id) ?? []).map((criterion) => (
+                            <td key={criterion.id}>{formatScore(row.perCriterion[criterion.id] ?? null)}</td>
+                          ))}
+                          <td className="score-col" style={categoryAccentStyle(index)}>
+                            {formatScore(row.perCategory[category.id] ?? null)}
+                          </td>
+                        </Fragment>
+                      ))}
+                      <td className="total-col">{formatScore(row.total)}</td>
+                      <td className="panelists-col">
+                        <span className="panelists-badge">
+                          {row.panelistsSubmitted}/{row.panelistsAssigned}
+                        </span>
+                      </td>
+                    </tr>
                   ))}
-                  <td className="total-col">{formatScore(row.total)}</td>
-                  <td className="panelists-col">
-                    <span className="panelists-badge">
-                      {row.panelistsSubmitted}/{row.panelistsAssigned}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <Pagination
-            page={pagination.page}
-            totalPages={pagination.totalPages}
-            totalItems={pagination.totalItems}
-            pageSize={10}
-            onPageChange={pagination.setPage}
-          />
-        </div>
+                </tbody>
+              </table>
+              <Pagination
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.totalItems}
+                pageSize={10}
+                onPageChange={pagination.setPage}
+              />
+            </div>
+          )}
+        </>
       )}
     </AdminShell>
   );

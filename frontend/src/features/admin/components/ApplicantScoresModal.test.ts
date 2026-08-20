@@ -7,6 +7,7 @@ function row(applicationId: string, total: number | null): ApplicantScoreRow {
     applicationId,
     applicantName: applicationId,
     jobPostingTitle: "Test",
+    status: "HIRED",
     perCategory: {},
     perCriterion: {},
     total,
@@ -41,8 +42,8 @@ describe("rankRows", () => {
 
   it("ranks by a specific category column instead of overall when requested", () => {
     const rows: ApplicantScoreRow[] = [
-      { applicationId: "a", applicantName: "a", jobPostingTitle: "Test", perCategory: { cat1: 5 }, perCriterion: {}, total: 100, panelistsSubmitted: 1, panelistsAssigned: 1 },
-      { applicationId: "b", applicantName: "b", jobPostingTitle: "Test", perCategory: { cat1: 9 }, perCriterion: {}, total: 10, panelistsSubmitted: 1, panelistsAssigned: 1 },
+      { applicationId: "a", applicantName: "a", jobPostingTitle: "Test", status: "HIRED", perCategory: { cat1: 5 }, perCriterion: {}, total: 100, panelistsSubmitted: 1, panelistsAssigned: 1 },
+      { applicationId: "b", applicantName: "b", jobPostingTitle: "Test", status: "HIRED", perCategory: { cat1: 9 }, perCriterion: {}, total: 10, panelistsSubmitted: 1, panelistsAssigned: 1 },
     ];
     const ranked = rankRows(rows, "cat1");
     expect(ranked.find((r) => r.applicationId === "b")!.rank).toBe(1);

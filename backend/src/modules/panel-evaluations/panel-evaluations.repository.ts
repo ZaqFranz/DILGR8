@@ -58,17 +58,21 @@ export class PanelEvaluationsRepository {
   }
 
   /**
-   * Every scored application across every job posting currently in the
-   * evaluation phase - the source list for the admin's cross-posting
-   * "Applicant Scores" view (Evaluation Criteria page). Unlike
-   * findApplicationsForTabulation, this isn't scoped to one posting, and
-   * only includes applications at least one panelist has actually scored
-   * ("some" on panelEvaluations) since an unscored application has nothing
-   * to show here.
+   * Every scored application across every job posting, at whatever stage
+   * it's currently at - the source list for the admin's cross-posting
+   * "Applicant Scores" view (Evaluation Criteria page) and the Report
+   * Summary page. Unlike findApplicationsForTabulation, this isn't scoped
+   * to one posting or to the interview-stage statuses (TABULATION_STATUSES)
+   * - once an application has moved on to Compliance, Oath-Taking, HIRED,
+   * or even NOT_SELECTED/DISQUALIFIED/WITHDRAWN, its interview scores are
+   * still a historical fact worth showing in the report, so the only real
+   * filter is "at least one panelist has actually scored it" ("some" on
+   * panelEvaluations) - an unscored application has nothing to show here
+   * regardless of status.
    */
   findApplicationsWithScores(): Promise<ApplicationForScoresOverview[]> {
     return this.db.application.findMany({
-      where: { status: { in: [...TABULATION_STATUSES] }, panelEvaluations: { some: {} } },
+      where: { panelEvaluations: { some: {} } },
       include: {
         jobPosting: { select: { title: true } },
         applicant: { select: { firstName: true, lastName: true } },
