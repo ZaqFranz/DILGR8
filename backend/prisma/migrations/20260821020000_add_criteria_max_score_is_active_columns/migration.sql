@@ -9,9 +9,35 @@
 -- exist") is missing these two columns entirely, with no earlier migration
 -- ever having added them.
 --
--- IF NOT EXISTS makes this safe to apply everywhere, including databases
--- (local dev, and presumably the original AWS Sydney instance) that
--- already have both columns from that undocumented manual step - there,
--- this migration is a verified no-op.
-ALTER TABLE `criteria` ADD COLUMN IF NOT EXISTS `maxScore` INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE `criteria` ADD COLUMN IF NOT EXISTS `isActive` BOOLEAN NOT NULL DEFAULT true;
+-- `ADD COLUMN IF NOT EXISTS` (MySQL 8.0.29+) isn't supported by every
+-- MySQL version this project might run against - confirmed live: it's a
+-- syntax error (1064) on the AWS EC2 instance's MySQL server. Using the
+-- INFORMATION_SCHEMA + PREPARE/EXECUTE pattern instead, which works on any
+-- MySQL/MariaDB version - portable rather than assuming a MySQL version
+-- floor, and still a verified no-op wherever both columns already exist
+-- (local dev, and presumably the original AWS Sydney instance).
+SET @maxScoreExists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'criteria' AND COLUMN_NAME = 'maxScore'
+);
+SET @addMaxScore = IF(
+  @maxScoreExists = 0,
+  'ALTER TABLE `criteria` ADD COLUMN `maxScore` INTEGER NOT NULL DEFAULT 0',
+  'SELECT 1'
+);
+PREPARE stmt FROM @addMaxScore;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @isActiveExists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'criteria' AND COLUMN_NAME = 'isActive'
+);
+SET @addIsActive = IF(
+  @isActiveExists = 0,
+  'ALTER TABLE `criteria` ADD COLUMN `isActive` BOOLEAN NOT NULL DEFAULT true',
+  'SELECT 1'
+);
+PREPARE stmt FROM @addIsActive;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
