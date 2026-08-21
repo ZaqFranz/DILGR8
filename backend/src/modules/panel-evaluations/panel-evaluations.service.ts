@@ -202,6 +202,23 @@ export class PanelEvaluationsService {
         "This applicant's interview score is carried over from another job posting and does not need a separate evaluation here",
       );
     }
+    // The stored scoreSourceApplicationId above only catches links made
+    // *before* this application's queue entry was fetched - two panelists on
+    // two different postings can each open their queue, both see this
+    // applicant as unscored, and both attempt to submit around the same
+    // time. reconcileScoreSource() re-checks live, right before writing a
+    // score, whether some other of the applicant's applications has since
+    // been scored (by either panel) and links this one to it if so, closing
+    // that window instead of allowing a second independent evaluation.
+    const alreadyScoredElsewhere = await this.panelEvaluationsRepository.reconcileScoreSource(
+      applicationId,
+      application.applicantId,
+    );
+    if (alreadyScoredElsewhere) {
+      throw new ValidationError(
+        "This applicant's interview score is carried over from another job posting and does not need a separate evaluation here",
+      );
+    }
 
     const assignment = await this.panelAssignmentsRepository.findByPostingAndPanelUser(
       application.jobPostingId,

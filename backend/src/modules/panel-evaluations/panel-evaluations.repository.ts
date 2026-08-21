@@ -60,6 +60,31 @@ export function mergeInheritedEvaluations<
   );
 }
 
+// Given a batch of unlinked FOR_INTERVIEW queue candidates and, per
+// applicant, the earliest-submitted canonical application id that's since
+// been scored (if any), splits candidates into ones that need linking to
+// that canonical id (self-healing a sibling that got left behind by the
+// race window described on repairAndExcludeAlreadyScoredElsewhere below)
+// versus ones that genuinely still need their own interview. Pure so the
+// decision itself can be unit-tested without a database, same convention
+// as collectScoreSourceIds/mergeInheritedEvaluations above.
+export function partitionQueueCandidatesToRepair<T extends { id: string; applicantId: string }>(
+  candidates: T[],
+  canonicalIdByApplicant: Map<string, string>,
+): { toLink: { candidateId: string; canonicalId: string }[]; stillNeedsScoring: T[] } {
+  const toLink: { candidateId: string; canonicalId: string }[] = [];
+  const stillNeedsScoring: T[] = [];
+  for (const candidate of candidates) {
+    const canonicalId = canonicalIdByApplicant.get(candidate.applicantId);
+    if (canonicalId && canonicalId !== candidate.id) {
+      toLink.push({ candidateId: candidate.id, canonicalId });
+    } else {
+      stillNeedsScoring.push(candidate);
+    }
+  }
+  return { toLink, stillNeedsScoring };
+}
+
 export class PanelEvaluationsRepository {
   constructor(private readonly db: PrismaClient) {}
 
@@ -67,14 +92,15 @@ export class PanelEvaluationsRepository {
     return this.db.application.findUnique({ where: { id } });
   }
 
-  findQueueForPanelUser(jobPostingIds: string[], panelUserId: string): Promise<ApplicationForInterviewQueue[]> {
-    if (jobPostingIds.length === 0) return Promise.resolve([]);
-    return this.db.application.findMany({
+  async findQueueForPanelUser(jobPostingIds: string[], panelUserId: string): Promise<ApplicationForInterviewQueue[]> {
+    if (jobPostingIds.length === 0) return [];
+    const candidates = (await this.db.application.findMany({
       // scoreSourceApplicationId: null excludes applications that already
       // inherit their score from another of the applicant's applications -
       // see collectScoreSourceIds/mergeInheritedEvaluations above. Nobody
       // should be asked to score someone who's already been scored
-      // elsewhere.
+      // elsewhere. This alone isn't airtight, though - see the repair pass
+      // below.
       where: { jobPostingId: { in: jobPostingIds }, status: "FOR_INTERVIEW", scoreSourceApplicationId: null },
       include: {
         jobPosting: { select: { id: true, title: true } },
@@ -82,7 +108,73 @@ export class PanelEvaluationsRepository {
         panelEvaluations: { where: { panelUserId }, include: { scores: true } },
       },
       orderBy: { submittedAt: "asc" },
-    }) as Promise<ApplicationForInterviewQueue[]>;
+    })) as ApplicationForInterviewQueue[];
+    return this.repairAndExcludeAlreadyScoredElsewhere(candidates);
+  }
+
+  /**
+   * Closes a real gap in the two event-driven linking points
+   * (createWithApplicationLetter/linkSiblingScoreSources): if an applicant
+   * applies to two postings *before either is scored*, neither has anything
+   * to link to yet - both can independently reach FOR_INTERVIEW and sit in
+   * two different panels' queues unlinked. If one of them gets scored
+   * first, `linkSiblingScoreSources` fixes the *other* one going forward,
+   * but only from that moment on - a queue fetched in the meantime, or one
+   * fetched for a sibling that was scored without that propagation ever
+   * having a chance to run, would still show it as needing its own
+   * interview (the "duplicate interviews" bug this fixes). Re-checks every
+   * queue candidate against the applicant's other applications for one
+   * that's since been scored - since discovered - and self-heals the link
+   * (same operation linkSiblingScoreSources does reactively) before
+   * excluding it, in one batched pass rather than one query per candidate.
+   */
+  private async repairAndExcludeAlreadyScoredElsewhere<
+    T extends { id: string; applicantId: string },
+  >(candidates: T[]): Promise<T[]> {
+    if (candidates.length === 0) return candidates;
+
+    const applicantIds = [...new Set(candidates.map((c) => c.applicantId))];
+    const scoredElsewhere = await this.db.application.findMany({
+      where: { applicantId: { in: applicantIds }, panelEvaluations: { some: {} } },
+      orderBy: { submittedAt: "asc" },
+      select: { id: true, applicantId: true },
+    });
+    const canonicalByApplicant = new Map<string, string>();
+    for (const row of scoredElsewhere) {
+      if (!canonicalByApplicant.has(row.applicantId)) canonicalByApplicant.set(row.applicantId, row.id);
+    }
+    if (canonicalByApplicant.size === 0) return candidates;
+
+    const { toLink, stillNeedsScoring } = partitionQueueCandidatesToRepair(candidates, canonicalByApplicant);
+    if (toLink.length > 0) {
+      await this.db.$transaction(
+        toLink.map(({ candidateId, canonicalId }) =>
+          this.db.application.update({ where: { id: candidateId }, data: { scoreSourceApplicationId: canonicalId } }),
+        ),
+      );
+    }
+    return stillNeedsScoring;
+  }
+
+  /**
+   * The write-time counterpart to the queue repair above - called from
+   * PanelEvaluationsService.submit() right before actually recording a
+   * score, to close the same race for whoever gets to their queue and
+   * clicks Score first. Fresh query, not relying on the application's own
+   * (possibly stale) scoreSourceApplicationId field: if the applicant has
+   * since been scored on a sibling application, links this one to it and
+   * returns true (submit() refuses the direct score) instead of letting a
+   * second independent evaluation get created for the same person.
+   */
+  async reconcileScoreSource(applicationId: string, applicantId: string): Promise<boolean> {
+    const canonical = await this.db.application.findFirst({
+      where: { applicantId, id: { not: applicationId }, panelEvaluations: { some: {} } },
+      orderBy: { submittedAt: "asc" },
+      select: { id: true },
+    });
+    if (!canonical) return false;
+    await this.db.application.update({ where: { id: applicationId }, data: { scoreSourceApplicationId: canonical.id } });
+    return true;
   }
 
   async findApplicationsForTabulation(jobPostingId: string): Promise<ApplicationForTabulation[]> {

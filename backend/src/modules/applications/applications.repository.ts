@@ -23,6 +23,15 @@ const applicationWithPostingInclude = {
   // carried over from your application to X" instead of just silently
   // showing a score with no explanation of where it came from.
   scoreSourceApplication: { select: { jobPosting: { select: { title: true } } } },
+  // The reverse direction: applications that carry over THIS one's score.
+  // Without this, an applicant looking at their canonical (actually-scored)
+  // application has no way to tell that a sibling application - possibly
+  // already further along in Compliance/Oath-Taking, since each posting
+  // still progresses independently past the shared interview score - even
+  // exists, since only the inheriting side's own scoreSourceApplication
+  // carries a pointer back. See MyApplicationsPage.tsx's "also being used
+  // for" hint.
+  scoreInheritingApplications: { select: { status: true, jobPosting: { select: { title: true } } } },
 } as const;
 
 const applicationWithApplicantInclude = {
@@ -40,6 +49,7 @@ const applicationWithApplicantInclude = {
 export type ApplicationWithPosting = Application & {
   jobPosting: NonNullable<Awaited<ReturnType<PrismaClient["jobPosting"]["findUnique"]>>>;
   scoreSourceApplication: { jobPosting: { title: string } } | null;
+  scoreInheritingApplications: { status: ApplicationStatus; jobPosting: { title: string } }[];
 };
 
 export type ApplicationWithApplicant = Application & {

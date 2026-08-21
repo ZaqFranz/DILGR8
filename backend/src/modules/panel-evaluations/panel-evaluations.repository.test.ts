@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectScoreSourceIds, mergeInheritedEvaluations } from "./panel-evaluations.repository";
+import { collectScoreSourceIds, mergeInheritedEvaluations, partitionQueueCandidatesToRepair } from "./panel-evaluations.repository";
 import type { PanelEvaluationWithScores } from "./panel-evaluations.repository";
 
 function fakeEvaluation(applicationId: string): PanelEvaluationWithScores {
@@ -91,5 +91,53 @@ describe("mergeInheritedEvaluations", () => {
     const merged = mergeInheritedEvaluations(applications, new Map());
 
     expect(merged[0]!.panelEvaluations).toEqual([]);
+  });
+});
+
+describe("partitionQueueCandidatesToRepair", () => {
+  function candidate(id: string, applicantId: string) {
+    return { id, applicantId };
+  }
+
+  it("leaves every candidate as still-needs-scoring when nobody's applicant has a canonical scored application", () => {
+    const candidates = [candidate("appB", "applicant-1"), candidate("appD", "applicant-2")];
+
+    const { toLink, stillNeedsScoring } = partitionQueueCandidatesToRepair(candidates, new Map());
+
+    expect(toLink).toEqual([]);
+    expect(stillNeedsScoring).toEqual(candidates);
+  });
+
+  it("links a candidate to its applicant's canonical scored application and excludes it from stillNeedsScoring", () => {
+    const candidates = [candidate("appB", "applicant-1")];
+    const canonicalByApplicant = new Map([["applicant-1", "appA"]]);
+
+    const { toLink, stillNeedsScoring } = partitionQueueCandidatesToRepair(candidates, canonicalByApplicant);
+
+    expect(toLink).toEqual([{ candidateId: "appB", canonicalId: "appA" }]);
+    expect(stillNeedsScoring).toEqual([]);
+  });
+
+  it("leaves the canonical application itself in stillNeedsScoring rather than linking it to itself", () => {
+    // Shouldn't happen in practice (a scored application is excluded from
+    // the queue by scoreSourceApplicationId/panelEvaluations filters
+    // upstream), but the partition itself should never self-link.
+    const candidates = [candidate("appA", "applicant-1")];
+    const canonicalByApplicant = new Map([["applicant-1", "appA"]]);
+
+    const { toLink, stillNeedsScoring } = partitionQueueCandidatesToRepair(candidates, canonicalByApplicant);
+
+    expect(toLink).toEqual([]);
+    expect(stillNeedsScoring).toEqual(candidates);
+  });
+
+  it("only links candidates whose own applicant has a canonical match, leaving other applicants' candidates untouched", () => {
+    const candidates = [candidate("appB", "applicant-1"), candidate("appD", "applicant-2")];
+    const canonicalByApplicant = new Map([["applicant-1", "appA"]]);
+
+    const { toLink, stillNeedsScoring } = partitionQueueCandidatesToRepair(candidates, canonicalByApplicant);
+
+    expect(toLink).toEqual([{ candidateId: "appB", canonicalId: "appA" }]);
+    expect(stillNeedsScoring).toEqual([candidate("appD", "applicant-2")]);
   });
 });
