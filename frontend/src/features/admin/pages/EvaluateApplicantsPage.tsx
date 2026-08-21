@@ -299,22 +299,21 @@ export function EvaluateApplicantsPage() {
                   </tr>
                 )}
                 {pagination.pageItems.map((group) =>
-                  group.rows.length === 1 ? (
-                    <EvaluationRow
-                      key={group.rows[0]!.id}
-                      application={group.rows[0]!}
+                  // A group only gets the fallback per-posting expansion when its
+                  // applications have actually diverged in status - the everyday
+                  // case (including every single-posting applicant) is one
+                  // EvaluationRow whose actions apply to the whole group at once.
+                  group.rows.some((app) => app.status !== group.rows[0]!.status) ? (
+                    <ApplicantGroupSummaryRow
+                      key={group.key}
+                      applications={group.rows}
+                      tabulationByPosting={tabulationByPosting}
                       onSifted={handleSifted}
                       onScheduled={handleScheduled}
-                      tabulation={
-                        tabulationByPosting[group.rows[0]!.jobPosting.id]?.rows.find(
-                          (row) => row.applicationId === group.rows[0]!.id,
-                        ) ?? null
-                      }
-                      panelists={tabulationByPosting[group.rows[0]!.jobPosting.id]?.panelists ?? []}
                       onHired={loadAll}
                     />
                   ) : (
-                    <ApplicantGroupSummaryRow
+                    <EvaluationRow
                       key={group.key}
                       applications={group.rows}
                       tabulationByPosting={tabulationByPosting}
