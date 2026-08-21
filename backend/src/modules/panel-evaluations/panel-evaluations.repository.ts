@@ -5,13 +5,14 @@ export type ApplicationForInterviewQueue = Application & {
   jobPosting: { id: string; title: string };
   applicant: { id: string; firstName: string; lastName: string };
   panelEvaluations: (PanelEvaluation & { scores: PanelScore[] })[];
-  // Every other application (any status) this same applicant has on file,
-  // added 2026-08-21 so a panelist isn't confused if they ever do see two
-  // queue entries for the same person (the narrow pre-scoring window where
-  // both siblings are still genuinely unlinked - see
-  // repairAndExcludeAlreadyScoredElsewhere below, which only closes the gap
-  // once one of them is actually scored). Informational only - this list
-  // doesn't change queue membership or scoring behavior.
+  // Every other still-open, not-yet-scored, unlinked application this same
+  // applicant has - i.e. exactly the set `linkSiblingScoreSources()` will
+  // actually point at this one once it's scored (added 2026-08-21, scoped
+  // down same-day so it never lists an application that's already scored
+  // independently or terminal and so can't actually receive this score).
+  // `MyInterviewsPage` uses this to dedupe the queue to one row per
+  // applicant (see `groupByApplicant()`) and show "this score will also
+  // count for: ..." on that one row, instead of a separate row per posting.
   otherApplications: { jobPostingTitle: string }[];
 };
 
@@ -122,9 +123,14 @@ export class PanelEvaluationsRepository {
   }
 
   /**
-   * Batched (one query, not one per candidate) lookup of every other
-   * application - any status, any posting - each candidate's applicant has
-   * on file, purely for the "Also applied to: ..." hint on My Interviews.
+   * Batched (one query, not one per candidate) lookup of every OTHER
+   * application this same applicant will actually inherit this score onto
+   * once it's recorded - not just any other application on file. Scoped to
+   * exactly what `linkSiblingScoreSources()` itself links (open, no
+   * evaluations of its own, not already pointed elsewhere), so the "this
+   * score will also count for..." hint on My Interviews is never
+   * misleading about an application that's already scored independently or
+   * terminal (HIRED/WITHDRAWN/etc.) and so can't actually receive it.
    */
   private async attachOtherApplications<T extends { id: string; applicantId: string }>(
     candidates: T[],
@@ -132,13 +138,18 @@ export class PanelEvaluationsRepository {
     if (candidates.length === 0) return [];
 
     const applicantIds = [...new Set(candidates.map((c) => c.applicantId))];
-    const allApplications = await this.db.application.findMany({
-      where: { applicantId: { in: applicantIds } },
+    const linkableApplications = await this.db.application.findMany({
+      where: {
+        applicantId: { in: applicantIds },
+        scoreSourceApplicationId: null,
+        panelEvaluations: { none: {} },
+        status: { in: [...OPEN_APPLICATION_STATUSES] },
+      },
       select: { id: true, applicantId: true, jobPosting: { select: { title: true } } },
       orderBy: { submittedAt: "asc" },
     });
-    const byApplicant = new Map<string, typeof allApplications>();
-    for (const row of allApplications) {
+    const byApplicant = new Map<string, typeof linkableApplications>();
+    for (const row of linkableApplications) {
       byApplicant.set(row.applicantId, [...(byApplicant.get(row.applicantId) ?? []), row]);
     }
 

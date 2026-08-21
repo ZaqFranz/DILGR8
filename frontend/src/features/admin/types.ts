@@ -326,8 +326,10 @@ export interface InterviewQueueApplication {
   jobPosting: { id: string; title: string };
   applicant: { id: string; firstName: string; lastName: string };
   panelEvaluations: PanelEvaluation[];
-  // Every other application (any status, any posting) this same applicant
-  // has on file - informational only, see docs/api.md's my-queue entry.
+  // Every other still-open, not-yet-scored posting this score will also
+  // count for once submitted here - used both to dedupe the queue to one
+  // row per applicant and to show that on the row. See docs/api.md's
+  // my-queue entry.
   otherApplications: { jobPostingTitle: string }[];
 }
 

@@ -4,6 +4,7 @@ import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { Pagination } from "@/shared/components/Pagination";
 import { usePagination } from "@/shared/utils/usePagination";
+import { groupByApplicant } from "@/shared/utils/groupByApplicant";
 import { listCategories } from "@/features/admin/api/categoriesApi";
 import type { Category, InterviewQueueApplication, PanelEvaluation } from "@/features/admin/types";
 import { getMyQueue } from "../api/panelEvaluationsApi";
@@ -16,7 +17,16 @@ export function MyInterviewsPage() {
   const [queue, setQueue] = useState<InterviewQueueApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const pagination = usePagination(queue, 10);
+  // One row per applicant, not one per application - an applicant who
+  // applied to multiple postings only needs one interview score, so
+  // scoring should only ever be offered once. Picks the earliest-submitted
+  // of the applicant's queue entries (the backend already orders the queue
+  // that way, matching the same canonical-selection convention used
+  // elsewhere for score inheritance); its `otherApplications` already lists
+  // exactly which other posting(s) this score will also count for once
+  // submitted, so nothing else needs to change to surface that.
+  const dedupedQueue = groupByApplicant(queue, (application) => application.applicant.id).map((group) => group.rows[0]!);
+  const pagination = usePagination(dedupedQueue, 10);
 
   useEffect(() => {
     Promise.all([listCategories(), getMyQueue()])
@@ -55,13 +65,13 @@ export function MyInterviewsPage() {
       {hasScorableCriteria && (
         <>
           <CriteriaReferencePanel categories={categories} />
-          <ScoreSummaryPanel categories={categories} queue={queue} />
+          <ScoreSummaryPanel categories={categories} queue={dedupedQueue} />
         </>
       )}
 
-      {hasScorableCriteria && queue.length === 0 && <p>No applicants are currently in the interview stage for your assigned postings.</p>}
+      {hasScorableCriteria && dedupedQueue.length === 0 && <p>No applicants are currently in the interview stage for your assigned postings.</p>}
 
-      {hasScorableCriteria && queue.length > 0 && (
+      {hasScorableCriteria && dedupedQueue.length > 0 && (
         <div className="table-wrap">
           <table>
             <thead>

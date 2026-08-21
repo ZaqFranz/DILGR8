@@ -95,7 +95,7 @@ export function InterviewRow({ application, categories, onSubmitted }: Props) {
           {application.jobPosting.title}
           {application.otherApplications.length > 0 && (
             <p className="field-hint">
-              Also applied to: {application.otherApplications.map((other) => other.jobPostingTitle).join(", ")}
+              This score will also count for: {application.otherApplications.map((other) => other.jobPostingTitle).join(", ")}
             </p>
           )}
         </td>
