@@ -9,7 +9,25 @@ import { AdminShell } from "../components/AdminShell";
 import { getApplicantScoresOverview } from "../api/panelEvaluationsApi";
 import type { ApplicantScoreCriterionColumn, ApplicantScoresOverview, ApplicationStatus } from "../types";
 
-const STATUS_FILTER_OPTIONS = Object.entries(APPLICATION_STATUS_LABELS) as [ApplicationStatus, string][];
+// Report Summary only ever has rows for applications that have been
+// interview-scored, so pre-evaluation statuses (SUBMITTED, UNDER_SIFTING)
+// can't actually occur here - and per client request, the rejection/
+// withdrawal statuses (NOT_QUALIFIED, DISQUALIFIED, WITHDRAWN) are left out
+// of the filter's option list too, since "evaluation of applicant starts
+// after Under Sifting." A row with one of these five statuses (if it ever
+// occurs) still shows under "All statuses" - only the dropdown's choices
+// are narrowed, not which rows the report includes.
+const STATUS_FILTER_STATUSES: ApplicationStatus[] = [
+  "FOR_INTERVIEW",
+  "QUALIFIED",
+  "FOR_COMPLIANCE",
+  "NOT_SELECTED",
+  "FOR_OATH_TAKING",
+  "HIRED",
+];
+const STATUS_FILTER_OPTIONS = STATUS_FILTER_STATUSES.map(
+  (status) => [status, APPLICATION_STATUS_LABELS[status]] as [ApplicationStatus, string],
+);
 
 function formatScore(value: number | null): string {
   return value === null ? "-" : Number.isInteger(value) ? String(value) : value.toFixed(1);
