@@ -70,6 +70,11 @@ export function MyApplicationsPage() {
           {application.examinationScore !== null && (
             <p className="field-hint">PQE score: {application.examinationScore}</p>
           )}
+          {application.scoreSourceApplication !== null && (
+            <p className="field-hint">
+              Interview score carried over from your application to &quot;{application.scoreSourceApplication.jobPosting.title}&quot;.
+            </p>
+          )}
           {application.interviewScheduledAt !== null && (
             <div className="card-inset">
               <p className="field-hint">Evaluation of Applicants details:</p>

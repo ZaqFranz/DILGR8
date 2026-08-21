@@ -479,6 +479,17 @@ model Application {
   rejectedAt       DateTime?
   rejectionRemarks String?   @db.Text
 
+  // Set automatically (never by direct admin/panelist action) when this
+  // application's panel interview score is carried over from another of
+  // the same applicant's applications rather than scored here - see
+  // ApplicationsRepository.createWithApplicationLetter() (new applications)
+  // and PanelEvaluationsRepository.linkSiblingScoreSources() (propagated
+  // the moment the source application is actually scored). Always points
+  // directly at a canonical (non-inheriting) application, never chained
+  // through another inheriting one. Null means this application either has
+  // its own PanelEvaluation rows, or hasn't been scored/linked yet.
+  scoreSourceApplicationId String?
+
   applicant        Applicant                   @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   jobPosting       JobPosting                  @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
   siftedBy         User?                       @relation(fields: [siftedByUserId], references: [id])
@@ -487,8 +498,12 @@ model Application {
   complianceItems  ApplicationComplianceItem[]
   groupMemberships ApplicantGroupMember[]
 
+  scoreSourceApplication      Application?  @relation("ApplicationScoreInheritance", fields: [scoreSourceApplicationId], references: [id])
+  scoreInheritingApplications Application[] @relation("ApplicationScoreInheritance")
+
   @@unique([applicantId, jobPostingId])
   @@index([jobPostingId])
+  @@index([scoreSourceApplicationId])
   @@map("applications")
 }
 

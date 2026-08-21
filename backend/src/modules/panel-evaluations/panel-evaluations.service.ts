@@ -193,6 +193,15 @@ export class PanelEvaluationsService {
     if (application.examinationScore === null) {
       throw new ValidationError("Cannot score this applicant until a PQE exam score has been recorded");
     }
+    // Client requirement: an applicant already scored on another of their
+    // applications shouldn't be evaluated again here - findQueueForPanelUser
+    // already excludes these from the queue, this is the defensive backstop
+    // in case a panelist still has a stale link to a since-linked applicationId.
+    if (application.scoreSourceApplicationId !== null) {
+      throw new ValidationError(
+        "This applicant's interview score is carried over from another job posting and does not need a separate evaluation here",
+      );
+    }
 
     const assignment = await this.panelAssignmentsRepository.findByPostingAndPanelUser(
       application.jobPostingId,
@@ -228,6 +237,13 @@ export class PanelEvaluationsService {
       remarks: dto.remarks,
       scores: dto.scores,
     });
+
+    // This application just got its own real score (the guard above already
+    // ruled out it being an inheriting one), so it's now the canonical
+    // source any of the applicant's other open, unscored applications
+    // should carry this score forward to - avoids a redundant interview on
+    // every other posting they've applied to.
+    await this.panelEvaluationsRepository.linkSiblingScoreSources(application.applicantId, applicationId);
 
     const weightedTotal = weightedTotalScore(evaluation, activeCategories, buildCriterionIdsByCategory(activeCategories));
     await this.auditLogsRepository.record({

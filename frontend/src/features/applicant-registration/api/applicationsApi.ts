@@ -27,6 +27,11 @@ export interface Application {
   oathTakingVenue: string | null;
   oathTakingNotes: string | null;
   jobPosting: JobPosting;
+  // Set when this application's interview score was carried over from
+  // another of the applicant's own applications rather than scored here -
+  // an applicant can apply to multiple postings, but the panel only ever
+  // scores them once (see docs/decisions.md).
+  scoreSourceApplication: { jobPosting: { title: string } } | null;
 }
 
 export function submitApplication(jobPostingId: string, applicationLetter: File): Promise<Application> {

@@ -25,7 +25,12 @@ import {
   submittedEmail,
   withdrawnEmail,
 } from "@/shared/email/applicationEmailTemplates";
-import type { ApplicationsRepository, ApplicationWithApplicant, ApplicationWithPosting } from "./applications.repository";
+import {
+  OPEN_APPLICATION_STATUSES,
+  type ApplicationsRepository,
+  type ApplicationWithApplicant,
+  type ApplicationWithPosting,
+} from "./applications.repository";
 import type {
   AddComplianceItemDto,
   RejectApplicationDto,
@@ -38,20 +43,6 @@ import type {
 } from "./applications.dto";
 import ExcelJS from "exceljs";
 import { parseExamScoreWorkbook } from "./examScoreParser";
-
-// An application can be withdrawn any time before its outcome is already
-// final - NOT_QUALIFIED, NOT_SELECTED, DISQUALIFIED, HIRED, and WITHDRAWN
-// itself are all terminal, so they're the only statuses excluded here.
-// FOR_COMPLIANCE/FOR_OATH_TAKING stay withdrawable (an applicant can still
-// decline up until actually hired).
-const WITHDRAWABLE_STATUSES = [
-  "SUBMITTED",
-  "UNDER_SIFTING",
-  "QUALIFIED",
-  "FOR_INTERVIEW",
-  "FOR_COMPLIANCE",
-  "FOR_OATH_TAKING",
-] as const;
 
 const ELIGIBILITY_LABELS: Record<string, string> = {
   RA1080: "RA 1080",
@@ -137,6 +128,13 @@ export class ApplicationsService {
       throw new NotFoundError("Applicant profile");
     }
 
+    // Client requirement: an applicant may apply to multiple postings at
+    // once, but only "as long as Applicant is not hired" - once hired
+    // anywhere, no further applications.
+    if (await this.applicationsRepository.hasHiredApplication(applicant.id)) {
+      throw new ConflictError("You have already been hired through this system and cannot submit further applications");
+    }
+
     const posting = await this.jobPostingsRepository.findById(jobPostingId);
     if (!posting) {
       throw new NotFoundError("Job posting");
@@ -211,7 +209,7 @@ export class ApplicationsService {
     if (!application || application.applicantId !== applicant.id) {
       throw new NotFoundError("Application");
     }
-    if (!WITHDRAWABLE_STATUSES.includes(application.status as (typeof WITHDRAWABLE_STATUSES)[number])) {
+    if (!OPEN_APPLICATION_STATUSES.includes(application.status as (typeof OPEN_APPLICATION_STATUSES)[number])) {
       throw new ValidationError(`Cannot withdraw an application with status ${application.status}`);
     }
 

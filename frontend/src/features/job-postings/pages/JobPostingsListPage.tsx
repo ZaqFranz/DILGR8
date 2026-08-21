@@ -35,6 +35,7 @@ export function JobPostingsListPage() {
   const [postings, setPostings] = useState<JobPosting[]>([]);
   const [profile, setProfile] = useState<ApplicantProfile | null>(null);
   const [appliedJobPostingIds, setAppliedJobPostingIds] = useState<Set<string>>(new Set());
+  const [hasHiredApplication, setHasHiredApplication] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detailsPosting, setDetailsPosting] = useState<JobPosting | null>(null);
@@ -56,6 +57,7 @@ export function JobPostingsListPage() {
         setPostings(fetchedPostings);
         setProfile(fetchedProfile);
         setAppliedJobPostingIds(new Set(fetchedApplications.map((application) => application.jobPosting.id)));
+        setHasHiredApplication(fetchedApplications.some((application) => application.status === "HIRED"));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load job postings"))
       .finally(() => setLoading(false));
@@ -113,13 +115,18 @@ export function JobPostingsListPage() {
   return (
     <div>
       <h1>Job Postings</h1>
+      {hasHiredApplication && (
+        <p className="field-hint">
+          You've already been hired through this system and can no longer submit new applications.
+        </p>
+      )}
       <ErrorBanner message={error} />
       {postings.length === 0 && <p>No job postings available right now.</p>}
       {postings.map((posting) => {
         const acceptingApplications = isAcceptingApplications(posting);
         const eligible = meetsEligibility(posting, profile);
         const alreadyApplied = appliedJobPostingIds.has(posting.id);
-        const canApply = acceptingApplications && eligible && !alreadyApplied;
+        const canApply = acceptingApplications && eligible && !alreadyApplied && !hasHiredApplication;
         return (
           <div className="card" key={posting.id}>
             <h2>
@@ -147,11 +154,13 @@ export function JobPostingsListPage() {
               <button type="button" disabled={!canApply} onClick={() => openApplyModal(posting)}>
                 {alreadyApplied
                   ? "Already Applied"
-                  : !acceptingApplications
-                    ? "Applications closed"
-                    : !eligible
-                      ? "Not eligible"
-                      : "Apply"}
+                  : hasHiredApplication
+                    ? "Already Hired"
+                    : !acceptingApplications
+                      ? "Applications closed"
+                      : !eligible
+                        ? "Not eligible"
+                        : "Apply"}
               </button>
             </div>
           </div>

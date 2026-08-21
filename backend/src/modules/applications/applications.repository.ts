@@ -1,8 +1,28 @@
-import type { Application, ApplicationStatus, EligibilityType, LdIntervention, PrismaClient } from "@prisma/client";
+import type { Application, ApplicationStatus, EligibilityType, LdIntervention, Prisma, PrismaClient } from "@prisma/client";
+
+// An application can be withdrawn any time before its outcome is already
+// final - NOT_QUALIFIED, NOT_SELECTED, DISQUALIFIED, HIRED, and WITHDRAWN
+// itself are all terminal, so they're the only statuses excluded here.
+// FOR_COMPLIANCE/FOR_OATH_TAKING stay "open" (an applicant can still decline
+// up until actually hired). Also used to decide which of an applicant's
+// other applications are still "in flight" for score-inheritance linking and
+// for auto-closing siblings once the applicant is hired elsewhere.
+export const OPEN_APPLICATION_STATUSES = [
+  "SUBMITTED",
+  "UNDER_SIFTING",
+  "QUALIFIED",
+  "FOR_INTERVIEW",
+  "FOR_COMPLIANCE",
+  "FOR_OATH_TAKING",
+] as const;
 
 const applicationWithPostingInclude = {
   jobPosting: true,
   documents: true,
+  // So MyApplicationsPage can tell the applicant "your interview score was
+  // carried over from your application to X" instead of just silently
+  // showing a score with no explanation of where it came from.
+  scoreSourceApplication: { select: { jobPosting: { select: { title: true } } } },
 } as const;
 
 const applicationWithApplicantInclude = {
@@ -19,6 +39,7 @@ const applicationWithApplicantInclude = {
 
 export type ApplicationWithPosting = Application & {
   jobPosting: NonNullable<Awaited<ReturnType<PrismaClient["jobPosting"]["findUnique"]>>>;
+  scoreSourceApplication: { jobPosting: { title: string } } | null;
 };
 
 export type ApplicationWithApplicant = Application & {
@@ -101,10 +122,16 @@ export class ApplicationsRepository {
     file: ApplicationLetterFileInput,
   ): Promise<ApplicationWithPosting> {
     return this.db.$transaction(async (tx) => {
+      // Client requirement: an applicant scored on one posting shouldn't need
+      // a second interview for another posting they apply to afterward - if
+      // they already have a scored (or already-inheriting) application,
+      // this new one inherits that same score immediately, before it can
+      // ever reach a panel's queue.
+      const scoreSourceApplicationId = await this.resolveScoreSourceForApplicant(tx, applicantId);
       const application = await tx.application.create({
         // Applications move straight to UNDER_SIFTING on submission - sifting
         // starts automatically, there's no separate manual "start sifting" step.
-        data: { applicantId, jobPostingId, status: "UNDER_SIFTING" },
+        data: { applicantId, jobPostingId, status: "UNDER_SIFTING", scoreSourceApplicationId },
       });
       await tx.document.create({
         data: {
@@ -124,10 +151,43 @@ export class ApplicationsRepository {
     }) as Promise<ApplicationWithPosting>;
   }
 
+  /**
+   * The application this applicant's *next* application should inherit its
+   * score from, if any already exists - prefers an application that's
+   * actually been scored (has its own PanelEvaluation rows) over one that's
+   * merely inheriting, and if only an inheriting one exists, resolves
+   * through to its own source so scoreSourceApplicationId never chains
+   * (always points directly at the one canonical, actually-scored
+   * application).
+   */
+  private async resolveScoreSourceForApplicant(
+    tx: Prisma.TransactionClient,
+    applicantId: string,
+  ): Promise<string | null> {
+    const canonical = await tx.application.findFirst({
+      where: { applicantId, panelEvaluations: { some: {} } },
+      select: { id: true },
+      orderBy: { submittedAt: "asc" },
+    });
+    if (canonical) return canonical.id;
+
+    const inheriting = await tx.application.findFirst({
+      where: { applicantId, scoreSourceApplicationId: { not: null } },
+      select: { scoreSourceApplicationId: true },
+    });
+    return inheriting?.scoreSourceApplicationId ?? null;
+  }
+
   findByApplicantAndPosting(applicantId: string, jobPostingId: string): Promise<Application | null> {
     return this.db.application.findUnique({
       where: { applicantId_jobPostingId: { applicantId, jobPostingId } },
     });
+  }
+
+  /** Apply-time gate: per client requirement, an applicant can't submit a new application once hired anywhere. */
+  async hasHiredApplication(applicantId: string): Promise<boolean> {
+    const count = await this.db.application.count({ where: { applicantId, status: "HIRED" } });
+    return count > 0;
   }
 
   findByApplicant(applicantId: string): Promise<ApplicationWithPosting[]> {
