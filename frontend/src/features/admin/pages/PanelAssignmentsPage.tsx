@@ -7,6 +7,7 @@ import { Pagination } from "@/shared/components/Pagination";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { usePagination } from "@/shared/utils/usePagination";
+import { groupByApplicant } from "@/shared/utils/groupByApplicant";
 import { formatUserDisplayName } from "@/shared/utils/formatUserDisplayName";
 import { listApplicationsForAdmin } from "../api/adminApplicationsApi";
 import { listUsers } from "../api/adminUsersApi";
@@ -86,19 +87,28 @@ export function PanelAssignmentsPage() {
       (publicationFilter === "" || app.jobPosting.publication === publicationFilter) &&
       matchesSearch(app, search),
   );
-  const pagination = usePagination(filteredApplications, 10);
+  // Grouped by applicant so a multi-posting applicant shows as one row - the
+  // underlying selection/bulk-assign machinery below still operates on
+  // every one of that applicant's own application ids at once (unlike
+  // Groups, an assignment target really is the posting behind each
+  // application, so including all of them is correct here, not a bug).
+  const filteredGroups = groupByApplicant(filteredApplications, (app) => app.applicant.id);
+  const pagination = usePagination(filteredGroups, 10);
 
-  const pageItemIds = pagination.pageItems.map((application) => application.id);
-  const allOnPageSelected = pageItemIds.length > 0 && pageItemIds.every((id) => selectedApplicationIds.has(id));
-  const someOnPageSelected = pageItemIds.some((id) => selectedApplicationIds.has(id));
+  const pageApplicationIds = pagination.pageItems.flatMap((group) => group.rows.map((app) => app.id));
+  const allOnPageSelected = pageApplicationIds.length > 0 && pageApplicationIds.every((id) => selectedApplicationIds.has(id));
+  const someOnPageSelected = pageApplicationIds.some((id) => selectedApplicationIds.has(id));
   const selectedApplications = applications.filter((application) => selectedApplicationIds.has(application.id));
   const selectedJobPostingIds = [...new Set(selectedApplications.map((application) => application.jobPosting.id))];
+  // Distinct people, not applications - a multi-posting applicant's row
+  // adds all of their application ids to selectedApplicationIds at once, so
+  // that count alone would overstate how many people are actually selected.
+  const selectedApplicantCount = new Set(selectedApplications.map((application) => application.applicant.id)).size;
 
-  function toggleApplicationSelected(applicationId: string, checked: boolean) {
+  function toggleApplicantSelected(applicationIds: string[], checked: boolean) {
     setSelectedApplicationIds((prev) => {
       const next = new Set(prev);
-      if (checked) next.add(applicationId);
-      else next.delete(applicationId);
+      applicationIds.forEach((id) => (checked ? next.add(id) : next.delete(id)));
       return next;
     });
   }
@@ -106,7 +116,7 @@ export function PanelAssignmentsPage() {
   function togglePageSelected(checked: boolean) {
     setSelectedApplicationIds((prev) => {
       const next = new Set(prev);
-      pageItemIds.forEach((id) => (checked ? next.add(id) : next.delete(id)));
+      pageApplicationIds.forEach((id) => (checked ? next.add(id) : next.delete(id)));
       return next;
     });
   }
@@ -291,7 +301,7 @@ export function PanelAssignmentsPage() {
           <div>
             {selectedApplicationIds.size > 0 ? (
               <span>
-                {selectedApplicationIds.size} applicant{selectedApplicationIds.size === 1 ? "" : "s"} selected
+                {selectedApplicantCount} applicant{selectedApplicantCount === 1 ? "" : "s"} selected
                 {" across "}
                 {selectedJobPostingIds.length} job posting{selectedJobPostingIds.length === 1 ? "" : "s"}
               </span>
@@ -348,41 +358,54 @@ export function PanelAssignmentsPage() {
                   </td>
                 </tr>
               )}
-              {pagination.pageItems.map((application) => {
-                const assigned = assignmentsByPosting[application.jobPosting.id] ?? [];
+              {pagination.pageItems.map((group) => {
+                const first = group.rows[0]!;
+                const applicationIds = group.rows.map((app) => app.id);
+                const groupSelected = applicationIds.every((id) => selectedApplicationIds.has(id));
                 return (
-                  <tr key={application.id}>
+                  <tr key={group.key}>
                     <td className="select-col">
                       <input
                         type="checkbox"
-                        aria-label={`Select ${application.applicant.firstName} ${application.applicant.lastName}`}
-                        checked={selectedApplicationIds.has(application.id)}
-                        onChange={(e) => toggleApplicationSelected(application.id, e.target.checked)}
+                        aria-label={`Select ${first.applicant.firstName} ${first.applicant.lastName}`}
+                        checked={groupSelected}
+                        onChange={(e) => toggleApplicantSelected(applicationIds, e.target.checked)}
                       />
                     </td>
                     <td>
-                      {application.applicant.firstName} {application.applicant.lastName}
+                      {first.applicant.firstName} {first.applicant.lastName}
                     </td>
-                    <td>{application.applicant.user.email}</td>
-                    <td>{application.jobPosting.title}</td>
-                    <td>{new Date(application.submittedAt).toLocaleDateString()}</td>
+                    <td>{first.applicant.user.email}</td>
+                    <td>{group.rows.map((app) => app.jobPosting.title).join(", ")}</td>
+                    <td>{new Date(first.submittedAt).toLocaleDateString()}</td>
                     <td>
-                      {assigned.length === 0 ? (
-                        <span className="muted">None assigned</span>
-                      ) : (
-                        assigned.map((a) => formatUserDisplayName(a.panelUser)).join(", ")
-                      )}
+                      {group.rows.map((app) => {
+                        const assigned = assignmentsByPosting[app.jobPosting.id] ?? [];
+                        return (
+                          <div key={app.id} className="posting-status-line">
+                            {group.rows.length > 1 && <strong>{app.jobPosting.title}: </strong>}
+                            {assigned.length === 0 ? (
+                              <span className="muted">None assigned</span>
+                            ) : (
+                              assigned.map((a) => formatUserDisplayName(a.panelUser)).join(", ")
+                            )}
+                          </div>
+                        );
+                      })}
                     </td>
                     <td>
-                      <div className="data-table-actions">
-                        <button
-                          type="button"
-                          className="secondary"
-                          disabled={panelUsers.length === 0}
-                          onClick={() => openAssignModal(application)}
-                        >
-                          Assign Panel
-                        </button>
+                      <div className="data-table-actions data-table-actions--uniform">
+                        {group.rows.map((app) => (
+                          <button
+                            key={app.id}
+                            type="button"
+                            className="secondary"
+                            disabled={panelUsers.length === 0}
+                            onClick={() => openAssignModal(app)}
+                          >
+                            {group.rows.length > 1 ? `Assign: ${app.jobPosting.title}` : "Assign Panel"}
+                          </button>
+                        ))}
                       </div>
                     </td>
                   </tr>
@@ -452,7 +475,7 @@ export function PanelAssignmentsPage() {
 
       <Modal
         open={bulkAssignOpen}
-        title={`Assign Panel to ${selectedApplicationIds.size} Applicant${selectedApplicationIds.size === 1 ? "" : "s"}`}
+        title={`Assign Panel to ${selectedApplicantCount} Applicant${selectedApplicantCount === 1 ? "" : "s"}`}
         onClose={closeBulkAssignModal}
         footer={
           <>

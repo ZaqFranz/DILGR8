@@ -10,6 +10,7 @@ import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { getFieldErrors } from "@/shared/utils/apiErrors";
 import { usePagination } from "@/shared/utils/usePagination";
+import { groupByApplicant } from "@/shared/utils/groupByApplicant";
 import { listApplicationsForAdmin } from "../api/adminApplicationsApi";
 import {
   createApplicantGroup,
@@ -44,7 +45,14 @@ export function GroupsPage() {
   const [jobPostingFilter, setJobPostingFilter] = useState("");
   const [publicationFilter, setPublicationFilter] = useState("");
 
-  const [selectedApplicationIds, setSelectedApplicationIds] = useState<Set<string>>(new Set());
+  // Keyed by applicant id, not application id - a person with 2+
+  // applications only ever needs one ApplicantGroupMember row (Group
+  // Dynamics Evaluation groups people, not postings), so unlike
+  // PanelAssignmentsPage's selection (which legitimately needs every one of
+  // an applicant's application ids), this must resolve to exactly one
+  // representative application id per selected person before hitting the
+  // API - see representativeApplicationIdByApplicant below.
+  const [selectedApplicantIds, setSelectedApplicantIds] = useState<Set<string>>(new Set());
 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ApplicantGroup | null>(null);
@@ -62,16 +70,28 @@ export function GroupsPage() {
   const [membershipEditingGroup, setMembershipEditingGroup] = useState<ApplicantGroup | null>(null);
   const [savingMembers, setSavingMembers] = useState(false);
 
-  const applicationsPagination = usePagination(
-    applications.filter(
-      (app) =>
-        (jobPostingFilter === "" || app.jobPosting.id === jobPostingFilter) &&
-        (publicationFilter === "" || app.jobPosting.publication === publicationFilter) &&
-        matchesSearch(app, search),
-    ),
-    10,
+  const filteredApplications = applications.filter(
+    (app) =>
+      (jobPostingFilter === "" || app.jobPosting.id === jobPostingFilter) &&
+      (publicationFilter === "" || app.jobPosting.publication === publicationFilter) &&
+      matchesSearch(app, search),
   );
+  // Grouped by applicant so a multi-posting applicant shows as one row.
+  const filteredGroups = groupByApplicant(filteredApplications, (app) => app.applicant.id);
+  const applicationsPagination = usePagination(filteredGroups, 10);
   const groupsPagination = usePagination(groups, 10);
+
+  // The one application id used to represent each applicant when actually
+  // calling the API (create/update group membership) - built from the full,
+  // unfiltered applications list so it stays correct regardless of the
+  // current search/filter/page. Always the same application picked for that
+  // applicant everywhere on this page (first-seen, matching
+  // groupByApplicant's own order), so re-selecting a person twice can't
+  // accidentally register them under two different application ids.
+  const representativeApplicationIdByApplicant = new Map(
+    groupByApplicant(applications, (app) => app.applicant.id).map((g) => [g.key, g.rows[0]!.id]),
+  );
+  const applicantIdByApplicationId = new Map(applications.map((app) => [app.id, app.applicant.id]));
 
   const loadAll = useCallback(async () => {
     const [loadedApplications, loadedGroups] = await Promise.all([listApplicationsForAdmin(), listApplicantGroups()]);
@@ -90,49 +110,65 @@ export function GroupsPage() {
     (a, b) => a.title.localeCompare(b.title),
   );
 
-  const filteredApplications = applicationsPagination.pageItems;
-  const pageItemIds = filteredApplications.map((application) => application.id);
-  const allOnPageSelected = pageItemIds.length > 0 && pageItemIds.every((id) => selectedApplicationIds.has(id));
-  const someOnPageSelected = pageItemIds.some((id) => selectedApplicationIds.has(id));
-  const selectedApplications = applications.filter((application) => selectedApplicationIds.has(application.id));
+  const pageApplicantIds = applicationsPagination.pageItems.map((group) => group.key);
+  const allOnPageSelected = pageApplicantIds.length > 0 && pageApplicantIds.every((id) => selectedApplicantIds.has(id));
+  const someOnPageSelected = pageApplicantIds.some((id) => selectedApplicantIds.has(id));
+  // First application per selected applicant, purely for display (the
+  // "Creating a group of..." hint text below) - not the same as
+  // representativeApplicationIdByApplicant's role of picking the exact id
+  // sent to the API, though in practice it resolves to the same row.
+  const selectedApplications = [...selectedApplicantIds]
+    .map((applicantId) => applications.find((app) => app.applicant.id === applicantId))
+    .filter((app): app is AdminApplication => app !== undefined);
 
-  // Which groups (by name) each application already belongs to - shown as a
-  // column so an admin can see existing groupings at a glance while
+  // Which groups (by name) each applicant already belongs to - resolved via
+  // applicantIdByApplicationId since an existing membership could point at
+  // any one of that applicant's application ids (whichever was selected at
+  // creation time, possibly before this page grouped by applicant) - shown
+  // as a column so an admin can see existing groupings at a glance while
   // selecting the next batch, the same role "Assigned Panel" plays on the
   // Interview Panel page.
-  const groupNamesByApplicationId = new Map<string, string[]>();
+  const groupNamesByApplicantId = new Map<string, string[]>();
   for (const group of groups) {
     for (const member of group.members) {
-      const existing = groupNamesByApplicationId.get(member.applicationId) ?? [];
+      const applicantId = applicantIdByApplicationId.get(member.applicationId);
+      if (!applicantId) continue;
+      const existing = groupNamesByApplicantId.get(applicantId) ?? [];
       existing.push(group.name);
-      groupNamesByApplicationId.set(member.applicationId, existing);
+      groupNamesByApplicantId.set(applicantId, existing);
     }
   }
 
-  function toggleApplicationSelected(applicationId: string, checked: boolean) {
-    setSelectedApplicationIds((prev) => {
+  function toggleApplicantSelected(applicantId: string, checked: boolean) {
+    setSelectedApplicantIds((prev) => {
       const next = new Set(prev);
-      if (checked) next.add(applicationId);
-      else next.delete(applicationId);
+      if (checked) next.add(applicantId);
+      else next.delete(applicantId);
       return next;
     });
   }
 
   function togglePageSelected(checked: boolean) {
-    setSelectedApplicationIds((prev) => {
+    setSelectedApplicantIds((prev) => {
       const next = new Set(prev);
-      pageItemIds.forEach((id) => (checked ? next.add(id) : next.delete(id)));
+      pageApplicantIds.forEach((id) => (checked ? next.add(id) : next.delete(id)));
       return next;
     });
   }
 
   function clearSelection() {
-    setSelectedApplicationIds(new Set());
+    setSelectedApplicantIds(new Set());
   }
 
   function startEditMembers(group: ApplicantGroup) {
     setMembershipEditingGroup(group);
-    setSelectedApplicationIds(new Set(group.members.map((member) => member.applicationId)));
+    setSelectedApplicantIds(
+      new Set(
+        group.members
+          .map((member) => applicantIdByApplicationId.get(member.applicationId))
+          .filter((id): id is string => id !== undefined),
+      ),
+    );
     setError(null);
   }
 
@@ -141,13 +177,22 @@ export function GroupsPage() {
     clearSelection();
   }
 
+  // The one application id representing each selected applicant - resolves
+  // the applicant-keyed selection state back to what the API actually
+  // expects (see representativeApplicationIdByApplicant above).
+  function resolveSelectedApplicationIds(): string[] {
+    return [...selectedApplicantIds]
+      .map((applicantId) => representativeApplicationIdByApplicant.get(applicantId))
+      .filter((id): id is string => id !== undefined);
+  }
+
   async function handleSaveMembers() {
     if (!membershipEditingGroup) return;
     setError(null);
     setSavingMembers(true);
     try {
       const updated = await updateApplicantGroup(membershipEditingGroup.id, {
-        applicationIds: [...selectedApplicationIds],
+        applicationIds: resolveSelectedApplicationIds(),
       });
       setGroups((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
       toast.success(`Updated "${updated.name}"'s members (${updated.members.length} applicant(s)).`);
@@ -201,7 +246,7 @@ export function GroupsPage() {
         const created = await createApplicantGroup({
           name: form.name,
           description: form.description || undefined,
-          applicationIds: [...selectedApplicationIds],
+          applicationIds: resolveSelectedApplicationIds(),
         });
         setGroups((prev) => [created, ...prev]);
         toast.success(`Created group "${created.name}" with ${created.members.length} applicant(s).`);
@@ -317,11 +362,11 @@ export function GroupsPage() {
           <div>
             {membershipEditingGroup ? (
               <span>
-                Editing members of <strong>{membershipEditingGroup.name}</strong>: {selectedApplicationIds.size}{" "}
-                applicant{selectedApplicationIds.size === 1 ? "" : "s"} selected
+                Editing members of <strong>{membershipEditingGroup.name}</strong>: {selectedApplicantIds.size}{" "}
+                applicant{selectedApplicantIds.size === 1 ? "" : "s"} selected
               </span>
-            ) : selectedApplicationIds.size > 0 ? (
-              <span>{selectedApplicationIds.size} applicant{selectedApplicationIds.size === 1 ? "" : "s"} selected</span>
+            ) : selectedApplicantIds.size > 0 ? (
+              <span>{selectedApplicantIds.size} applicant{selectedApplicantIds.size === 1 ? "" : "s"} selected</span>
             ) : (
               <span className="muted">Select at least two applicants below to form a group.</span>
             )}
@@ -334,7 +379,7 @@ export function GroupsPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={selectedApplicationIds.size < 2 || savingMembers}
+                  disabled={selectedApplicantIds.size < 2 || savingMembers}
                   onClick={handleSaveMembers}
                 >
                   {savingMembers && <Spinner size="sm" onDark />}
@@ -343,12 +388,12 @@ export function GroupsPage() {
               </>
             ) : (
               <>
-                {selectedApplicationIds.size > 0 && (
+                {selectedApplicantIds.size > 0 && (
                   <button type="button" className="secondary" onClick={clearSelection}>
                     Clear selection
                   </button>
                 )}
-                <button type="button" disabled={selectedApplicationIds.size < 2} onClick={openCreateGroupModal}>
+                <button type="button" disabled={selectedApplicantIds.size < 2} onClick={openCreateGroupModal}>
                   Group
                 </button>
               </>
@@ -388,24 +433,25 @@ export function GroupsPage() {
                   </td>
                 </tr>
               )}
-              {filteredApplications.map((application) => {
-                const memberOfGroups = groupNamesByApplicationId.get(application.id) ?? [];
+              {applicationsPagination.pageItems.map((group) => {
+                const first = group.rows[0]!;
+                const memberOfGroups = groupNamesByApplicantId.get(group.key) ?? [];
                 return (
-                  <tr key={application.id}>
+                  <tr key={group.key}>
                     <td className="select-col">
                       <input
                         type="checkbox"
-                        aria-label={`Select ${application.applicant.firstName} ${application.applicant.lastName}`}
-                        checked={selectedApplicationIds.has(application.id)}
-                        onChange={(e) => toggleApplicationSelected(application.id, e.target.checked)}
+                        aria-label={`Select ${first.applicant.firstName} ${first.applicant.lastName}`}
+                        checked={selectedApplicantIds.has(group.key)}
+                        onChange={(e) => toggleApplicantSelected(group.key, e.target.checked)}
                       />
                     </td>
                     <td>
-                      {application.applicant.firstName} {application.applicant.lastName}
+                      {first.applicant.firstName} {first.applicant.lastName}
                     </td>
-                    <td>{application.applicant.user.email}</td>
-                    <td>{application.jobPosting.title}</td>
-                    <td>{new Date(application.submittedAt).toLocaleDateString()}</td>
+                    <td>{first.applicant.user.email}</td>
+                    <td>{group.rows.map((app) => app.jobPosting.title).join(", ")}</td>
+                    <td>{new Date(first.submittedAt).toLocaleDateString()}</td>
                     <td>
                       {memberOfGroups.length === 0 ? (
                         <span className="muted">None</span>
