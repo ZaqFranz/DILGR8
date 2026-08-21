@@ -38,7 +38,12 @@ export function PanelAssignmentsPage() {
   const [jobPostingFilter, setJobPostingFilter] = useState("");
   const [publicationFilter, setPublicationFilter] = useState("");
 
-  const [assigningApplication, setAssigningApplication] = useState<AdminApplication | null>(null);
+  // Every one of this applicant's own applications, not just one posting -
+  // client requirement: an applicant's postings must never end up with
+  // different assigned panels, so there is deliberately no way to open this
+  // modal scoped to just one of their postings (see handleSaveAssignment,
+  // which applies the exact same panelist list to all of them at once).
+  const [assigningGroup, setAssigningGroup] = useState<AdminApplication[] | null>(null);
   const [selectedPanelUserIds, setSelectedPanelUserIds] = useState<string[]>([]);
   const [modalError, setModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -125,17 +130,25 @@ export function PanelAssignmentsPage() {
     setSelectedApplicationIds(new Set());
   }
 
-  function openAssignModal(application: AdminApplication) {
-    setAssigningApplication(application);
-    setSelectedPanelUserIds(
-      (assignmentsByPosting[application.jobPosting.id] ?? []).map((assignment) => assignment.panelUserId),
-    );
+  function openAssignModal(group: AdminApplication[]) {
+    setAssigningGroup(group);
+    // Pre-filled with the union of whoever's currently assigned across any
+    // of this applicant's postings, so an admin picking up an
+    // already-divergent assignment (from before this fix) sees everyone
+    // who was there rather than silently losing someone on save.
+    const union = new Set<string>();
+    for (const application of group) {
+      for (const assignment of assignmentsByPosting[application.jobPosting.id] ?? []) {
+        union.add(assignment.panelUserId);
+      }
+    }
+    setSelectedPanelUserIds([...union]);
     setModalError(null);
   }
 
   function closeAssignModal() {
     if (saving) return;
-    setAssigningApplication(null);
+    setAssigningGroup(null);
     setSelectedPanelUserIds([]);
     setModalError(null);
   }
@@ -147,24 +160,40 @@ export function PanelAssignmentsPage() {
   }
 
   async function handleSaveAssignment() {
-    if (!assigningApplication) return;
-    const jobPostingId = assigningApplication.jobPosting.id;
-    const current = assignmentsByPosting[jobPostingId] ?? [];
-    const toAdd = selectedPanelUserIds.filter((id) => !current.some((a) => a.panelUserId === id));
-    const toRemove = current.filter((a) => !selectedPanelUserIds.includes(a.panelUserId));
+    if (!assigningGroup) return;
+    const applicantName = `${assigningGroup[0]!.applicant.firstName} ${assigningGroup[0]!.applicant.lastName}`;
 
     setModalError(null);
     setSaving(true);
     try {
-      const [added] = await Promise.all([
-        Promise.all(toAdd.map((panelUserId) => createPanelAssignment(jobPostingId, panelUserId))),
-        Promise.all(toRemove.map((assignment) => deletePanelAssignment(assignment.id))),
-      ]);
-      const removedIds = new Set(toRemove.map((a) => a.id));
-      const next = [...current.filter((a) => !removedIds.has(a.id)), ...added];
-      setAssignmentsByPosting((prev) => ({ ...prev, [jobPostingId]: next }));
-      toast.success(`Interview panel updated for "${assigningApplication.jobPosting.title}".`);
-      setAssigningApplication(null);
+      // The exact same selectedPanelUserIds list is applied to every one of
+      // this applicant's postings - the whole point being fixed here is
+      // that their postings can never end up with different panels.
+      const results = await Promise.all(
+        assigningGroup.map(async (application) => {
+          const jobPostingId = application.jobPosting.id;
+          const current = assignmentsByPosting[jobPostingId] ?? [];
+          const toAdd = selectedPanelUserIds.filter((id) => !current.some((a) => a.panelUserId === id));
+          const toRemove = current.filter((a) => !selectedPanelUserIds.includes(a.panelUserId));
+          const [added] = await Promise.all([
+            Promise.all(toAdd.map((panelUserId) => createPanelAssignment(jobPostingId, panelUserId))),
+            Promise.all(toRemove.map((assignment) => deletePanelAssignment(assignment.id))),
+          ]);
+          const removedIds = new Set(toRemove.map((a) => a.id));
+          return { jobPostingId, next: [...current.filter((a) => !removedIds.has(a.id)), ...added] };
+        }),
+      );
+      setAssignmentsByPosting((prev) => {
+        const next = { ...prev };
+        for (const result of results) next[result.jobPostingId] = result.next;
+        return next;
+      });
+      toast.success(
+        assigningGroup.length > 1
+          ? `Interview panel updated for ${applicantName}'s ${assigningGroup.length} postings.`
+          : `Interview panel updated for "${assigningGroup[0]!.jobPosting.title}".`,
+      );
+      setAssigningGroup(null);
       setSelectedPanelUserIds([]);
     } catch (err) {
       setModalError(err instanceof ApiError ? err.message : "Failed to update interview panel");
@@ -395,17 +424,14 @@ export function PanelAssignmentsPage() {
                     </td>
                     <td>
                       <div className="data-table-actions data-table-actions--uniform">
-                        {group.rows.map((app) => (
-                          <button
-                            key={app.id}
-                            type="button"
-                            className="secondary"
-                            disabled={panelUsers.length === 0}
-                            onClick={() => openAssignModal(app)}
-                          >
-                            {group.rows.length > 1 ? `Assign: ${app.jobPosting.title}` : "Assign Panel"}
-                          </button>
-                        ))}
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={panelUsers.length === 0}
+                          onClick={() => openAssignModal(group.rows)}
+                        >
+                          Assign Panel
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -424,10 +450,10 @@ export function PanelAssignmentsPage() {
       )}
 
       <Modal
-        open={assigningApplication !== null}
+        open={assigningGroup !== null}
         title={
-          assigningApplication
-            ? `Assign Panel: ${assigningApplication.applicant.firstName} ${assigningApplication.applicant.lastName}`
+          assigningGroup
+            ? `Assign Panel: ${assigningGroup[0]!.applicant.firstName} ${assigningGroup[0]!.applicant.lastName}`
             : "Assign Panel"
         }
         onClose={closeAssignModal}
@@ -443,11 +469,22 @@ export function PanelAssignmentsPage() {
           </>
         }
       >
-        {assigningApplication && (
+        {assigningGroup && (
           <>
             <p className="field-hint">
-              For job posting <strong>{assigningApplication.jobPosting.title}</strong>. Every panelist checked below
-              will be able to see and score every applicant under this posting, not just this one.
+              {assigningGroup.length > 1 ? (
+                <>
+                  For <strong>all {assigningGroup.length} postings</strong> this applicant applied to (
+                  {assigningGroup.map((app) => app.jobPosting.title).join(", ")}) - an applicant's postings always
+                  share the same interview panel, so this can't be set differently per posting. Every panelist checked
+                  below will be able to see and score every applicant under each of these postings, not just this one.
+                </>
+              ) : (
+                <>
+                  For job posting <strong>{assigningGroup[0]!.jobPosting.title}</strong>. Every panelist checked below
+                  will be able to see and score every applicant under this posting, not just this one.
+                </>
+              )}
             </p>
             <ErrorBanner message={modalError} />
             <div className="field">
