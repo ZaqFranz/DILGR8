@@ -49,6 +49,10 @@ export interface ApplicantScoreRow {
   applicationId: string;
   applicantName: string;
   jobPostingTitle: string;
+  // The job posting's recruitment publication round/batch (e.g. "ROS-1") -
+  // lets Report Summary's Publication filter narrow the table the same way
+  // EvaluateApplicantsPage's own Publication filter narrows its list.
+  jobPostingPublication: string;
   // The application's current pipeline status (not necessarily still
   // FOR_INTERVIEW - it may have moved on to Compliance, Oath-Taking, HIRED,
   // or a rejected/withdrawn status since it was scored). Report Summary is
@@ -339,6 +343,7 @@ export class PanelEvaluationsService {
         applicationId: application.id,
         applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
         jobPostingTitle: application.jobPosting.title,
+        jobPostingPublication: application.jobPosting.publication,
         status: application.status,
         perCategory,
         perCriterion,

@@ -1071,13 +1071,6 @@ tbody tr:last-child td {
 
 .report-summary-table thead .sticky-col {
   z-index: 3;
-  background: var(--color-primary);
-  color: #ffffff;
-}
-
-.report-summary-table tbody .sticky-col {
-  color: var(--color-primary);
-  font-weight: 600;
 }
 
 .report-summary-table tbody tr:nth-child(even) {

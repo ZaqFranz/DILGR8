@@ -73,6 +73,7 @@ export function ReportSummaryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "">("");
+  const [publicationFilter, setPublicationFilter] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +93,12 @@ export function ReportSummaryPage() {
   }, []);
 
   const rows = overview?.rows ?? [];
-  const filteredRows = statusFilter === "" ? rows : rows.filter((row) => row.status === statusFilter);
+  const publicationOptions = [...new Set(rows.map((row) => row.jobPostingPublication))].sort();
+  const filteredRows = rows.filter(
+    (row) =>
+      (statusFilter === "" || row.status === statusFilter) &&
+      (publicationFilter === "" || row.jobPostingPublication === publicationFilter),
+  );
   const pagination = usePagination(filteredRows, 10);
   const criteriaByCategory = groupCriteriaByCategory(overview?.criteria ?? []);
 
@@ -131,8 +137,26 @@ export function ReportSummaryPage() {
                 ))}
               </select>
             </div>
+            <div className="field">
+              <label htmlFor="publication-filter">Publication</label>
+              <select
+                id="publication-filter"
+                value={publicationFilter}
+                onChange={(e) => {
+                  setPublicationFilter(e.target.value);
+                  pagination.setPage(1);
+                }}
+              >
+                <option value="">All publications</option>
+                {publicationOptions.map((publication) => (
+                  <option key={publication} value={publication}>
+                    {publication}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          {filteredRows.length === 0 && <p>No applicants match the selected status.</p>}
+          {filteredRows.length === 0 && <p>No applicants match the selected filters.</p>}
           {filteredRows.length > 0 && (
             <div className="table-wrap">
               <table className="report-summary-table">

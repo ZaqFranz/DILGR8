@@ -12,7 +12,7 @@ export type ApplicationForTabulation = Application & {
 };
 
 export type ApplicationForScoresOverview = Application & {
-  jobPosting: { title: string };
+  jobPosting: { title: string; publication: string };
   applicant: { firstName: string; lastName: string };
   panelEvaluations: (PanelEvaluation & { scores: PanelScore[] })[];
 };
@@ -74,7 +74,7 @@ export class PanelEvaluationsRepository {
     return this.db.application.findMany({
       where: { panelEvaluations: { some: {} } },
       include: {
-        jobPosting: { select: { title: true } },
+        jobPosting: { select: { title: true, publication: true } },
         applicant: { select: { firstName: true, lastName: true } },
         panelEvaluations: { include: { scores: true } },
       },

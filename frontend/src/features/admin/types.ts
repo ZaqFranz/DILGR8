@@ -369,6 +369,8 @@ export interface ApplicantScoreRow {
   applicationId: string;
   applicantName: string;
   jobPostingTitle: string;
+  // The job posting's recruitment publication round/batch (e.g. "ROS-1").
+  jobPostingPublication: string;
   // The application's current pipeline status - not necessarily still
   // FOR_INTERVIEW, since Report Summary is a historical record and keeps
   // showing an application's interview scores after it moves on to
