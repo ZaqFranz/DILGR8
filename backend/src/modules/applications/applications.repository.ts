@@ -220,6 +220,34 @@ export class ApplicationsRepository {
     return this.db.application.findMany({ where: { id: { in: ids } } });
   }
 
+  /**
+   * This applicant's other still-open applications, excluding one (the
+   * application just hired). Used by markHired() to auto-close them - per
+   * client requirement, once hired on one posting, an applicant's other
+   * in-flight applications shouldn't linger.
+   */
+  async findOpenSiblings(applicantId: string, excludeApplicationId: string): Promise<ApplicationWithApplicant[]> {
+    const rows = await this.db.application.findMany({
+      where: { applicantId, id: { not: excludeApplicationId }, status: { in: [...OPEN_APPLICATION_STATUSES] } },
+      include: applicationWithApplicantInclude,
+    });
+    return (rows as RawApplicationWithApplicant[]).map(toApplicationWithApplicant);
+  }
+
+  /** Closes every given application as Not Selected with the same system-generated remarks, in one transaction. */
+  async bulkRejectNotSelected(applicationIds: string[], remarks: string): Promise<void> {
+    if (applicationIds.length === 0) return;
+    const now = new Date();
+    await this.db.$transaction(
+      applicationIds.map((id) =>
+        this.db.application.update({
+          where: { id },
+          data: { status: "NOT_SELECTED", rejectedAt: now, rejectionRemarks: remarks },
+        }),
+      ),
+    );
+  }
+
   async sift(id: string, input: SiftApplicationInput): Promise<ApplicationWithApplicant> {
     const row = await this.db.application.update({
       where: { id },

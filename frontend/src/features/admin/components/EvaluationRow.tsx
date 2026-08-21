@@ -24,6 +24,7 @@ import {
 } from "../api/adminApplicationsApi";
 import { ApplicantDocumentsModal } from "./ApplicantDocumentsModal";
 import { ComplianceReviewModal } from "./ComplianceReviewModal";
+import type { HireRecommendation } from "../utils/hireRecommendation";
 import type { AdminApplication, ApplicationComplianceItem, EvaluationDecision, TabulationRow } from "../types";
 
 interface Props {
@@ -32,6 +33,15 @@ interface Props {
   onScheduled: (updated: AdminApplication) => void;
   tabulation: TabulationRow | null;
   panelists: { id: string; email: string }[];
+  // Set only when this applicant has reached Oath-Taking on 2+ of their
+  // applications (client requirement: hire at the higher Salary Grade
+  // posting) - undefined the rest of the time. Recommendation only; the
+  // admin still has to click Mark Hired themselves.
+  hireRecommendation?: HireRecommendation;
+  // Called after a successful Mark Hired so the page can refetch - hiring
+  // here also auto-closes the applicant's other open applications
+  // (possibly on different postings/pages), which this row alone can't see.
+  onHired: () => void | Promise<void>;
 }
 
 function canScheduleInterview(application: AdminApplication): boolean {
@@ -50,7 +60,7 @@ function matchBadge(status: MatchStatus): { className: string; label: string } {
 const emptyScheduleForm = { scheduledAt: "", scheduledEndAt: "", venue: "", attire: "", notes: "" };
 const emptyOathForm = { scheduledAt: "", venue: "", notes: "" };
 
-export function EvaluationRow({ application, onSifted, onScheduled, tabulation, panelists }: Props) {
+export function EvaluationRow({ application, onSifted, onScheduled, tabulation, panelists, hireRecommendation, onHired }: Props) {
   const toast = useToast();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [decision, setDecision] = useState<EvaluationDecision>("QUALIFIED");
@@ -288,10 +298,17 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
       onSifted(updated);
       toast.success(`${application.applicant.firstName} ${application.applicant.lastName} was marked hired.`);
       setShowMarkHiredConfirm(false);
+      // Hiring here auto-closes the applicant's other open applications
+      // server-side - refetch everything so those rows (possibly on
+      // different postings/pages) pick up their new Not Selected status.
+      await onHired();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to mark hired");
     }
   }
+
+  const isRecommendedHire = hireRecommendation?.recommendedApplicationId === application.id;
+  const hasHigherSalaryGradeElsewhere = hireRecommendation?.otherApplicationIds.includes(application.id) ?? false;
 
   const qualificationMatch = computeQualificationMatch(application);
   const totalTrainingHours = application.applicant.ldInterventions.reduce((sum, entry) => sum + entry.numberOfHours, 0);
@@ -534,6 +551,22 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
             </ul>
           </div>
         )}
+        {isOathTaking && isRecommendedHire && (
+          <div className="card-inset">
+            <p className="field-hint">
+              Recommended hire: this is the applicant's highest Salary Grade posting (SG {application.jobPosting.salaryGrade})
+              among the postings they've reached Oath-Taking on.
+            </p>
+          </div>
+        )}
+        {isOathTaking && hasHigherSalaryGradeElsewhere && (
+          <div className="card-inset">
+            <p className="field-warning">
+              This applicant also reached Oath-Taking on a higher Salary Grade posting. Consider hiring them there
+              instead.
+            </p>
+          </div>
+        )}
         {application.hiredAt !== null && (
           <div className="card-inset">
             <p className="field-hint">Hired {new Date(application.hiredAt).toLocaleString()}.</p>
@@ -744,6 +777,12 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
           <>
             Confirms <strong>{application.applicant.firstName} {application.applicant.lastName}</strong> has
             completed the oath-taking ceremony for <strong>{application.jobPosting.title}</strong>.
+            {hasHigherSalaryGradeElsewhere && (
+              <p className="field-warning">
+                Note: this applicant also reached Oath-Taking on a higher Salary Grade posting. Hiring here will
+                still auto-close their other open applications.
+              </p>
+            )}
           </>
         }
         confirmLabel="Mark Hired"

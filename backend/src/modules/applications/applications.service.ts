@@ -837,6 +837,36 @@ export class ApplicationsService {
     );
     await this.emailService.send({ to: application.applicant.user.email, subject, html });
 
+    // Client requirement: once hired on one posting, every other still-open
+    // application for the same applicant auto-closes - a hired applicant
+    // shouldn't remain "in flight" on postings they can no longer take.
+    const siblings = await this.applicationsRepository.findOpenSiblings(application.applicantId, applicationId);
+    if (siblings.length > 0) {
+      const remarks = `Automatically marked Not Selected: ${application.applicant.firstName} ${application.applicant.lastName} was hired for "${application.jobPosting.title}" (Salary Grade ${application.jobPosting.salaryGrade}).`;
+      await this.applicationsRepository.bulkRejectNotSelected(
+        siblings.map((sibling) => sibling.id),
+        remarks,
+      );
+
+      for (const sibling of siblings) {
+        await this.auditLogsRepository.record({
+          actorUserId,
+          action: AuditAction.APPLICATION_NOT_SELECTED,
+          entityType: AuditEntityType.APPLICATION,
+          entityId: sibling.id,
+          details: `Auto-closed ${sibling.applicant.firstName} ${sibling.applicant.lastName}'s application for "${sibling.jobPosting.title}": hired elsewhere ("${application.jobPosting.title}")`,
+        });
+
+        const { subject: siblingSubject, html: siblingHtml } = regretEmail(
+          `${sibling.applicant.firstName} ${sibling.applicant.lastName}`,
+          sibling.jobPosting.title,
+          `We regret to inform you that your application for <strong>${escapeHtml(sibling.jobPosting.title)}</strong> was automatically closed because you were hired for <strong>${escapeHtml(application.jobPosting.title)}</strong> instead.`,
+          remarks,
+        );
+        await this.emailService.send({ to: sibling.applicant.user.email, subject: siblingSubject, html: siblingHtml });
+      }
+    }
+
     return updated;
   }
 }

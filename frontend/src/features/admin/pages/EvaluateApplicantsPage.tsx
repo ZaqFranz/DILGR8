@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
@@ -13,6 +13,7 @@ import { exportPendingPqeScores, importExamScores, listApplicationsForAdmin } fr
 import { getTabulation } from "../api/panelEvaluationsApi";
 import { EvaluationRow } from "../components/EvaluationRow";
 import { AdminShell } from "../components/AdminShell";
+import { computeHireRecommendations } from "../utils/hireRecommendation";
 import type { AdminApplication, ApplicationStatus, ExamScoreImportResult, TabulationResult } from "../types";
 
 const STATUS_FILTER_OPTIONS = Object.entries(APPLICATION_STATUS_LABELS) as [ApplicationStatus, string][];
@@ -123,6 +124,7 @@ export function EvaluateApplicantsPage() {
       matchesSearch(app, search),
   );
   const pagination = usePagination(filteredApplications, 10);
+  const hireRecommendations = useMemo(() => computeHireRecommendations(applications), [applications]);
 
   if (loading) {
     return (
@@ -299,6 +301,8 @@ export function EvaluateApplicantsPage() {
                       ) ?? null
                     }
                     panelists={tabulationByPosting[application.jobPosting.id]?.panelists ?? []}
+                    hireRecommendation={hireRecommendations.get(application.applicant.id)}
+                    onHired={loadAll}
                   />
                 ))}
               </tbody>
