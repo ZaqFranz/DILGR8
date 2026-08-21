@@ -52,96 +52,116 @@ export function MyApplicationsPage() {
 
   if (loading) return <LoadingBlock label="Loading your applications..." />;
 
+  // Any application in the set having either field set means the shared
+  // score note applies to the whole consolidated card, not to one specific
+  // posting sub-section - which sibling is "canonical" vs "inheriting" is
+  // an implementation detail the applicant doesn't need to track.
+  const hasSharedScore = applications.some(
+    (application) => application.scoreSourceApplication !== null || application.scoreInheritingApplications.length > 0,
+  );
+
+  function renderPosting(application: Application, heading: "h2" | "h3") {
+    const Heading = heading;
+    return (
+      <>
+        <Heading>
+          {application.jobPosting.title}{" "}
+          <span className={statusBadgeClass(application.status)}>{APPLICATION_STATUS_LABELS[application.status]}</span>
+        </Heading>
+        <p>
+          <strong>Submitted:</strong> {new Date(application.submittedAt).toLocaleString()}
+        </p>
+        <ApplicationStageTracker status={application.status} />
+        {application.examinationScore !== null && <p className="field-hint">PQE score: {application.examinationScore}</p>}
+        {application.interviewScheduledAt !== null && (
+          <div className="card-inset">
+            <p className="field-hint">Evaluation of Applicants details:</p>
+            <ul>
+              {application.interviewScheduledEndAt !== null ? (
+                <>
+                  <li>
+                    <strong>Day 1:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
+                  </li>
+                  <li>
+                    <strong>Day 2:</strong> {new Date(application.interviewScheduledEndAt).toLocaleString()}
+                  </li>
+                </>
+              ) : (
+                <li>
+                  <strong>When:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
+                </li>
+              )}
+              <li>
+                <strong>Where:</strong> {application.interviewVenue}
+              </li>
+              {application.interviewAttire && (
+                <li>
+                  <strong>What to wear:</strong> {application.interviewAttire}
+                </li>
+              )}
+              {application.interviewNotes && (
+                <li>
+                  <strong>Additional instructions:</strong> {application.interviewNotes}
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+        {COMPLIANCE_VISIBLE_STATUSES.includes(application.status) && (
+          <ComplianceChecklistSection applicationId={application.id} canUpload={application.status === "FOR_COMPLIANCE"} />
+        )}
+        {application.oathTakingScheduledAt !== null && (
+          <div className="card-inset">
+            <p className="field-hint">Oath-taking details:</p>
+            <ul>
+              <li>
+                <strong>When:</strong> {new Date(application.oathTakingScheduledAt).toLocaleString()}
+              </li>
+              <li>
+                <strong>Where:</strong> {application.oathTakingVenue}
+              </li>
+              {application.oathTakingNotes && (
+                <li>
+                  <strong>Additional instructions:</strong> {application.oathTakingNotes}
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+        {WITHDRAWABLE_STATUSES.includes(application.status) && (
+          <div className="actions-row">
+            <button type="button" className="danger" onClick={() => setPendingWithdraw(application)}>
+              Withdraw
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div>
       <h1>My Applications</h1>
       <ErrorBanner message={error} />
       {applications.length === 0 && <p>You have not submitted any applications yet.</p>}
-      {applications.map((application) => (
-        <div className="card" key={application.id}>
-          <h2>
-            {application.jobPosting.title}{" "}
-            <span className={statusBadgeClass(application.status)}>{APPLICATION_STATUS_LABELS[application.status]}</span>
-          </h2>
-          <p>
-            <strong>Submitted:</strong> {new Date(application.submittedAt).toLocaleString()}
-          </p>
-          <ApplicationStageTracker status={application.status} />
-          {application.examinationScore !== null && (
-            <p className="field-hint">PQE score: {application.examinationScore}</p>
+
+      {applications.length === 1 && (
+        <div className="card">{renderPosting(applications[0]!, "h2")}</div>
+      )}
+
+      {applications.length > 1 && (
+        <div className="card">
+          <h2>You&apos;ve applied to {applications.length} job postings</h2>
+          {hasSharedScore && (
+            <p className="field-hint">Your interview score is shared across all the applications below.</p>
           )}
-          {application.scoreSourceApplication !== null && (
-            <p className="field-hint">
-              Interview score carried over from your application to &quot;{application.scoreSourceApplication.jobPosting.title}&quot;.
-            </p>
-          )}
-          {application.interviewScheduledAt !== null && (
-            <div className="card-inset">
-              <p className="field-hint">Evaluation of Applicants details:</p>
-              <ul>
-                {application.interviewScheduledEndAt !== null ? (
-                  <>
-                    <li>
-                      <strong>Day 1:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
-                    </li>
-                    <li>
-                      <strong>Day 2:</strong> {new Date(application.interviewScheduledEndAt).toLocaleString()}
-                    </li>
-                  </>
-                ) : (
-                  <li>
-                    <strong>When:</strong> {new Date(application.interviewScheduledAt).toLocaleString()}
-                  </li>
-                )}
-                <li>
-                  <strong>Where:</strong> {application.interviewVenue}
-                </li>
-                {application.interviewAttire && (
-                  <li>
-                    <strong>What to wear:</strong> {application.interviewAttire}
-                  </li>
-                )}
-                {application.interviewNotes && (
-                  <li>
-                    <strong>Additional instructions:</strong> {application.interviewNotes}
-                  </li>
-                )}
-              </ul>
+          {applications.map((application) => (
+            <div className="posting-subsection" key={application.id}>
+              {renderPosting(application, "h3")}
             </div>
-          )}
-          {COMPLIANCE_VISIBLE_STATUSES.includes(application.status) && (
-            <ComplianceChecklistSection
-              applicationId={application.id}
-              canUpload={application.status === "FOR_COMPLIANCE"}
-            />
-          )}
-          {application.oathTakingScheduledAt !== null && (
-            <div className="card-inset">
-              <p className="field-hint">Oath-taking details:</p>
-              <ul>
-                <li>
-                  <strong>When:</strong> {new Date(application.oathTakingScheduledAt).toLocaleString()}
-                </li>
-                <li>
-                  <strong>Where:</strong> {application.oathTakingVenue}
-                </li>
-                {application.oathTakingNotes && (
-                  <li>
-                    <strong>Additional instructions:</strong> {application.oathTakingNotes}
-                  </li>
-                )}
-              </ul>
-            </div>
-          )}
-          {WITHDRAWABLE_STATUSES.includes(application.status) && (
-            <div className="actions-row">
-              <button type="button" className="danger" onClick={() => setPendingWithdraw(application)}>
-                Withdraw
-              </button>
-            </div>
-          )}
+          ))}
         </div>
-      ))}
+      )}
 
       <ConfirmDialog
         open={pendingWithdraw !== null}

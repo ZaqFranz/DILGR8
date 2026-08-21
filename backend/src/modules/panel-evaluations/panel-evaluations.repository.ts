@@ -5,6 +5,14 @@ export type ApplicationForInterviewQueue = Application & {
   jobPosting: { id: string; title: string };
   applicant: { id: string; firstName: string; lastName: string };
   panelEvaluations: (PanelEvaluation & { scores: PanelScore[] })[];
+  // Every other application (any status) this same applicant has on file,
+  // added 2026-08-21 so a panelist isn't confused if they ever do see two
+  // queue entries for the same person (the narrow pre-scoring window where
+  // both siblings are still genuinely unlinked - see
+  // repairAndExcludeAlreadyScoredElsewhere below, which only closes the gap
+  // once one of them is actually scored). Informational only - this list
+  // doesn't change queue membership or scoring behavior.
+  otherApplications: { jobPostingTitle: string }[];
 };
 
 export type ApplicationForTabulation = Application & {
@@ -108,8 +116,38 @@ export class PanelEvaluationsRepository {
         panelEvaluations: { where: { panelUserId }, include: { scores: true } },
       },
       orderBy: { submittedAt: "asc" },
-    })) as ApplicationForInterviewQueue[];
-    return this.repairAndExcludeAlreadyScoredElsewhere(candidates);
+    })) as Omit<ApplicationForInterviewQueue, "otherApplications">[];
+    const repaired = await this.repairAndExcludeAlreadyScoredElsewhere(candidates);
+    return this.attachOtherApplications(repaired);
+  }
+
+  /**
+   * Batched (one query, not one per candidate) lookup of every other
+   * application - any status, any posting - each candidate's applicant has
+   * on file, purely for the "Also applied to: ..." hint on My Interviews.
+   */
+  private async attachOtherApplications<T extends { id: string; applicantId: string }>(
+    candidates: T[],
+  ): Promise<(T & { otherApplications: { jobPostingTitle: string }[] })[]> {
+    if (candidates.length === 0) return [];
+
+    const applicantIds = [...new Set(candidates.map((c) => c.applicantId))];
+    const allApplications = await this.db.application.findMany({
+      where: { applicantId: { in: applicantIds } },
+      select: { id: true, applicantId: true, jobPosting: { select: { title: true } } },
+      orderBy: { submittedAt: "asc" },
+    });
+    const byApplicant = new Map<string, typeof allApplications>();
+    for (const row of allApplications) {
+      byApplicant.set(row.applicantId, [...(byApplicant.get(row.applicantId) ?? []), row]);
+    }
+
+    return candidates.map((candidate) => ({
+      ...candidate,
+      otherApplications: (byApplicant.get(candidate.applicantId) ?? [])
+        .filter((row) => row.id !== candidate.id)
+        .map((row) => ({ jobPostingTitle: row.jobPosting.title })),
+    }));
   }
 
   /**

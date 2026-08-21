@@ -91,7 +91,14 @@ export function InterviewRow({ application, categories, onSubmitted }: Props) {
         <td>
           {application.applicant.firstName} {application.applicant.lastName}
         </td>
-        <td>{application.jobPosting.title}</td>
+        <td>
+          {application.jobPosting.title}
+          {application.otherApplications.length > 0 && (
+            <p className="field-hint">
+              Also applied to: {application.otherApplications.map((other) => other.jobPostingTitle).join(", ")}
+            </p>
+          )}
+        </td>
         <td>{new Date(application.submittedAt).toLocaleDateString()}</td>
         <td>{application.examinationScore ?? "-"}</td>
         <td>

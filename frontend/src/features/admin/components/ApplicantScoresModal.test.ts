@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { rankRows } from "./ApplicantScoresModal";
 import type { ApplicantScoreRow } from "../types";
 
-function row(applicationId: string, total: number | null): ApplicantScoreRow {
+function row(applicationId: string, total: number | null, applicantId = applicationId): ApplicantScoreRow {
   return {
     applicationId,
-    applicantName: applicationId,
+    applicantId,
+    applicantName: applicantId,
     jobPostingTitle: "Test",
     jobPostingPublication: "ROS-1",
     status: "HIRED",
@@ -43,8 +44,8 @@ describe("rankRows", () => {
 
   it("ranks by a specific category column instead of overall when requested", () => {
     const rows: ApplicantScoreRow[] = [
-      { applicationId: "a", applicantName: "a", jobPostingTitle: "Test", jobPostingPublication: "ROS-1", status: "HIRED", perCategory: { cat1: 5 }, perCriterion: {}, total: 100, panelistsSubmitted: 1, panelistsAssigned: 1 },
-      { applicationId: "b", applicantName: "b", jobPostingTitle: "Test", jobPostingPublication: "ROS-1", status: "HIRED", perCategory: { cat1: 9 }, perCriterion: {}, total: 10, panelistsSubmitted: 1, panelistsAssigned: 1 },
+      { applicationId: "a", applicantId: "a", applicantName: "a", jobPostingTitle: "Test", jobPostingPublication: "ROS-1", status: "HIRED", perCategory: { cat1: 5 }, perCriterion: {}, total: 100, panelistsSubmitted: 1, panelistsAssigned: 1 },
+      { applicationId: "b", applicantId: "b", applicantName: "b", jobPostingTitle: "Test", jobPostingPublication: "ROS-1", status: "HIRED", perCategory: { cat1: 9 }, perCriterion: {}, total: 10, panelistsSubmitted: 1, panelistsAssigned: 1 },
     ];
     const ranked = rankRows(rows, "cat1");
     expect(ranked.find((r) => r.applicationId === "b")!.rank).toBe(1);

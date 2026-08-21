@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/shared/api/apiClient";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LoadingBlock } from "@/shared/components/LoadingBlock";
@@ -6,14 +6,15 @@ import { Pagination } from "@/shared/components/Pagination";
 import { Spinner } from "@/shared/components/Spinner";
 import { useToast } from "@/shared/components/ToastProvider";
 import { usePagination } from "@/shared/utils/usePagination";
+import { groupByApplicant } from "@/shared/utils/groupByApplicant";
 import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
 import { listJobPostings } from "@/features/job-postings/api/jobPostingsApi";
 import type { JobPosting } from "@/features/job-postings/types";
 import { exportPendingPqeScores, importExamScores, listApplicationsForAdmin } from "../api/adminApplicationsApi";
 import { getTabulation } from "../api/panelEvaluationsApi";
 import { EvaluationRow } from "../components/EvaluationRow";
+import { ApplicantGroupSummaryRow } from "../components/ApplicantGroupSummaryRow";
 import { AdminShell } from "../components/AdminShell";
-import { computeHireRecommendations } from "../utils/hireRecommendation";
 import type { AdminApplication, ApplicationStatus, ExamScoreImportResult, TabulationResult } from "../types";
 
 const STATUS_FILTER_OPTIONS = Object.entries(APPLICATION_STATUS_LABELS) as [ApplicationStatus, string][];
@@ -123,8 +124,16 @@ export function EvaluateApplicantsPage() {
       (publicationFilter === "" || app.jobPosting.publication === publicationFilter) &&
       matchesSearch(app, search),
   );
-  const pagination = usePagination(filteredApplications, 10);
-  const hireRecommendations = useMemo(() => computeHireRecommendations(applications), [applications]);
+  // Grouped by applicant so a multi-posting applicant shows as one
+  // collapsed summary row (ApplicantGroupSummaryRow) instead of one row per
+  // posting - filters apply first (above), so a group only contains the
+  // postings that actually matched. When jobTitleFilter narrows to one
+  // specific posting, every group is naturally a singleton (an applicant
+  // can only have one Application per posting - @@unique([applicantId,
+  // jobPostingId])), so this renders identically to the old flat table with
+  // no separate branch needed.
+  const applicantGroups = groupByApplicant(filteredApplications, (app) => app.applicant.id);
+  const pagination = usePagination(applicantGroups, 10);
 
   if (loading) {
     return (
@@ -289,22 +298,32 @@ export function EvaluateApplicantsPage() {
                     </td>
                   </tr>
                 )}
-                {pagination.pageItems.map((application) => (
-                  <EvaluationRow
-                    key={application.id}
-                    application={application}
-                    onSifted={handleSifted}
-                    onScheduled={handleScheduled}
-                    tabulation={
-                      tabulationByPosting[application.jobPosting.id]?.rows.find(
-                        (row) => row.applicationId === application.id,
-                      ) ?? null
-                    }
-                    panelists={tabulationByPosting[application.jobPosting.id]?.panelists ?? []}
-                    hireRecommendation={hireRecommendations.get(application.applicant.id)}
-                    onHired={loadAll}
-                  />
-                ))}
+                {pagination.pageItems.map((group) =>
+                  group.rows.length === 1 ? (
+                    <EvaluationRow
+                      key={group.rows[0]!.id}
+                      application={group.rows[0]!}
+                      onSifted={handleSifted}
+                      onScheduled={handleScheduled}
+                      tabulation={
+                        tabulationByPosting[group.rows[0]!.jobPosting.id]?.rows.find(
+                          (row) => row.applicationId === group.rows[0]!.id,
+                        ) ?? null
+                      }
+                      panelists={tabulationByPosting[group.rows[0]!.jobPosting.id]?.panelists ?? []}
+                      onHired={loadAll}
+                    />
+                  ) : (
+                    <ApplicantGroupSummaryRow
+                      key={group.key}
+                      applications={group.rows}
+                      tabulationByPosting={tabulationByPosting}
+                      onSifted={handleSifted}
+                      onScheduled={handleScheduled}
+                      onHired={loadAll}
+                    />
+                  ),
+                )}
               </tbody>
             </table>
             <Pagination

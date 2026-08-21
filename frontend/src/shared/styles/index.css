@@ -340,7 +340,8 @@ a {
   font-weight: normal;
 }
 
-.checkbox-option input[type="checkbox"] {
+.checkbox-option input[type="checkbox"],
+.checkbox-option input[type="radio"] {
   width: auto;
 }
 
@@ -503,6 +504,26 @@ textarea::placeholder {
   border-radius: var(--radius-sm);
   padding: 0.85rem 1rem;
   margin-bottom: 1rem;
+}
+
+/* One posting's section within a multi-posting applicant's single
+   consolidated My Applications card - a left accent border (not the
+   surface/border treatment .card-inset already uses) so nesting the
+   existing .card-inset detail blocks inside one of these doesn't stack two
+   near-identical boxed backgrounds. */
+.posting-subsection {
+  border-left: 3px solid var(--color-accent);
+  padding: 0 0 0.25rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.posting-subsection:last-child {
+  margin-bottom: 0;
+}
+
+.posting-subsection h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
 }
 
 .panel-score-list {
@@ -1047,6 +1068,26 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 
+.applicant-group-summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.applicant-group-summary:hover {
+  background: var(--color-surface-alt);
+}
+
+.expand-toggle {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  margin-right: 0.35rem;
+  color: var(--color-muted);
+}
+
+.expand-toggle.expanded {
+  transform: rotate(90deg);
+}
+
 /* Report Summary: applicant column stays put while Category/Criterion
    columns scroll horizontally underneath it, and Criterion columns render
    as CR1, CR2, ... nested under their own Category's group header - see
@@ -1059,6 +1100,14 @@ tbody tr:last-child td {
 .report-summary-table th,
 .report-summary-table td {
   white-space: nowrap;
+}
+
+.posting-status-line {
+  margin-bottom: 0.3rem;
+}
+
+.posting-status-line:last-child {
+  margin-bottom: 0;
 }
 
 .report-summary-table .sticky-col {

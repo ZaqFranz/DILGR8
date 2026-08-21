@@ -7,6 +7,7 @@ import { usePagination } from "@/shared/utils/usePagination";
 import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
 import { AdminShell } from "../components/AdminShell";
 import { getApplicantScoresOverview } from "../api/panelEvaluationsApi";
+import { combineApplicantRows } from "../utils/combineApplicantRows";
 import type { ApplicantScoreCriterionColumn, ApplicantScoresOverview, ApplicationStatus } from "../types";
 
 // Report Summary only ever has rows for applications that have been
@@ -117,7 +118,12 @@ export function ReportSummaryPage() {
       (statusFilter === "" || row.status === statusFilter) &&
       (publicationFilter === "" || row.jobPostingPublication === publicationFilter),
   );
-  const pagination = usePagination(filteredRows, 10);
+  // Grouped by applicant so a multi-posting applicant shows as one row -
+  // filters apply first (above), so a group only lists the postings that
+  // actually matched (an applicant with none surviving just doesn't
+  // appear; one with a partial match shows only the matching subset).
+  const combinedRows = combineApplicantRows(filteredRows);
+  const pagination = usePagination(combinedRows, 10);
   const criteriaByCategory = groupCriteriaByCategory(overview?.criteria ?? []);
 
   return (
@@ -183,8 +189,7 @@ export function ReportSummaryPage() {
                     <th rowSpan={2} className="sticky-col">
                       Applicant
                     </th>
-                    <th rowSpan={2}>Job posting</th>
-                    <th rowSpan={2}>Status</th>
+                    <th rowSpan={2}>Postings applied</th>
                     {overview.categories.map((category, index) => (
                       <th
                         key={category.id}
@@ -228,11 +233,15 @@ export function ReportSummaryPage() {
                   {pagination.pageItems.map((row) => (
                     <tr key={row.applicationId}>
                       <td className="sticky-col">{row.applicantName}</td>
-                      <td>{row.jobPostingTitle}</td>
                       <td>
-                        <span className={`badge ${row.status.toLowerCase()}`}>
-                          {APPLICATION_STATUS_LABELS[row.status]}
-                        </span>
+                        {row.postings.map((posting) => (
+                          <div key={posting.jobPostingTitle} className="posting-status-line">
+                            {posting.jobPostingTitle}{" "}
+                            <span className={`badge ${posting.status.toLowerCase()}`}>
+                              {APPLICATION_STATUS_LABELS[posting.status]}
+                            </span>
+                          </div>
+                        ))}
                       </td>
                       {overview.categories.map((category, index) => (
                         <Fragment key={category.id}>

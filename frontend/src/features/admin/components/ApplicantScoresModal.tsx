@@ -5,6 +5,7 @@ import { LoadingBlock } from "@/shared/components/LoadingBlock";
 import { Modal } from "@/shared/components/Modal";
 import { Pagination } from "@/shared/components/Pagination";
 import { usePagination } from "@/shared/utils/usePagination";
+import { combineApplicantRows } from "../utils/combineApplicantRows";
 import { getApplicantScoresOverview } from "../api/panelEvaluationsApi";
 import type { ApplicantScoreRow, ApplicantScoresOverview } from "../types";
 
@@ -73,7 +74,7 @@ export function ApplicantScoresModal({ onClose }: Props) {
     };
   }, []);
 
-  const rankedRows = useMemo(() => (overview ? rankRows(overview.rows, rankBy) : []), [overview, rankBy]);
+  const rankedRows = useMemo(() => (overview ? rankRows(combineApplicantRows(overview.rows), rankBy) : []), [overview, rankBy]);
   const pagination = usePagination(rankedRows, 10);
 
   return (

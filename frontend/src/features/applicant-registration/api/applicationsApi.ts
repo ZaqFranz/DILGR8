@@ -32,6 +32,12 @@ export interface Application {
   // an applicant can apply to multiple postings, but the panel only ever
   // scores them once (see docs/decisions.md).
   scoreSourceApplication: { jobPosting: { title: string } } | null;
+  // The reverse direction: other applications that carry over THIS one's
+  // score. Each entry keeps progressing independently past the interview
+  // stage (Compliance/Oath-Taking are still decided per posting), so this
+  // is how the applicant sees that a sibling application even exists and
+  // how far along it currently is.
+  scoreInheritingApplications: { status: Application["status"]; jobPosting: { title: string } }[];
 }
 
 export function submitApplication(jobPostingId: string, applicationLetter: File): Promise<Application> {

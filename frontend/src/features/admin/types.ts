@@ -326,6 +326,9 @@ export interface InterviewQueueApplication {
   jobPosting: { id: string; title: string };
   applicant: { id: string; firstName: string; lastName: string };
   panelEvaluations: PanelEvaluation[];
+  // Every other application (any status, any posting) this same applicant
+  // has on file - informational only, see docs/api.md's my-queue entry.
+  otherApplications: { jobPostingTitle: string }[];
 }
 
 export interface SubmitPanelEvaluationInput {
@@ -367,6 +370,7 @@ export interface ApplicantScoreCriterionColumn {
 
 export interface ApplicantScoreRow {
   applicationId: string;
+  applicantId: string;
   applicantName: string;
   jobPostingTitle: string;
   // The job posting's recruitment publication round/batch (e.g. "ROS-1").

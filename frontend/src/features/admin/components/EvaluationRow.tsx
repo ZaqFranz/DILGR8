@@ -24,7 +24,6 @@ import {
 } from "../api/adminApplicationsApi";
 import { ApplicantDocumentsModal } from "./ApplicantDocumentsModal";
 import { ComplianceReviewModal } from "./ComplianceReviewModal";
-import type { HireRecommendation } from "../utils/hireRecommendation";
 import type { AdminApplication, ApplicationComplianceItem, EvaluationDecision, TabulationRow } from "../types";
 
 interface Props {
@@ -33,11 +32,13 @@ interface Props {
   onScheduled: (updated: AdminApplication) => void;
   tabulation: TabulationRow | null;
   panelists: { id: string; email: string }[];
-  // Set only when this applicant has reached Oath-Taking on 2+ of their
-  // applications (client requirement: hire at the higher Salary Grade
-  // posting) - undefined the rest of the time. Recommendation only; the
-  // admin still has to click Mark Hired themselves.
-  hireRecommendation?: HireRecommendation;
+  // Set when this applicant has reached Oath-Taking on 2+ of their
+  // applications - this row's own Mark Hired button is hidden in favor of
+  // the group-level "Assign Position" picker (ApplicantGroupSummaryRow),
+  // which is the only path once there's a real choice among postings to
+  // make (client requirement: manual pick, no automatic recommendation -
+  // see docs/decisions.md).
+  disableMarkHired?: boolean;
   // Called after a successful Mark Hired so the page can refetch - hiring
   // here also auto-closes the applicant's other open applications
   // (possibly on different postings/pages), which this row alone can't see.
@@ -60,7 +61,7 @@ function matchBadge(status: MatchStatus): { className: string; label: string } {
 const emptyScheduleForm = { scheduledAt: "", scheduledEndAt: "", venue: "", attire: "", notes: "" };
 const emptyOathForm = { scheduledAt: "", venue: "", notes: "" };
 
-export function EvaluationRow({ application, onSifted, onScheduled, tabulation, panelists, hireRecommendation, onHired }: Props) {
+export function EvaluationRow({ application, onSifted, onScheduled, tabulation, panelists, disableMarkHired, onHired }: Props) {
   const toast = useToast();
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [decision, setDecision] = useState<EvaluationDecision>("QUALIFIED");
@@ -307,9 +308,6 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
     }
   }
 
-  const isRecommendedHire = hireRecommendation?.recommendedApplicationId === application.id;
-  const hasHigherSalaryGradeElsewhere = hireRecommendation?.otherApplicationIds.includes(application.id) ?? false;
-
   const qualificationMatch = computeQualificationMatch(application);
   const totalTrainingHours = application.applicant.ldInterventions.reduce((sum, entry) => sum + entry.numberOfHours, 0);
   const incompleteScoring = tabulation !== null && tabulation.panelistsSubmitted < tabulation.panelistsAssigned;
@@ -376,10 +374,13 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
                 Disqualify
               </button>
             )}
-            {isOathTaking && (
+            {isOathTaking && !disableMarkHired && (
               <button type="button" onClick={() => setShowMarkHiredConfirm(true)}>
                 Mark Hired
               </button>
+            )}
+            {isOathTaking && disableMarkHired && (
+              <span className="field-hint">Use Assign Position above.</span>
             )}
             {hasDetails && (
               <button type="button" className="secondary" onClick={() => setShowDetailsModal(true)}>
@@ -551,19 +552,11 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
             </ul>
           </div>
         )}
-        {isOathTaking && isRecommendedHire && (
+        {isOathTaking && disableMarkHired && (
           <div className="card-inset">
             <p className="field-hint">
-              Recommended hire: this is the applicant's highest Salary Grade posting (SG {application.jobPosting.salaryGrade})
-              among the postings they've reached Oath-Taking on.
-            </p>
-          </div>
-        )}
-        {isOathTaking && hasHigherSalaryGradeElsewhere && (
-          <div className="card-inset">
-            <p className="field-warning">
-              This applicant also reached Oath-Taking on a higher Salary Grade posting. Consider hiring them there
-              instead.
+              This applicant has also reached Oath-Taking on another posting. Use the "Assign Position" action on
+              their summary row to pick which one to hire them for - it isn't available here individually.
             </p>
           </div>
         )}
@@ -777,12 +770,6 @@ export function EvaluationRow({ application, onSifted, onScheduled, tabulation, 
           <>
             Confirms <strong>{application.applicant.firstName} {application.applicant.lastName}</strong> has
             completed the oath-taking ceremony for <strong>{application.jobPosting.title}</strong>.
-            {hasHigherSalaryGradeElsewhere && (
-              <p className="field-warning">
-                Note: this applicant also reached Oath-Taking on a higher Salary Grade posting. Hiring here will
-                still auto-close their other open applications.
-              </p>
-            )}
           </>
         }
         confirmLabel="Mark Hired"

@@ -47,6 +47,11 @@ export interface ApplicantScoreCriterionColumn {
 
 export interface ApplicantScoreRow {
   applicationId: string;
+  // Added 2026-08-21 so the frontend can group a multi-posting applicant's
+  // rows into one consolidated row (Report Summary / Applicant Scores
+  // modal) - previously only applicationId/applicantName (a formatted
+  // string, collision-prone as a grouping key) were on this row.
+  applicantId: string;
   applicantName: string;
   jobPostingTitle: string;
   // The job posting's recruitment publication round/batch (e.g. "ROS-1") -
@@ -374,6 +379,7 @@ export class PanelEvaluationsService {
       }
       return {
         applicationId: application.id,
+        applicantId: application.applicantId,
         applicantName: `${application.applicant.firstName} ${application.applicant.lastName}`,
         jobPostingTitle: application.jobPosting.title,
         jobPostingPublication: application.jobPosting.publication,
