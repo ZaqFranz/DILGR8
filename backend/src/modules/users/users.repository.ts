@@ -71,19 +71,40 @@ export class UsersRepository {
     });
   }
 
+  // Bumps tokenVersion alongside the temporary password so a token issued
+  // before this reset stops being accepted (see User.tokenVersion).
   async setTemporaryPassword(id: string, passwordHash: string): Promise<void> {
-    await this.db.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true } });
+    await this.db.user.update({
+      where: { id },
+      data: { passwordHash, mustChangePassword: true, tokenVersion: { increment: 1 } },
+    });
   }
 
   create(email: string, passwordHash: string, role: Role, name?: string): Promise<PublicUser> {
     return this.db.user.create({ data: { email, passwordHash, role, name }, select: publicUserSelect });
   }
 
+  // Bumps tokenVersion on every admin-initiated update (not just role
+  // changes) so a token issued before the change is forced to re-auth -
+  // simplest safe rule, since this route is entirely ADMIN-gated already.
   update(id: string, data: { email?: string; role?: Role; name?: string }): Promise<PublicUser> {
-    return this.db.user.update({ where: { id }, data, select: publicUserSelect });
+    return this.db.user.update({
+      where: { id },
+      data: { ...data, tokenVersion: { increment: 1 } },
+      select: publicUserSelect,
+    });
   }
 
   delete(id: string): Promise<User> {
     return this.db.user.delete({ where: { id } });
+  }
+
+  // Applicant -> Application -> (PanelEvaluation / ApplicationComplianceItem
+  // / Document / ApplicantGroupMember) all cascade-delete with the User, so
+  // this is checked before delete() to keep a hard-delete from silently
+  // wiping a real hiring record (see docs/decisions.md).
+  async hasApplicationHistory(userId: string): Promise<boolean> {
+    const count = await this.db.application.count({ where: { applicant: { userId } } });
+    return count > 0;
   }
 }

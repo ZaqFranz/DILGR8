@@ -25,7 +25,7 @@ export class AuthService {
     const passwordHash = await hashPassword(dto.password);
     const user = await this.authRepository.create(dto.email, passwordHash);
 
-    return this.buildAuthResponse(user.id, user.email, user.role, user.mustChangePassword);
+    return this.buildAuthResponse(user.id, user.email, user.role, user.mustChangePassword, user.tokenVersion);
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
@@ -39,7 +39,7 @@ export class AuthService {
       throw new UnauthorizedError("Invalid email or password");
     }
 
-    return this.buildAuthResponse(user.id, user.email, user.role, user.mustChangePassword);
+    return this.buildAuthResponse(user.id, user.email, user.role, user.mustChangePassword, user.tokenVersion);
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
@@ -90,8 +90,14 @@ export class AuthService {
     await this.emailService.send({ to: user.email, subject, html });
   }
 
-  private buildAuthResponse(id: string, email: string, role: Role, mustChangePassword: boolean): AuthResponseDto {
-    const accessToken = signAccessToken({ sub: id, email, role });
+  private buildAuthResponse(
+    id: string,
+    email: string,
+    role: Role,
+    mustChangePassword: boolean,
+    tokenVersion: number,
+  ): AuthResponseDto {
+    const accessToken = signAccessToken({ sub: id, email, role, tokenVersion });
     return { accessToken, user: { id, email, role, mustChangePassword } };
   }
 }

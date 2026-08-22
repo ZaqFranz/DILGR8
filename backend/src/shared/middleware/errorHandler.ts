@@ -36,6 +36,14 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return;
   }
 
+  // express.json() throws a SyntaxError (with .status/.statusCode 400 set
+  // by body-parser) when the request body isn't valid JSON - map it to a
+  // real 400 instead of falling through to the generic 500 below.
+  if (err instanceof SyntaxError && "status" in err && (err as { status?: unknown }).status === 400) {
+    res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "Malformed JSON in request body" } });
+    return;
+  }
+
   logger.error({ err, path: req.path }, "Unhandled error");
   res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Something went wrong" } });
 }

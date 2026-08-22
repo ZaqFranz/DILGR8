@@ -26,12 +26,20 @@ export class AuthRepository {
 
   // Any completed password change - self-service or forced after a
   // temporary password - clears mustChangePassword, since both paths end
-  // with the account back in a normal, fully-authenticated state.
+  // with the account back in a normal, fully-authenticated state. Also
+  // bumps tokenVersion so any token issued before this change (e.g. one
+  // stolen before the password was rotated) stops being accepted.
   async updatePassword(id: string, passwordHash: string): Promise<void> {
-    await this.db.user.update({ where: { id }, data: { passwordHash, mustChangePassword: false } });
+    await this.db.user.update({
+      where: { id },
+      data: { passwordHash, mustChangePassword: false, tokenVersion: { increment: 1 } },
+    });
   }
 
   async setTemporaryPassword(id: string, passwordHash: string): Promise<void> {
-    await this.db.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true } });
+    await this.db.user.update({
+      where: { id },
+      data: { passwordHash, mustChangePassword: true, tokenVersion: { increment: 1 } },
+    });
   }
 }

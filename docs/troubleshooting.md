@@ -65,6 +65,10 @@ Almost always means Prisma can't reach MySQL — `DATABASE_URL` points at a data
 
 Check `frontend/.env`'s `VITE_API_URL` matches where the backend is actually listening, and `backend/.env`'s `CORS_ORIGIN` includes the frontend's origin (comma-separated list if more than one). Restart both dev servers after changing env files — Vite and `tsx watch` don't hot-reload `.env` changes.
 
+## `prisma generate` fails with `EPERM: operation not permitted, rename ... query_engine-windows.dll.node`
+
+Windows-specific: a running `tsx watch src/server.ts` (or any other process with `@prisma/client` loaded) holds the query engine DLL open, so `prisma generate` can't overwrite it after a schema change. Stop whatever's running the backend dev server first (`Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Select ProcessId, CommandLine` to find it if you've lost track of which terminal it's in - look for `tsx/dist/cli.mjs watch src/server.ts` or the actual `--import .../tsx/dist/loader.mjs src/server.ts` execution), then re-run `prisma generate` and restart the dev server. Encountered during the 2026-08-22 audit remediation after several days' worth of stale, never-cleanly-stopped `npm run dev` processes had accumulated in the background.
+
 ## `tsc-alias` / `@/*` imports not resolving after `npm run build` (backend)
 
 The backend build is two steps: `tsc` (compiles TS→JS, leaves `@/foo` imports as-is) then `tsc-alias` (rewrites those into relative `require()` paths). If you add a new path-alias pattern to `tsconfig.json`'s `paths`, make sure both `backend/package.json`'s `build` script steps still run (`tsc -p tsconfig.json && tsc-alias -p tsconfig.json`) — running `tsc` alone will produce a `dist/` that crashes at runtime with `Cannot find module '@/...'`.

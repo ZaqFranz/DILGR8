@@ -82,6 +82,16 @@ export class UsersService {
       throw new NotFoundError("User");
     }
 
+    // Guards the cascade in the schema (Applicant -> Application ->
+    // PanelEvaluation/ApplicationComplianceItem/Document/ApplicantGroupMember)
+    // from silently destroying real hiring history - there's no soft-delete
+    // in this schema, so a hard delete here is unrecoverable.
+    if (await this.usersRepository.hasApplicationHistory(userId)) {
+      throw new ValidationError(
+        "This account has job application history and cannot be deleted, since that would also permanently erase its evaluation, compliance, and document records.",
+      );
+    }
+
     await this.usersRepository.delete(userId);
 
     await this.auditLogsRepository.record({

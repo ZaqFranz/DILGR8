@@ -74,6 +74,47 @@ function assertMimeTypeAllowed(type: DocumentType, mimetype: string): void {
   }
 }
 
+// Magic-byte signatures for every mimetype ALLOWED_MIME_TYPES (upload
+// middleware) accepts. assertMimeTypeAllowed() above only checks the
+// client-supplied Content-Type header, which costs nothing to spoof (e.g.
+// renaming a script to *.pdf); this checks the file's actual leading bytes
+// on disk so a mislabeled upload is rejected regardless of what header the
+// client sent. XLSX is a ZIP container, so this only confirms "is a ZIP",
+// not "is specifically a spreadsheet" - deeper validation would mean
+// parsing the archive, which is out of scope for a header-spoofing defense.
+const MAGIC_BYTES_BY_MIME_TYPE: Record<string, Buffer[]> = {
+  "application/pdf": [Buffer.from([0x25, 0x50, 0x44, 0x46])], // %PDF
+  "image/jpeg": [Buffer.from([0xff, 0xd8, 0xff])],
+  "image/png": [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+    Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    Buffer.from([0x50, 0x4b, 0x05, 0x06]),
+  ],
+  "application/vnd.ms-excel": [Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])],
+};
+
+export async function assertFileContentMatchesMimeType(filePath: string, mimetype: string): Promise<void> {
+  const signatures = MAGIC_BYTES_BY_MIME_TYPE[mimetype];
+  if (!signatures) return;
+
+  const maxLength = Math.max(...signatures.map((sig) => sig.length));
+  const handle = await fs.open(filePath, "r");
+  let header: Buffer;
+  try {
+    const buffer = Buffer.alloc(maxLength);
+    const { bytesRead } = await handle.read(buffer, 0, maxLength, 0);
+    header = buffer.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
+
+  const matches = signatures.some((sig) => header.length >= sig.length && header.subarray(0, sig.length).equals(sig));
+  if (!matches) {
+    await fs.unlink(filePath).catch(() => undefined);
+    throw new ValidationError("The uploaded file's content does not match its file type");
+  }
+}
+
 export class DocumentsService {
   constructor(
     private readonly documentsRepository: DocumentsRepository,
@@ -87,6 +128,7 @@ export class DocumentsService {
       throw new ValidationError("A file is required");
     }
     assertMimeTypeAllowed(fields.type, file.mimetype);
+    await assertFileContentMatchesMimeType(file.path, file.mimetype);
 
     const applicant = await this.applicantsRepository.findByUserId(userId);
     if (!applicant) {

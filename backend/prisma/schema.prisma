@@ -143,6 +143,13 @@ model User {
   // frontend to redirect straight to Change Password after login, and is
   // cleared automatically the moment any password change succeeds.
   mustChangePassword Boolean  @default(false)
+  // Bumped on any password change or admin-initiated account update;
+  // embedded in each access token at login and re-checked on every request
+  // in authenticate(). A mismatch means the token was issued before the
+  // account's role/password last changed, so it's rejected even though it
+  // hasn't naturally expired yet - closes the stale-token revocation gap
+  // (see docs/decisions.md).
+  tokenVersion       Int      @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
