@@ -25,7 +25,7 @@ import {
 import { ApplicantDocumentsModal } from "./ApplicantDocumentsModal";
 import { ComplianceReviewModal } from "./ComplianceReviewModal";
 import { AssignPositionModal } from "./AssignPositionModal";
-import type { AdminApplication, ApplicationComplianceItem, EvaluationDecision, TabulationResult } from "../types";
+import type { AdminApplication, ApplicationComplianceItem, EvaluationDecision, HirePrediction, TabulationResult } from "../types";
 
 interface Props {
   // This applicant's application(s) - a single-posting applicant passes an
@@ -42,6 +42,12 @@ interface Props {
   onSifted: (updated: AdminApplication) => void;
   onScheduled: (updated: AdminApplication) => void;
   tabulationByPosting: Record<string, TabulationResult>;
+  // Keyed by application id - undefined until the batched fetch resolves
+  // (renders "-"), same feature/percentage for every application in a
+  // multi-posting group since it's derived from the shared applicant
+  // profile, not anything posting-specific. Purely informational - never
+  // read by any Sift/decision logic in this component.
+  predictionByApplicationId?: Record<string, HirePrediction>;
   // Called after a successful Mark Hired/Assign Position so the page can
   // refetch - hiring also auto-closes the applicant's other open
   // applications (possibly on different postings/pages), which this row
@@ -51,6 +57,27 @@ interface Props {
 
 function canScheduleInterview(application: AdminApplication): boolean {
   return application.status === "QUALIFIED" && application.examinationScore !== null;
+}
+
+// Purely informational - never feeds any Sift/decision logic in this
+// component. The tooltip surfaces the linear model's per-feature
+// contributions (its explanation) rather than just the bare number.
+function renderHirePrediction(prediction: HirePrediction | undefined) {
+  if (!prediction) return "-";
+  if (prediction.percentage === null) {
+    return (
+      <span className="field-hint">
+        Not enough data ({prediction.sampleSize}/{prediction.minimumRequired})
+      </span>
+    );
+  }
+  // The model is a logistic regression, so a feature's contribution is to
+  // the underlying log-odds, not directly a percentage-point amount -
+  // labeled as "higher/lower" influence rather than a false-precision "+X%".
+  const tooltip = prediction.breakdown
+    .map((b) => `${b.label}: ${b.contribution >= 0 ? "pushes higher" : "pushes lower"} (${b.contribution})`)
+    .join("\n");
+  return <span title={tooltip}>{prediction.percentage}%</span>;
 }
 
 // Reuses the existing status-badge color classes (qualified=green,
@@ -92,7 +119,14 @@ async function applyToGroup(
 const emptyScheduleForm = { scheduledAt: "", scheduledEndAt: "", venue: "", attire: "", notes: "" };
 const emptyOathForm = { scheduledAt: "", venue: "", notes: "" };
 
-export function EvaluationRow({ applications, onSifted, onScheduled, tabulationByPosting, onHired }: Props) {
+export function EvaluationRow({
+  applications,
+  onSifted,
+  onScheduled,
+  tabulationByPosting,
+  predictionByApplicationId,
+  onHired,
+}: Props) {
   const toast = useToast();
   const primary = applications[0]!;
   const isGroup = applications.length > 1;
@@ -433,6 +467,7 @@ export function EvaluationRow({ applications, onSifted, onScheduled, tabulationB
           {primaryTabulation?.average !== undefined && primaryTabulation.average !== null ? primaryTabulation.average.toFixed(1) : "-"}
         </td>
         <td>{applications.map((app) => tabulationFor(app)?.rank ?? "-").join(", ")}</td>
+        <td>{renderHirePrediction(predictionByApplicationId?.[primary.id])}</td>
         <td>
           <div className="data-table-actions data-table-actions--uniform">
             <button type="button" className="secondary" onClick={() => setShowDocuments(true)}>

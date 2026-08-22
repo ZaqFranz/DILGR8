@@ -20,6 +20,7 @@ import { CategoriesPage } from "@/features/admin/pages/CategoriesPage";
 import { ComplianceRequirementsPage } from "@/features/admin/pages/ComplianceRequirementsPage";
 import { PanelAssignmentsPage } from "@/features/admin/pages/PanelAssignmentsPage";
 import { GroupsPage } from "@/features/admin/pages/GroupsPage";
+import { HistoricalHiringDataPage } from "@/features/admin/pages/HistoricalHiringDataPage";
 import { MyInterviewsPage } from "@/features/panel/pages/MyInterviewsPage";
 
 const HOME_BY_ROLE: Record<"ADMIN" | "APPLICANT" | "PANEL", string> = {
@@ -166,6 +167,21 @@ export default function App() {
           element={
             <ProtectedRoute role="ADMIN">
               <AuditLogsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Deliberately not "ADMIN"-restricted and not linked from anywhere
+            in the app (no AdminShell nav entry) - identity, not role, is
+            the real gate here (requireOwner on the backend). Any logged-in
+            session can reach the route, but only the one configured
+            HISTORICAL_DATA_OWNER_EMAIL account gets real data back - see
+            docs/decisions.md. */}
+        <Route
+          path="/internal/historical-hiring-data"
+          element={
+            <ProtectedRoute>
+              <HistoricalHiringDataPage />
             </ProtectedRoute>
           }
         />

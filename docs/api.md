@@ -302,6 +302,18 @@ A panelist's overall score for an application is the sum of every category's wei
 
 `applications.scheduleInterview()` already refuses to move an application into `FOR_INTERVIEW` without a recorded `examinationScore`, so a PQE-less application shouldn't reach the panel queue in the first place. `panel-evaluations.submit()`'s own `examinationScore === null` check is a second, independent gate on the same rule — kept so panel scoring never silently depends on that earlier gate holding. `GET /my-queue` and `InterviewQueueApplication` expose `examinationScore` so `MyInterviewsPage` shows a "PQE score" column and disables the Score/Update scores button (with an inline explanation) for any row where it's still `null`.
 
+## Historical Hiring Data — `/api/historical-hiring-records`
+
+Two different gates on this router, deliberately (see [decisions.md](./decisions.md) and [architecture.md § Authentication & session revocation](./architecture.md#authentication--session-revocation)): the CRUD below is **owner-only** (`requireOwner` - an identity check against `HISTORICAL_DATA_OWNER_EMAIL`, blocking every role including `ADMIN`), while `GET /predict` is `ADMIN`-role-visible like the rest of the admin panel, since that's the feature actually surfaced on Evaluate Applicants.
+
+| Method | Path | Auth | Body | Notes |
+|---|---|---|---|---|
+| GET | `/` | owner only | — | Lists every historical record (with its `awards`/`ldEntries` included), newest first. |
+| POST | `/` | owner only | `{ course, educationLevel, yearsOfExperience, previousJobTitle, eligibilityType, year, wasHired, sourceNote?, awards: {title}[], ldEntries: {title, hours}[] }` | `wasHired` is the training label - a fact about what actually happened, not a subjective score (an earlier same-day version of this endpoint took a retrospective `hirePercentage` instead - replaced per the client's "only real data" correction, see [decisions.md](./decisions.md)). `awards`/`ldEntries` are itemized, not aggregate counts. No audit log entry is written for any write on this router - see [decisions.md](./decisions.md) (an entry would be readable by any `ADMIN` via `/api/audit-logs`, defeating the point of hiding this module from them). |
+| PATCH | `/:id` | owner only | Same fields, all optional | 404 if the record doesn't exist. Passing `awards`/`ldEntries` replaces the record's entire current item list (delete-all + recreate in one transaction), not a diff - matches the frontend always submitting the complete current lists rather than itemized add/remove calls. |
+| DELETE | `/:id` | owner only | — | 404 if the record doesn't exist. Cascades to its `awards`/`ldEntries`. |
+| GET | `/predict?applicationIds=a,b,c` | ADMIN | — | Batched: refits a logistic regression against every historical record's real `wasHired` outcome (see [patterns.md § Hand-rolled logistic regression, refit per request](./patterns.md#hand-rolled-logistic-regression-refit-per-request)) and scores each listed application's applicant. Returns one entry per id: `{ applicationId, percentage, sampleSize, breakdown }` once there are at least `MIN_TRAINING_SAMPLES` (10) historical records, or `{ applicationId, percentage: null, sampleSize, minimumRequired }` below that - never a fabricated number on too little data. `breakdown` is `{ label, contribution }[]`, each feature's contribution to the model's log-odds sum (not directly percentage points, since this is a nonlinear model - see patterns.md), shown as a tooltip on Evaluate Applicants. Purely informational - never blocks or influences any Sift/decision action. |
+
 ## Health
 
 | Method | Path | Notes |

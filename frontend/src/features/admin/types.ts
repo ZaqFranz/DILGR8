@@ -420,3 +420,54 @@ export interface DashboardSummary {
   topJobPostings: Array<{ jobPostingId: string; title: string; applicationCount: number }>;
   recentActivity: AuditLogEntry[];
 }
+
+// Owner-only feature (see requireOwner in the backend) - the raw training
+// corpus for the Evaluate Applicants hire-likelihood percentage. Not part
+// of the visible admin panel; reachable only at its own unlinked route.
+// Every field is real, factual data - no subjective/retrospective score
+// (see docs/decisions.md's "only real data" entry).
+export interface HistoricalHiringAward {
+  id: string;
+  title: string;
+}
+
+export interface HistoricalHiringLdEntry {
+  id: string;
+  title: string;
+  hours: number;
+}
+
+export interface HistoricalHiringRecord {
+  id: string;
+  course: string;
+  educationLevel: EducationLevel;
+  yearsOfExperience: number;
+  previousJobTitle: string;
+  eligibilityType: EligibilityType;
+  year: number;
+  wasHired: boolean;
+  sourceNote: string | null;
+  awards: HistoricalHiringAward[];
+  ldEntries: HistoricalHiringLdEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateHistoricalHiringRecordInput {
+  course: string;
+  educationLevel: EducationLevel;
+  yearsOfExperience: number;
+  previousJobTitle: string;
+  eligibilityType: EligibilityType;
+  year: number;
+  wasHired: boolean;
+  sourceNote?: string;
+  awards: { title: string }[];
+  ldEntries: { title: string; hours: number }[];
+}
+
+export type UpdateHistoricalHiringRecordInput = Partial<CreateHistoricalHiringRecordInput>;
+
+export type HirePrediction =
+  | { applicationId: string; percentage: number; sampleSize: number; breakdown: { label: string; contribution: number }[] }
+  | { applicationId: string; percentage: null; sampleSize: number; minimumRequired: number };

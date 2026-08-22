@@ -12,10 +12,11 @@ import { listJobPostings } from "@/features/job-postings/api/jobPostingsApi";
 import type { JobPosting } from "@/features/job-postings/types";
 import { exportPendingPqeScores, importExamScores, listApplicationsForAdmin } from "../api/adminApplicationsApi";
 import { getTabulation } from "../api/panelEvaluationsApi";
+import { predictHirePercentages } from "../api/historicalHiringDataApi";
 import { EvaluationRow } from "../components/EvaluationRow";
 import { ApplicantGroupSummaryRow } from "../components/ApplicantGroupSummaryRow";
 import { AdminShell } from "../components/AdminShell";
-import type { AdminApplication, ApplicationStatus, ExamScoreImportResult, TabulationResult } from "../types";
+import type { AdminApplication, ApplicationStatus, ExamScoreImportResult, HirePrediction, TabulationResult } from "../types";
 
 const STATUS_FILTER_OPTIONS = Object.entries(APPLICATION_STATUS_LABELS) as [ApplicationStatus, string][];
 
@@ -32,6 +33,7 @@ export function EvaluateApplicantsPage() {
   const [postings, setPostings] = useState<JobPosting[]>([]);
   const [applications, setApplications] = useState<AdminApplication[]>([]);
   const [tabulationByPosting, setTabulationByPosting] = useState<Record<string, TabulationResult>>({});
+  const [predictionByApplicationId, setPredictionByApplicationId] = useState<Record<string, HirePrediction>>({});
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ExamScoreImportResult | null>(null);
@@ -54,6 +56,18 @@ export function EvaluateApplicantsPage() {
       map[id] = tabulations[i]!;
     });
     setTabulationByPosting(map);
+
+    // Purely informational - a failure here shouldn't block the rest of
+    // the page, so it's fetched separately from the required data above.
+    predictHirePercentages(loadedApplications.map((app) => app.id))
+      .then((predictions) => {
+        const byId: Record<string, HirePrediction> = {};
+        predictions.forEach((prediction) => {
+          byId[prediction.applicationId] = prediction;
+        });
+        setPredictionByApplicationId(byId);
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -280,20 +294,21 @@ export function EvaluateApplicantsPage() {
                   <th>Exam Score</th>
                   <th>Panel Avg</th>
                   <th>Rank</th>
+                  <th>Predicted Hire %</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {applications.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="table-empty">
+                    <td colSpan={9} className="table-empty">
                       No applications submitted yet.
                     </td>
                   </tr>
                 )}
                 {applications.length > 0 && filteredApplications.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="table-empty">
+                    <td colSpan={9} className="table-empty">
                       No applicants match your search/filter.
                     </td>
                   </tr>
@@ -308,6 +323,7 @@ export function EvaluateApplicantsPage() {
                       key={group.key}
                       applications={group.rows}
                       tabulationByPosting={tabulationByPosting}
+                      predictionByApplicationId={predictionByApplicationId}
                       onSifted={handleSifted}
                       onScheduled={handleScheduled}
                       onHired={loadAll}
@@ -317,6 +333,7 @@ export function EvaluateApplicantsPage() {
                       key={group.key}
                       applications={group.rows}
                       tabulationByPosting={tabulationByPosting}
+                      predictionByApplicationId={predictionByApplicationId}
                       onSifted={handleSifted}
                       onScheduled={handleScheduled}
                       onHired={loadAll}

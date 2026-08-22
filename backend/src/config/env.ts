@@ -25,6 +25,12 @@ const envSchema = z.object({
     .default("false")
     .transform((value) => value === "true"),
   SMTP_FROM: z.string().default("DILGR8RSP <no-reply@dilg.gov.ph>"),
+  // Gates the historical-hiring-data module (see requireOwner in
+  // shared/middleware/authenticate.ts) to exactly one account, by email -
+  // not a Role, since every existing ADMIN account must still be blocked.
+  // Left unset in most environments; the routes 403 everyone until this is
+  // explicitly configured.
+  HISTORICAL_DATA_OWNER_EMAIL: z.string().email().optional(),
 });
 
 function loadEnv() {

@@ -155,6 +155,7 @@ model User {
 
   applicant             Applicant?
   jobPostingsMade       JobPosting[]
+  historicalHiringRecordsEntered HistoricalHiringRecord[]
   siftingsMade          Application[]
   auditLogEntries       AuditLog[]
   panelAssignments      PanelAssignment[]
@@ -739,4 +740,68 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+/// Manually-entered historical hiring records used to train the hire-
+/// likelihood classifier shown on Evaluate Applicants (see
+/// backend/src/modules/historical-hiring-data/hirePrediction.ts and
+/// docs/decisions.md). Deliberately has no relation to User/Applicant/
+/// Application - this is DILG's own past records (paper/legacy files),
+/// transcribed field-by-field, never a real applicant's PII. The whole
+/// module is gated by requireOwner (see shared/middleware/authenticate.ts),
+/// not a Role - hidden from ADMIN/PANEL/APPLICANT alike. `wasHired` is the
+/// only label - a fact about what actually happened, not a subjective
+/// assessment (see docs/decisions.md's 2026-08-22 "only real data" entry -
+/// this replaced an earlier retrospective-percentage design).
+model HistoricalHiringRecord {
+  id                String         @id @default(uuid())
+  course            String
+  educationLevel    EducationLevel
+  yearsOfExperience Int
+  // The specific position that yearsOfExperience refers to - a bare number
+  // with no context wasn't considered real enough data on its own.
+  previousJobTitle  String
+  eligibilityType   EligibilityType
+  year              Int
+  wasHired          Boolean
+  sourceNote        String?
+  enteredByUserId   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  enteredBy User?                    @relation(fields: [enteredByUserId], references: [id], onDelete: SetNull)
+  awards    HistoricalHiringAward[]
+  ldEntries HistoricalHiringLdEntry[]
+
+  @@map("historical_hiring_records")
+}
+
+/// One specific award claimed on a historical_hiring_records row - itemized
+/// rather than a bare count, per the same "only real data" decision above.
+model HistoricalHiringAward {
+  id                       String   @id @default(uuid())
+  historicalHiringRecordId String
+  title                    String
+  createdAt                DateTime @default(now())
+
+  record HistoricalHiringRecord @relation(fields: [historicalHiringRecordId], references: [id], onDelete: Cascade)
+
+  @@index([historicalHiringRecordId])
+  @@map("historical_hiring_awards")
+}
+
+/// One specific Learning & Development training claimed on a
+/// historical_hiring_records row - itemized (title + hours), same reasoning
+/// as HistoricalHiringAward above.
+model HistoricalHiringLdEntry {
+  id                       String   @id @default(uuid())
+  historicalHiringRecordId String
+  title                    String
+  hours                    Int
+  createdAt                DateTime @default(now())
+
+  record HistoricalHiringRecord @relation(fields: [historicalHiringRecordId], references: [id], onDelete: Cascade)
+
+  @@index([historicalHiringRecordId])
+  @@map("historical_hiring_ld_entries")
 }

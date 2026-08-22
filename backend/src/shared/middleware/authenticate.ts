@@ -3,6 +3,7 @@ import type { Role } from "@prisma/client";
 import { UnauthorizedError, ForbiddenError } from "@/shared/errors/AppError";
 import { verifyAccessToken } from "@/shared/utils/jwt";
 import { prisma } from "@/shared/db/prismaClient";
+import { env } from "@/config/env";
 
 export interface AuthenticatedUser {
   id: string;
@@ -68,4 +69,18 @@ export function requireRole(...roles: Role[]) {
     }
     next();
   };
+}
+
+// Identity-based gate for the historical-hiring-data module - deliberately
+// not a Role check, since every existing ADMIN account should still be
+// blocked from it (see docs/decisions.md). Unset HISTORICAL_DATA_OWNER_EMAIL
+// means nobody passes, a safe default until explicitly configured.
+export function requireOwner(req: Request, _res: Response, next: NextFunction): void {
+  if (!req.user) {
+    throw new UnauthorizedError();
+  }
+  if (!env.HISTORICAL_DATA_OWNER_EMAIL || req.user.email !== env.HISTORICAL_DATA_OWNER_EMAIL) {
+    throw new ForbiddenError("Not available for this account");
+  }
+  next();
 }

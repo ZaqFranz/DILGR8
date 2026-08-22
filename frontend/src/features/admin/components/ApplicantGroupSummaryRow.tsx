@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { APPLICATION_STATUS_LABELS } from "@/shared/constants/applicationStatus";
 import { EvaluationRow } from "./EvaluationRow";
-import type { AdminApplication, TabulationResult } from "../types";
+import type { AdminApplication, HirePrediction, TabulationResult } from "../types";
 
 interface Props {
   // This one applicant's applications (2+), whose statuses have diverged
@@ -15,12 +15,20 @@ interface Props {
   // action buttons. See docs/decisions.md.
   applications: AdminApplication[];
   tabulationByPosting: Record<string, TabulationResult>;
+  predictionByApplicationId?: Record<string, HirePrediction>;
   onSifted: (updated: AdminApplication) => void;
   onScheduled: (updated: AdminApplication) => void;
   onHired: () => void | Promise<void>;
 }
 
-export function ApplicantGroupSummaryRow({ applications, tabulationByPosting, onSifted, onScheduled, onHired }: Props) {
+export function ApplicantGroupSummaryRow({
+  applications,
+  tabulationByPosting,
+  predictionByApplicationId,
+  onSifted,
+  onScheduled,
+  onHired,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const first = applications[0]!;
@@ -35,7 +43,7 @@ export function ApplicantGroupSummaryRow({ applications, tabulationByPosting, on
           </span>
           {applicantName}
         </td>
-        <td colSpan={6}>
+        <td colSpan={7}>
           Out of sync across {applications.length} postings, reviewing individually:{" "}
           {applications.map((application) => `${application.jobPosting.title} (${APPLICATION_STATUS_LABELS[application.status]})`).join(", ")}
         </td>
@@ -47,6 +55,7 @@ export function ApplicantGroupSummaryRow({ applications, tabulationByPosting, on
             key={application.id}
             applications={[application]}
             tabulationByPosting={tabulationByPosting}
+            predictionByApplicationId={predictionByApplicationId}
             onSifted={onSifted}
             onScheduled={onScheduled}
             onHired={onHired}

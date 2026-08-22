@@ -58,6 +58,10 @@ import { ApplicantGroupsRepository } from "@/modules/applicant-groups/applicant-
 import { ApplicantGroupsService } from "@/modules/applicant-groups/applicant-groups.service";
 import { ApplicantGroupsController } from "@/modules/applicant-groups/applicant-groups.controller";
 
+import { HistoricalHiringDataRepository } from "@/modules/historical-hiring-data/historical-hiring-data.repository";
+import { HistoricalHiringDataService } from "@/modules/historical-hiring-data/historical-hiring-data.service";
+import { HistoricalHiringDataController } from "@/modules/historical-hiring-data/historical-hiring-data.controller";
+
 /**
  * Composition root: the one place that wires concrete repositories into
  * services into controllers. Every class up the chain takes its
@@ -81,6 +85,7 @@ function buildContainer() {
   const complianceRequirementsRepository = new ComplianceRequirementsRepository(prisma);
   const complianceItemsRepository = new ComplianceItemsRepository(prisma);
   const applicantGroupsRepository = new ApplicantGroupsRepository(prisma);
+  const historicalHiringDataRepository = new HistoricalHiringDataRepository(prisma);
   const emailService = new EmailService();
 
   const authService = new AuthService(authRepository, auditLogsRepository, emailService);
@@ -128,6 +133,7 @@ function buildContainer() {
     applicationsRepository,
     auditLogsRepository,
   );
+  const historicalHiringDataService = new HistoricalHiringDataService(historicalHiringDataRepository);
 
   return {
     authController: new AuthController(authService),
@@ -144,6 +150,7 @@ function buildContainer() {
     positionsController: new PositionsController(positionsService),
     complianceRequirementsController: new ComplianceRequirementsController(complianceRequirementsService),
     applicantGroupsController: new ApplicantGroupsController(applicantGroupsService),
+    historicalHiringDataController: new HistoricalHiringDataController(historicalHiringDataService),
   };
 }
 

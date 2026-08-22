@@ -19,6 +19,7 @@ import { createPanelEvaluationsRouter } from "@/modules/panel-evaluations/panel-
 import { createPositionsRouter } from "@/modules/positions/positions.routes";
 import { createComplianceRequirementsRouter } from "@/modules/compliance-requirements/compliance-requirements.routes";
 import { createApplicantGroupsRouter } from "@/modules/applicant-groups/applicant-groups.routes";
+import { createHistoricalHiringDataRouter } from "@/modules/historical-hiring-data/historical-hiring-data.routes";
 
 export function createApp(): Express {
   const app = express();
@@ -45,6 +46,7 @@ export function createApp(): Express {
   app.use("/api/positions", createPositionsRouter(container.positionsController));
   app.use("/api/compliance-requirements", createComplianceRequirementsRouter(container.complianceRequirementsController));
   app.use("/api/applicant-groups", createApplicantGroupsRouter(container.applicantGroupsController));
+  app.use("/api/historical-hiring-records", createHistoricalHiringDataRouter(container.historicalHiringDataController));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
